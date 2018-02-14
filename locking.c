@@ -1,4 +1,7 @@
-/* TODO use a bitmask for sys_futex to not always wake up all thread */
+/*
+ * TODO Once in a while the test program takes significantly longer.
+ * Is it the kernel or a race condition in the rwlock code?
+ */
 
 #include <x86intrin.h>
 #include <unistd.h>
@@ -78,18 +81,18 @@ void futex_unlock(struct futex *lock)
 	wake_by_ticket(&lock->cur, lock->cur);
 }
 
-struct spinlock {
+struct ticketlock {
 	volatile unsigned int cur;
 	volatile unsigned int next_ticket;
 };
 
-void spinlock_init(struct spinlock *lock)
+void ticketlock_init(struct ticketlock *lock)
 {
 	lock->cur = 0;
 	lock->next_ticket = 0;
 }
 
-void spinlock_lock(struct spinlock *lock)
+void ticketlock_lock(struct ticketlock *lock)
 {
 	unsigned int ticket = __sync_fetch_and_add(&lock->next_ticket, 1);
 
@@ -97,90 +100,106 @@ void spinlock_lock(struct spinlock *lock)
 		_mm_pause();
 }
 
-void spinlock_unlock(struct spinlock *lock)
+void ticketlock_unlock(struct ticketlock *lock)
 {
 	lock->cur++;
 	MBARRIER;
 }
 
+struct spinlock {
+	volatile int locked;
+};
+
+void spinlock_init(struct spinlock *lock)
+{
+	lock->locked = 0;
+}
+
+void spinlock_lock(struct spinlock *lock)
+{
+	while(__sync_lock_test_and_set(&lock->locked, 1))
+		_mm_pause();
+}
+
+void spinlock_unlock(struct spinlock *lock)
+{
+	__sync_lock_release(&lock->locked);
+}
+
 struct rwlock {
-	volatile unsigned int cur;
-	volatile unsigned int next_ticket;
-	volatile int num_readers; /* -1 if a writer holds the lock */
+	struct futex futex;
+	volatile unsigned int num_readers; /* -1 if a writer holds the lock */
 };
 
 void rwlock_init(struct rwlock *lock)
 {
-	lock->cur = 0;
-	lock->next_ticket = 0;
+	futex_init(&lock->futex);
 	lock->num_readers = 0;
 }
 
 void rwlock_read_spinlock(struct rwlock *lock)
 {
-	unsigned int ticket = __sync_fetch_and_add(&lock->next_ticket, 1);
-	while (ticket != lock->cur)
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers == -1)
 		_mm_pause();
-
-	__sync_fetch_and_add(&lock->num_readers, 1);
-
-	__sync_fetch_and_add(&lock->cur, 1);
+	lock->num_readers++;
+	futex_unlock(&lock->futex);
 }
 
 void rwlock_write_spinlock(struct rwlock *lock)
 {
-	unsigned int ticket = __sync_fetch_and_add(&lock->next_ticket, 1);
-
-
-	while (ticket != lock->cur || lock->num_readers != 0)
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers != 0)
 		_mm_pause();
+	lock->num_readers--;
+	futex_unlock(&lock->futex);
 }
 
 void rwlock_read_lock(struct rwlock *lock)
 {
-	unsigned int num_readers, ticket = __sync_fetch_and_add(&lock->next_ticket, 1);
+	unsigned int num_readers;
 
+	futex_lock(&lock->futex);
 	num_readers = lock->num_readers;
 	MBARRIER;
-	while (ticket != lock->cur) {
+	while (num_readers == -1) {
 		sys_futex((int *)&lock->num_readers, FUTEX_WAIT_PRIVATE, num_readers, NULL, NULL, 0);
 		MBARRIER;
 		num_readers = lock->num_readers;
 		MBARRIER;
 	}
-
-	__sync_fetch_and_add(&lock->num_readers, 1);
-
-	__sync_fetch_and_add(&lock->cur, 1);
+	lock->num_readers++;
+	futex_unlock(&lock->futex);
 }
 
 void rwlock_write_lock(struct rwlock *lock)
 {
-	unsigned int num_readers, ticket = __sync_fetch_and_add(&lock->next_ticket, 1);
+	unsigned int num_readers;
 
+	futex_lock(&lock->futex);
 	num_readers = lock->num_readers;
 	MBARRIER;
-	while (num_readers != 0 || ticket != lock->cur) {
+	while (num_readers != 0) {
 		sys_futex((int *)&lock->num_readers, FUTEX_WAIT_PRIVATE, num_readers, NULL, NULL, 0);
 		MBARRIER;
 		num_readers = lock->num_readers;
 		MBARRIER;
 	}
-
 	lock->num_readers--;
+	futex_unlock(&lock->futex);
 }
 
 void rwlock_unlock(struct rwlock *lock)
 {
 	if (lock->num_readers == -1) {
-		lock->num_readers++;
-		lock->cur++;
+		lock->num_readers = 0;
 	} else {
-		__sync_fetch_and_add(&lock->num_readers, -1);
+		__sync_fetch_and_sub(&lock->num_readers, 1);
 	}
+	MBARRIER;
 
-	sys_futex((int *)&lock->num_readers, FUTEX_WAKE_PRIVATE, INT_MAX, NULL, NULL, 0);
-	// wake_by_ticket(&lock->cur, lock->cur);
+	/* this technically only needs to happen if a writer is waiting */
+	sys_futex((int *)&lock->num_readers, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 #include <stdlib.h>
@@ -203,8 +222,7 @@ void *thread_main_writer(void *arg)
 	usleep(1000);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	// rwlock_write_spinlock(&rwlock);
-	futex_lock(&futex);
+	rwlock_write_spinlock(&rwlock);
 	MBARRIER;
 	sum += (unsigned long)arg;
 	MBARRIER;
@@ -222,8 +240,7 @@ void *thread_main_writer(void *arg)
 	MBARRIER;
 	sum -= (unsigned long)arg;
 	MBARRIER;
-	// rwlock_unlock(&rwlock);
-	futex_unlock(&futex);
+	rwlock_unlock(&rwlock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
@@ -238,20 +255,18 @@ void *thread_main_reader(void *arg)
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	futex_lock(&futex);
-	// rwlock_read_spinlock(&rwlock);
-	usleep(1000);
+	rwlock_read_spinlock(&rwlock);
+	usleep(10000);
 	MBARRIER;
 	assert(sum == 0);
-	// rwlock_unlock(&rwlock);
-	futex_unlock(&futex);
+	rwlock_unlock(&rwlock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
 	__sync_fetch_and_add(&total_time, diff);
 }
 
-#define NUM_THREADS 10
+#define NUM_THREADS 100
 
 int main(void)
 {
