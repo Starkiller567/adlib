@@ -3,6 +3,14 @@
  * -Once in a while the test program takes significantly longer.
  *  Is it the kernel or a race condition in the rwlock code?
  * -Also make throughput versions of these locks in addition to the fair versions.
+ *
+ * NOTE:
+ * -Spinlock versions are slower under high contention, don't use them unless
+ *  you know what you are doing!
+ * -Don't reorder lines in this file!
+ * -Some of the MBARRIERs are probably unnecessary, but better safe than sorry
+ * -The fences are probably not unnecessary, just highly pessimistic!
+ * -For intention locks you have to call the right unlock funtion!
  */
 
 #include <x86intrin.h>
@@ -11,8 +19,6 @@
 #include <linux/futex.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
-
-#include <stdio.h>
 
 #define MBARRIER asm volatile("": : :"memory")
 
@@ -78,6 +84,11 @@ void futex_lock(struct futex *lock)
 
 void futex_unlock(struct futex *lock)
 {
+	/*
+	 * Previous writes usually need to be visible before
+	 * incrementing cur!
+	 */
+	_mm_sfence();
 	lock->cur++;
 	MBARRIER;
 	wake_by_ticket(&lock->cur, lock->cur);
@@ -358,58 +369,53 @@ void ilock_read_and_intention_write_lock(struct ilock *lock)
 
 void ilock_read_unlock(struct ilock *lock)
 {
-	/* TODO this needs to happen atomically!!! */
-	lock->num_readers--;
-	_mm_sfence();
-	MBARRIER;
-	lock->num_unlocks++;
+	/* don't reorder! */
+	__sync_fetch_and_sub(&lock->num_readers, 1);
+	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 void ilock_write_unlock(struct ilock *lock)
 {
+	/* don't reorder! */
 	/* only one thread can hold this kind of lock at a time */
 	lock->num_readers = 0;
-	_mm_sfence();
-	MBARRIER;
-	/* TODO this increment needs to happen atomically */
-	lock->num_unlocks++;
+	_mm_sfence(); /* TODO is this sfence necessary? */
+	/* doing this atomically is a little pessimistic, but better than a deadlock */
+	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 void ilock_intention_read_unlock(struct ilock *lock)
 {
-	/* TODO this needs to happen atomically!!! */
-	lock->num_i_readers--;
-	_mm_sfence();
-	MBARRIER;
-	lock->num_unlocks++;
+	/* don't reorder! */
+	__sync_fetch_and_sub(&lock->num_i_readers, 1);
+	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 void ilock_intention_write_unlock(struct ilock *lock)
 {
-	/* TODO this needs to happen atomically!!! */
-	lock->num_i_writers--;
-	_mm_sfence();
-	MBARRIER;
-	lock->num_unlocks++;
+	/* don't reorder! */
+	__sync_fetch_and_sub(&lock->num_i_writers, 1);
+	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 void ilock_read_and_intention_write_unlock(struct ilock *lock)
 {
-	/* only one thread can hold this kind of lock at a time */
-	lock->num_readers--;
-	lock->num_i_writers--;
-	_mm_sfence();
-	MBARRIER;
-	/* TODO this increment needs to happen atomically */
-	lock->num_unlocks++;
+	/* don't reorder! */
+	/* only intention readers can get past the lock at this point */
+	lock->num_readers = 0;
+	_mm_sfence(); /* TODO is this sfence necessary? */
+	/* now there can be intention writers, so do this atomically */
+	__sync_fetch_and_sub(&lock->num_i_writers, 1);
+	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
 #include <time.h>
 #include <assert.h>
@@ -419,6 +425,7 @@ static volatile unsigned long sum = 0;
 static struct spinlock spinlock;
 static struct futex futex;
 static struct rwlock rwlock;
+static struct ilock ilock;
 
 #define BILLION 1000000000L
 
@@ -429,7 +436,7 @@ void *thread_main_writer(void *arg)
 	usleep(1000);
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	rwlock_write_spinlock(&rwlock);
+	ilock_write_lock(&ilock);
 	MBARRIER;
 	sum += (unsigned long)arg;
 	MBARRIER;
@@ -447,7 +454,7 @@ void *thread_main_writer(void *arg)
 	MBARRIER;
 	sum -= (unsigned long)arg;
 	MBARRIER;
-	rwlock_unlock(&rwlock);
+	ilock_write_unlock(&ilock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
@@ -462,11 +469,11 @@ void *thread_main_reader(void *arg)
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	rwlock_read_spinlock(&rwlock);
+	ilock_read_lock(&ilock);
 	usleep(10000);
 	MBARRIER;
 	assert(sum == 0);
-	rwlock_unlock(&rwlock);
+	ilock_read_unlock(&ilock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
@@ -483,7 +490,9 @@ int main(void)
 	spinlock_init(&spinlock);
 	futex_init(&futex);
 	rwlock_init(&rwlock);
+	ilock_init(&ilock);
 
+#if 1
 	for (i = 0; i < NUM_THREADS; i++) {
 		pthread_create(&threads[i], NULL, thread_main_writer, (void *)i);
 	}
@@ -492,12 +501,18 @@ int main(void)
 		pthread_join(threads[i], NULL);
 	}
 
-	rwlock_read_spinlock(&rwlock);
+	ilock_intention_write_lock(&ilock);
+	ilock_intention_write_lock(&ilock);
 
 	for (i = 0; i < NUM_THREADS; i++) {
 		pthread_create(&threads[i], NULL, thread_main_reader, (void *)i);
 	}
 
+	ilock_intention_write_unlock(&ilock);
+	ilock_intention_write_unlock(&ilock);
+	ilock_intention_read_lock(&ilock);
+	ilock_intention_read_lock(&ilock);
+
 	for (i = 0; i < NUM_THREADS; i++) {
 		pthread_join(threads[i], NULL);
 	}
@@ -506,13 +521,13 @@ int main(void)
 		pthread_create(&threads[i], NULL, thread_main_writer, (void *)i);
 	}
 
-	rwlock_unlock(&rwlock);
+	ilock_intention_read_unlock(&ilock);
+	ilock_intention_read_unlock(&ilock);
 
 	for (i = 0; i < NUM_THREADS; i++) {
 		pthread_join(threads[i], NULL);
 	}
-
-#if 1
+#else
 	for (i = 0; i < NUM_THREADS; i++) {
 		if (i % 2 == 0)
 			pthread_create(&threads[i], NULL, thread_main_writer, (void *)i);
