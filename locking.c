@@ -1,6 +1,8 @@
 /*
- * TODO Once in a while the test program takes significantly longer.
- * Is it the kernel or a race condition in the rwlock code?
+ * TODO:
+ * -Once in a while the test program takes significantly longer.
+ *  Is it the kernel or a race condition in the rwlock code?
+ * -Also make throughput versions of these locks in addition to the fair versions.
  */
 
 #include <x86intrin.h>
@@ -198,8 +200,213 @@ void rwlock_unlock(struct rwlock *lock)
 	}
 	MBARRIER;
 
-	/* this technically only needs to happen if a writer is waiting */
+	/* this technically only needs to happen if someone is waiting */
 	sys_futex((int *)&lock->num_readers, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+}
+
+/* intention lock */
+struct ilock {
+	struct futex futex;
+	volatile unsigned int num_readers; /* -1 if a writer holds the lock */
+	volatile unsigned int num_i_readers;
+	volatile unsigned int num_i_writers;
+	volatile unsigned int num_unlocks;
+};
+
+void ilock_init(struct ilock *lock)
+{
+	futex_init(&lock->futex);
+	lock->num_readers = 0;
+	lock->num_i_readers = 0;
+	lock->num_i_writers = 0;
+	lock->num_unlocks = 0;
+}
+
+void ilock_read_spinlock(struct ilock *lock)
+{
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers == -1 || lock->num_i_writers != 0)
+		_mm_pause();
+	lock->num_readers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_write_spinlock(struct ilock *lock)
+{
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers != 0 || lock->num_i_readers != 0 ||
+	       lock->num_i_writers != 0)
+		_mm_pause();
+	lock->num_readers--;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_intention_read_spinlock(struct ilock *lock)
+{
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers == -1)
+		_mm_pause();
+	lock->num_i_readers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_intention_write_spinlock(struct ilock *lock)
+{
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers != 0)
+		_mm_pause();
+	lock->num_i_writers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_read_intention_write_spinlock(struct ilock *lock)
+{
+	futex_spinlock(&lock->futex);
+	while (lock->num_readers != 0 || lock->num_i_writers != 0)
+		_mm_pause();
+	lock->num_readers++;
+	lock->num_i_writers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_read_lock(struct ilock *lock)
+{
+	unsigned int num_unlocks;
+
+	futex_lock(&lock->futex);
+	num_unlocks = lock->num_unlocks;
+	MBARRIER;
+	while (lock->num_readers == -1 || lock->num_i_writers != 0) {
+		sys_futex((int *)&lock->num_unlocks, FUTEX_WAIT_PRIVATE, num_unlocks, NULL, NULL, 0);
+		MBARRIER;
+		num_unlocks = lock->num_unlocks;
+		MBARRIER;
+	}
+	lock->num_readers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_write_lock(struct ilock *lock)
+{
+	unsigned int num_unlocks;
+
+	futex_lock(&lock->futex);
+	num_unlocks = lock->num_unlocks;
+	MBARRIER;
+	while (lock->num_readers != 0 || lock->num_i_readers != 0 ||
+	       lock->num_i_writers != 0) {
+		sys_futex((int *)&lock->num_unlocks, FUTEX_WAIT_PRIVATE, num_unlocks, NULL, NULL, 0);
+		MBARRIER;
+		num_unlocks = lock->num_unlocks;
+		MBARRIER;
+	}
+	lock->num_readers--;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_intention_read_lock(struct ilock *lock)
+{
+	unsigned int num_unlocks;
+
+	futex_lock(&lock->futex);
+	num_unlocks = lock->num_unlocks;
+	MBARRIER;
+	while (lock->num_readers == -1) {
+		sys_futex((int *)&lock->num_unlocks, FUTEX_WAIT_PRIVATE, num_unlocks, NULL, NULL, 0);
+		MBARRIER;
+		num_unlocks = lock->num_unlocks;
+		MBARRIER;
+	}
+	lock->num_i_readers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_intention_write_lock(struct ilock *lock)
+{
+	unsigned int num_unlocks;
+
+	futex_lock(&lock->futex);
+	num_unlocks = lock->num_unlocks;
+	MBARRIER;
+	while (lock->num_readers != 0) {
+		sys_futex((int *)&lock->num_unlocks, FUTEX_WAIT_PRIVATE, num_unlocks, NULL, NULL, 0);
+		MBARRIER;
+		num_unlocks = lock->num_unlocks;
+		MBARRIER;
+	}
+	lock->num_i_writers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_read_and_intention_write_lock(struct ilock *lock)
+{
+	unsigned int num_unlocks;
+
+	futex_lock(&lock->futex);
+	num_unlocks = lock->num_unlocks;
+	MBARRIER;
+	while (lock->num_readers != 0 || lock->num_i_writers != 0) {
+		sys_futex((int *)&lock->num_unlocks, FUTEX_WAIT_PRIVATE, num_unlocks, NULL, NULL, 0);
+		MBARRIER;
+		num_unlocks = lock->num_unlocks;
+		MBARRIER;
+	}
+	lock->num_readers++;
+	lock->num_i_writers++;
+	futex_unlock(&lock->futex);
+}
+
+void ilock_read_unlock(struct ilock *lock)
+{
+	/* TODO this needs to happen atomically!!! */
+	lock->num_readers--;
+	_mm_sfence();
+	MBARRIER;
+	lock->num_unlocks++;
+	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+}
+
+void ilock_write_unlock(struct ilock *lock)
+{
+	/* only one thread can hold this kind of lock at a time */
+	lock->num_readers = 0;
+	_mm_sfence();
+	MBARRIER;
+	/* TODO this increment needs to happen atomically */
+	lock->num_unlocks++;
+	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+}
+
+void ilock_intention_read_unlock(struct ilock *lock)
+{
+	/* TODO this needs to happen atomically!!! */
+	lock->num_i_readers--;
+	_mm_sfence();
+	MBARRIER;
+	lock->num_unlocks++;
+	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+}
+
+void ilock_intention_write_unlock(struct ilock *lock)
+{
+	/* TODO this needs to happen atomically!!! */
+	lock->num_i_writers--;
+	_mm_sfence();
+	MBARRIER;
+	lock->num_unlocks++;
+	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+}
+
+void ilock_read_and_intention_write_unlock(struct ilock *lock)
+{
+	/* only one thread can hold this kind of lock at a time */
+	lock->num_readers--;
+	lock->num_i_writers--;
+	_mm_sfence();
+	MBARRIER;
+	/* TODO this increment needs to happen atomically */
+	lock->num_unlocks++;
+	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
 
 #include <stdlib.h>
