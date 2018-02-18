@@ -1,5 +1,6 @@
 /*
  * TODO:
+ * -Figure out a way to not do a syscall everytime we lock an ilock or rwlock!
  * -Once in a while the test program takes significantly longer.
  *  Is it the kernel or a race condition in the rwlock code?
  * -Also make throughput versions of these locks in addition to the fair versions.
@@ -11,6 +12,8 @@
  * -Some of the MBARRIERs are probably unnecessary, but better safe than sorry
  * -The fences are probably not unnecessary, just highly pessimistic!
  * -For intention locks you have to call the right unlock funtion!
+ * -Zeroing a lock == Initializing
+ * -Reads and writes are assumed to be atomic, which requires alignment on x64
  */
 
 #include <x86intrin.h>
@@ -31,14 +34,14 @@ static int sys_futex(int *uaddr, int futex_op, int val,
 
 static void wait_on_ticket(volatile int *uaddr, int val, unsigned int ticket)
 {
-	int bitset = 1 << (ticket % (sizeof(int) * 8 - 1));
+	int bitset = 1 << (ticket % (sizeof(int) * 8));
 
 	sys_futex((int *)uaddr, FUTEX_WAIT_BITSET_PRIVATE, val, NULL, NULL, bitset);
 }
 
 static void wake_by_ticket(volatile int *uaddr, unsigned int ticket)
 {
-	int bitset = 1 << (ticket % (sizeof(int) * 8 - 1));
+	int bitset = 1 << (ticket % (sizeof(int) * 8));
 
 	sys_futex((int *)uaddr, FUTEX_WAKE_BITSET_PRIVATE, INT_MAX, NULL, NULL, bitset);
 }
@@ -84,14 +87,16 @@ void futex_lock(struct futex *lock)
 
 void futex_unlock(struct futex *lock)
 {
+	unsigned int wake = lock->cur + 1;
 	/*
 	 * Previous writes usually need to be visible before
 	 * incrementing cur!
 	 */
-	_mm_sfence();
+	_mm_mfence();
 	lock->cur++;
 	MBARRIER;
-	wake_by_ticket(&lock->cur, lock->cur);
+	if (wake != lock->next_ticket)
+		wake_by_ticket(&lock->cur, wake);
 }
 
 struct ticketlock {
@@ -238,7 +243,7 @@ void ilock_read_spinlock(struct ilock *lock)
 	futex_spinlock(&lock->futex);
 	while (lock->num_readers == -1 || lock->num_i_writers != 0)
 		_mm_pause();
-	lock->num_readers++;
+	__sync_fetch_and_add(&lock->num_readers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -257,7 +262,7 @@ void ilock_intention_read_spinlock(struct ilock *lock)
 	futex_spinlock(&lock->futex);
 	while (lock->num_readers == -1)
 		_mm_pause();
-	lock->num_i_readers++;
+	__sync_fetch_and_add(&lock->num_i_readers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -266,7 +271,7 @@ void ilock_intention_write_spinlock(struct ilock *lock)
 	futex_spinlock(&lock->futex);
 	while (lock->num_readers != 0)
 		_mm_pause();
-	lock->num_i_writers++;
+	__sync_fetch_and_add(&lock->num_i_writers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -293,7 +298,7 @@ void ilock_read_lock(struct ilock *lock)
 		num_unlocks = lock->num_unlocks;
 		MBARRIER;
 	}
-	lock->num_readers++;
+	__sync_fetch_and_add(&lock->num_readers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -328,7 +333,7 @@ void ilock_intention_read_lock(struct ilock *lock)
 		num_unlocks = lock->num_unlocks;
 		MBARRIER;
 	}
-	lock->num_i_readers++;
+	__sync_fetch_and_add(&lock->num_i_readers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -345,7 +350,7 @@ void ilock_intention_write_lock(struct ilock *lock)
 		num_unlocks = lock->num_unlocks;
 		MBARRIER;
 	}
-	lock->num_i_writers++;
+	__sync_fetch_and_add(&lock->num_i_writers, 1);
 	futex_unlock(&lock->futex);
 }
 
@@ -378,7 +383,7 @@ void ilock_read_unlock(struct ilock *lock)
 void ilock_write_unlock(struct ilock *lock)
 {
 	/* don't reorder! */
-	/* only one thread can hold this kind of lock at a time */
+	/* only one thread can hold the lock at this point */
 	lock->num_readers = 0;
 	_mm_sfence(); /* TODO is this sfence necessary? */
 	/* doing this atomically is a little pessimistic, but better than a deadlock */
@@ -405,7 +410,7 @@ void ilock_intention_write_unlock(struct ilock *lock)
 void ilock_read_and_intention_write_unlock(struct ilock *lock)
 {
 	/* don't reorder! */
-	/* only intention readers can get past the lock at this point */
+	/* only intention readers can hold the lock at this point */
 	lock->num_readers = 0;
 	_mm_sfence(); /* TODO is this sfence necessary? */
 	/* now there can be intention writers, so do this atomically */
@@ -413,6 +418,16 @@ void ilock_read_and_intention_write_unlock(struct ilock *lock)
 	__sync_fetch_and_add(&lock->num_unlocks, 1);
 	sys_futex((int *)&lock->num_unlocks, FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
 }
+
+void ilock_downgrade_write_to_intention_write(struct ilock *lock)
+{
+	/* don't reorder! */
+	/* only one thread can hold this kind of lock at this point */
+	lock->num_i_writers++;
+	ilock_write_unlock(lock);
+}
+
+#if 0
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -454,6 +469,7 @@ void *thread_main_writer(void *arg)
 	MBARRIER;
 	sum -= (unsigned long)arg;
 	MBARRIER;
+	printf("%p\n", arg);
 	ilock_write_unlock(&ilock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
@@ -472,7 +488,8 @@ void *thread_main_reader(void *arg)
 	ilock_read_lock(&ilock);
 	usleep(10000);
 	MBARRIER;
-	assert(sum == 0);
+	printf("%p\n", arg);
+	// assert(sum == 0);
 	ilock_read_unlock(&ilock);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
@@ -492,7 +509,7 @@ int main(void)
 	rwlock_init(&rwlock);
 	ilock_init(&ilock);
 
-#if 1
+#if 0
 	for (i = 0; i < NUM_THREADS; i++) {
 		pthread_create(&threads[i], NULL, thread_main_writer, (void *)i);
 	}
@@ -543,3 +560,4 @@ int main(void)
 	assert(sum == 0);
 	printf("time: %llu\n", total_time);
 }
+#endif

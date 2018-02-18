@@ -4,7 +4,7 @@
 #include <string.h>
 #include <errno.h>
 
-#define THRESHOLD 800
+#define THRESHOLD 8
 
 #define hashtable_get(key, table) __hashtable_get((void *)key, table)
 #define hashtable_remove(key, table) __hashtable_remove((void *)key, table)
@@ -212,11 +212,11 @@ int grow_hashtable(struct hashtable *table)
 
 static inline int maybe_grow_table(struct hashtable *table)
 {
-	unsigned long capacity, num_buckets;
+	unsigned long base_capacity, num_buckets;
 
 	num_buckets = table->n + table->p;
-	capacity = num_buckets * table->bucketsize;
-	if ((table->num_items * 1000) / capacity > THRESHOLD)
+	base_capacity = num_buckets * table->bucketsize;
+	if (table->num_items * 10  > THRESHOLD * base_capacity)
 		return grow_hashtable(table);
 	return 0;
 }
@@ -447,9 +447,9 @@ int main(void)
 	unsigned long i, num_items;
 	unsigned long long time;
 
-	table = make_hashtable(64, 128, NULL, NULL);
 
 #if 0
+	table = make_hashtable(2, 2, NULL, NULL);
 	for (i = 0; i < 10; i++) {
 		printf("------------------------------------\n");
 		printf("INSERT %lu\n", i);
@@ -467,6 +467,7 @@ int main(void)
 	}
 	printf("\n");
 	debug_print_table(table);
+	destroy_hashtable(table);
 
 	printf("------------------------------------\n");
 	printf("------------------------------------\n");
@@ -474,6 +475,7 @@ int main(void)
 #endif
 
 #if 0
+	table = make_hashtable(64, 128, NULL, NULL);
 	num_items = 100000;
 	for (i = 0; i < num_items; i++) {
 		hashtable_insert(i, i, table);
@@ -488,6 +490,7 @@ int main(void)
 		assert(data == (void *)i + 1);
 	}
 	assert(table->num_items == 0);
+	destroy_hashtable(table);
 
 	printf("------------------------------------\n");
 	printf("------------------------------------\n");
@@ -495,15 +498,12 @@ int main(void)
 #endif
 
 #if 0
+	table = make_hashtable(64, 128, NULL, NULL);
 	for (i = 0; i < 100000; i++) {
 		hashtable_insert(i, i, table);
 	}
 	assert(hashtable_insert(1, 0, table) == EEXIST);
 	destroy_hashtable(table);
-
-	printf("------------------------------------\n");
-	printf("------------------------------------\n");
-	printf("------------------------------------\n\n");
 #endif
 
 #if 0
@@ -531,9 +531,9 @@ int main(void)
 #endif
 
 #if 1
-	/* last measurement: clang: 155649737 gcc: 154186845 */
-	time = __rdtsc();
+	/* last measurement: clang: 148068991 gcc: 145770842 */
 	table = make_hashtable(32, 128, NULL, NULL);
+	time = __rdtsc();
 	for (i = 0; i < 100000; i++) {
 		hashtable_insert(i, i, table);
 	}
@@ -543,7 +543,7 @@ int main(void)
 	for (i = 0; i < 100000; i++) {
 		hashtable_remove(i, table);
 	}
-	destroy_hashtable(table);
 	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	destroy_hashtable(table);
 #endif
 }
