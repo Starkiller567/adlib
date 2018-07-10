@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <time.h>
 #include <unistd.h>
-#include <unistd.h>
 
 /* From Wikipedia:
  * 1) Each node is either red or black.
@@ -17,17 +16,15 @@
  */
 
 #ifndef container_of
-#define container_of(pointer, type, member)				\
-	((type *)((char *)(pointer) - (char *)&((type *)0)->member))
-#endif
-
-#ifndef BITS_PER_LONG
-#define BITS_PER_LONG (sizeof(long) * 8)
+#include <stddef.h>
+// from wikipedia, the ternary operator forces matching types on pointer and member
+#define container_of(ptr, type, member)				\
+	((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
 #endif
 
 enum rb_colors {
-	RB_BLACK = 0,
-	RB_RED   = 1
+	RB_RED   = 0,
+	RB_BLACK = 1,
 };
 
 struct rb_node {
@@ -47,10 +44,7 @@ struct thing {
 	struct rb_node rb_node;
 };
 
-static inline struct thing *to_thing(struct rb_node *node)
-{
-	return container_of(node, struct thing, rb_node);
-}
+#define to_thing(ptr) container_of(ptr, struct thing, rb_node)
 
 static struct rb_node *rb_find(struct rb_root *root, int key)
 {
@@ -70,7 +64,7 @@ static struct rb_node *rb_find(struct rb_root *root, int key)
 
 static inline struct rb_node *__rb_parent(unsigned long pc)
 {
-	return (struct rb_node *)(pc & ~1);
+	return (struct rb_node *)(pc & ~3);
 }
 
 static inline unsigned long __rb_color(unsigned long pc)
@@ -90,7 +84,7 @@ static inline unsigned long rb_color(struct rb_node *node)
 
 static inline void rb_set_parent(struct rb_node *node, struct rb_node *parent)
 {
-	assert(((unsigned long)parent & 1) == 0);
+	assert(((unsigned long)parent & 3) == 0);
 	node->__parent_color = rb_color(node) | (unsigned long)parent;
 }
 
@@ -129,6 +123,7 @@ static inline void rb_change_child(struct rb_node *old_child, struct rb_node *ne
 	}
 }
 
+#if 0
 static inline void rotate_left(struct rb_node *node, struct rb_root *root) {
 	struct rb_node* nnew = node->right;
 	node->right = nnew->left;
@@ -154,6 +149,7 @@ static inline void rotate_right(struct rb_node *node, struct rb_root *root) {
 	rb_set_parent(nnew, parent);
 	rb_set_parent(node, nnew);
 }
+#endif
 
 static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 {
@@ -559,7 +555,6 @@ int main(void)
 		assert(to_thing(node)->key == key);
 		debug_check_tree(&root);
 		printf("%d\n", black_depth);
-		usleep(5);
 	}
 #endif
 #if 1
@@ -589,7 +584,7 @@ int main(void)
 			}
 		}
 
-		if (i % 1024 == 0) {
+		if (i % (1 << 20) == 0) {
 			debug_check_tree(&root);
 			printf("%d\n", black_depth);
 		}
