@@ -64,7 +64,7 @@ static struct rb_node *rb_find(struct rb_root *root, int key)
 
 static inline struct rb_node *__rb_parent(unsigned long pc)
 {
-	return (struct rb_node *)(pc & ~3);
+	return (struct rb_node *)(pc & ~1);
 }
 
 static inline unsigned long __rb_color(unsigned long pc)
@@ -84,7 +84,7 @@ static inline unsigned long rb_color(struct rb_node *node)
 
 static inline void rb_set_parent(struct rb_node *node, struct rb_node *parent)
 {
-	assert(((unsigned long)parent & 3) == 0);
+	assert(((unsigned long)parent & 1) == 0);
 	node->__parent_color = rb_color(node) | (unsigned long)parent;
 }
 
@@ -106,7 +106,16 @@ static inline bool rb_is_black(struct rb_node *node)
 
 static inline bool rb_is_null_or_black(struct rb_node *node)
 {
+	// technically null nodes are leaves and therefore black
 	return !node || rb_is_black(node);
+}
+
+static inline struct rb_node *rb_red_parent(struct rb_node *node)
+{
+	// somehow neither gcc nor clang can optimize the additional 'and' away
+	// even if it knows the bottom is zero (red)
+	assert(rb_is_red(node));
+	return (struct rb_node *)node->__parent_color;
 }
 
 static inline void rb_change_child(struct rb_node *old_child, struct rb_node *new_child,
@@ -375,7 +384,7 @@ static bool rb_insert(struct rb_root *root, struct rb_node *node)
 			break;
 		}
 
-		struct rb_node *grandparent = rb_parent(parent);
+		struct rb_node *grandparent = rb_red_parent(parent);
 		bool parent_is_left = false;
 		struct rb_node *uncle = grandparent->left;
 		if (parent == grandparent->left) {
@@ -437,21 +446,27 @@ static bool rb_insert(struct rb_root *root, struct rb_node *node)
 		rb_set_color(uncle, RB_BLACK);
 		rb_set_color(grandparent, RB_RED);
 		node = grandparent;
-		parent = rb_parent(node);
+		parent = rb_red_parent(node);
 	}
 	return true;
 }
 
 static int black_depth;
-static void debug_recursive_check_tree(struct rb_node *node, int cur_black_depth)
+static int max_depth;
+static int num_nodes;
+static void debug_recursive_check_tree(struct rb_node *node, int cur_black_depth, int depth)
 {
 	if (!node) {
 		if (black_depth == -1) {
 			black_depth = cur_black_depth;
 		}
+		if (max_depth < depth) {
+			max_depth = depth;
+		}
 		assert(black_depth == cur_black_depth);
 		return;
 	}
+	num_nodes++;
 	if (rb_is_black(node)) {
 		cur_black_depth++;
 	}
@@ -463,57 +478,28 @@ static void debug_recursive_check_tree(struct rb_node *node, int cur_black_depth
 		assert(rb_parent(node->right) == node);
 		assert(!(rb_is_red(node) && rb_is_red(node->right)));
 	}
-	debug_recursive_check_tree(node->left, cur_black_depth);
-	debug_recursive_check_tree(node->right, cur_black_depth);
+	debug_recursive_check_tree(node->left, cur_black_depth, depth + 1);
+	debug_recursive_check_tree(node->right, cur_black_depth, depth + 1);
 }
 
 static void debug_check_tree(struct rb_root *root)
 {
 	black_depth = -1;
+	max_depth = -1;
+	num_nodes = 0;
 	if (!root->node) {
 		printf("empty\n");
 		return;
 	}
 	assert(rb_is_black(root->node));
 	assert(!rb_parent(root->node));
-	debug_recursive_check_tree(root->node, 0);
+	debug_recursive_check_tree(root->node, 0, 0);
 }
 
 int main(void)
 {
 	struct rb_root root = EMPTY_ROOT;
-#if 0
-	struct thing *thing = malloc(sizeof(*thing));
-	thing->key = 1;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 2;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 3;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 4;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 5;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 6;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 7;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 8;
-	rb_insert(&root, &thing->rb_node);
-	thing = malloc(sizeof(*thing));
-	thing->key = 9;
-	rb_insert(&root, &thing->rb_node);
-	debug_check_tree(&root);
-	rb_remove_key(&root, 1);
-	debug_check_tree(&root);
-#endif
+	srand(time(NULL));
 #if 0
 	char buf[128];
 	while (fgets(buf, sizeof(buf), stdin)) {
@@ -542,9 +528,7 @@ int main(void)
 	}
 #endif
 #if 0
-	// srand(0);
-	srand(time(NULL));
-	for (;;) {
+	for (unsigned int i = 0; ; i++) {
 		int key = rand();
 		struct thing *thing = malloc(sizeof(*thing));
 		thing->key = key;
@@ -553,16 +537,18 @@ int main(void)
 		assert(node);
 		assert(!success || to_thing(node) == thing);
 		assert(to_thing(node)->key == key);
-		debug_check_tree(&root);
-		printf("%d\n", black_depth);
+		if (i % (1 << 20) == 0) {
+			debug_check_tree(&root);
+			printf("black depth: %d\n", black_depth);
+			printf("max depth: %d\n", max_depth);
+			printf("num nodes: %d\n", num_nodes);
+		}
 	}
 #endif
-#if 1
-	// srand(0);
-	srand(time(NULL));
+#if 0
 	for (unsigned int i = 0; ; i++) {
 		{
-			int key = rand() % 100;
+			int key = rand() % 10000;
 			struct thing *thing = malloc(sizeof(*thing));
 			thing->key = key;
 			bool success = rb_insert(&root, &thing->rb_node);
@@ -575,7 +561,7 @@ int main(void)
 			assert(rb_find(&root, key) == &thing->rb_node);
 		}
 		{
-			int key = rand() % 100;
+			int key = rand() % 10000;
 			struct rb_node *node = rb_find(&root, key);
 			if (node) {
 				rb_remove_node(&root, node);
@@ -586,7 +572,9 @@ int main(void)
 
 		if (i % (1 << 20) == 0) {
 			debug_check_tree(&root);
-			printf("%d\n", black_depth);
+			printf("black depth: %d\n", black_depth);
+			printf("max depth: %d\n", max_depth);
+			printf("num nodes: %d\n", num_nodes);
 		}
 	}
 #endif
