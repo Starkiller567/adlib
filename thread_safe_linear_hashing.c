@@ -234,7 +234,6 @@ static int grow_hashtable_internal(struct hashtable *table)
 	int retval;
 
 	num_slots = table->n + table->p;
-	/* maybe pre-allocate more? */
 	new_size = (num_slots + 1) * sizeof(*new_slot);
 	table->slots = realloc(table->slots, new_size);
 	if (!table->slots)

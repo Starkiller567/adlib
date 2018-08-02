@@ -1,14 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 
-#define THRESHOLD 8
+#define THRESHOLD 7
 
 #define hashtable_get(key, table) __hashtable_get((void *)key, table)
 #define hashtable_remove(key, table) __hashtable_remove((void *)key, table)
-#define hashtable_insert(key, data, table) \
+#define hashtable_insert(key, data, table)	  \
 	__hashtable_insert((void *)key, (void *)data, table)
 
 typedef unsigned long (*hashfunc_t)(const void *key);
@@ -36,17 +37,61 @@ struct hashtable {
 	struct bucket **buckets;
 };
 
-/* djb2 */
-static unsigned long string_hashfunc(const void *key)
+// murmur 3
+static unsigned long string_hashfunc(const void *string)
 {
-	const char *str = key;
-	unsigned long hash = 5381;
-	int c;
+	const void *data = string;
+	const size_t nbytes = strlen(string);
+	if (data == NULL || nbytes == 0) {
+		return 0;
+	}
 
-	while ((c = *str++))
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	const uint32_t c1 = 0xcc9e2d51;
+	const uint32_t c2 = 0x1b873593;
 
-	return hash;
+	const int nblocks = nbytes / 4;
+	const uint32_t *blocks = (const uint32_t *) (data);
+	const uint8_t *tail = (const uint8_t *) (data + (nblocks * 4));
+
+	uint32_t h = 0;
+
+	int i;
+	uint32_t k;
+	for (i = 0; i < nblocks; i++) {
+		k = blocks[i];
+
+		k *= c1;
+		k = (k << 15) | (k >> (32 - 15));
+		k *= c2;
+
+		h ^= k;
+		h = (h << 13) | (h >> (32 - 13));
+		h = (h * 5) + 0xe6546b64;
+	}
+
+	k = 0;
+	switch (nbytes & 3) {
+	case 3:
+		k ^= tail[2] << 16;
+	case 2:
+		k ^= tail[1] << 8;
+	case 1:
+		k ^= tail[0];
+		k *= c1;
+		k = (k << 15) | (k >> (32 - 15));
+		k *= c2;
+		h ^= k;
+	};
+
+	h ^= nbytes;
+
+	h ^= h >> 16;
+	h *= 0x85ebca6b;
+	h ^= h >> 13;
+	h *= 0xc2b2ae35;
+	h ^= h >> 16;
+
+	return h;
 }
 
 static bool string_matchfunc(const void *key1, const void *key2)
@@ -85,7 +130,7 @@ static inline struct bucket *alloc_bucket(struct hashtable *table)
 }
 
 static int insert_internal(void *key, void *data, unsigned long idx,
-			   struct hashtable *table, bool check_duplicate)
+                           struct hashtable *table, bool check_duplicate)
 {
 	struct bucket *bucket, **indirect;
 	struct item *item;
@@ -108,7 +153,7 @@ static int insert_internal(void *key, void *data, unsigned long idx,
 		indirect = &bucket->next;
 		bucket = bucket->next;
 	}
-	/* we didn't find an empty slot, allocate one */
+
 	bucket = alloc_bucket(table);
 	if (!bucket)
 		return ENOMEM;
@@ -129,11 +174,10 @@ static int split_bucket(unsigned long idx, struct hashtable *table)
 	struct item *item, *new_slot;
 	unsigned long i, insert_idx, new_idx, num_items;
 
-	indirect = &table->buckets[idx];
 	bucket = table->buckets[idx];
 
 	/* info about where to insert the next item in the old bucket */
-	insert_indirect = indirect;
+	insert_indirect = &table->buckets[idx];
 	insert_bucket = bucket;
 	insert_idx = 0;
 
@@ -164,13 +208,12 @@ static int split_bucket(unsigned long idx, struct hashtable *table)
 				 * we can't currently recover from that.
 				 */
 				if (insert_internal(item->key, item->data,
-						    new_idx, table, false) != 0)
+				                    new_idx, table, false) != 0)
 					return -ENOMEM;
 				item->key = NULL;
 				item->data = NULL;
 			}
 		}
-		indirect = &bucket->next;
 		bucket = bucket->next;
 	}
 
@@ -193,7 +236,6 @@ int grow_hashtable(struct hashtable *table)
 	unsigned long old_p, num_buckets = table->n + table->p;
 	size_t new_size;
 
-	/* maybe pre-allocate more? */
 	new_size = (num_buckets + 1) * sizeof(struct bucket *);
 	table->buckets = realloc(table->buckets, new_size);
 	if (!table->buckets)
@@ -345,9 +387,12 @@ void destroy_hashtable(struct hashtable *table)
 }
 
 struct hashtable *make_hashtable(unsigned long num_buckets, unsigned long bucketsize,
-				 hashfunc_t hashfunc, matchfunc_t matchfunc)
+                                 hashfunc_t hashfunc, matchfunc_t matchfunc)
 {
 	struct hashtable *table;
+
+	if (num_buckets == 0 || bucketsize == 0)
+		return NULL;
 
 	table = malloc(sizeof(*table));
 	if (!table)
@@ -377,10 +422,10 @@ struct hashtable *make_hashtable(unsigned long num_buckets, unsigned long bucket
 }
 
 struct hashtable *make_string_hashtable(unsigned long num_buckets,
-					unsigned long bucketsize)
+                                        unsigned long bucketsize)
 {
 	return make_hashtable(num_buckets, bucketsize,
-			      string_hashfunc, string_matchfunc);
+	                      string_hashfunc, string_matchfunc);
 }
 
 
@@ -474,7 +519,7 @@ int main(void)
 	printf("------------------------------------\n\n");
 #endif
 
-#if 0
+#if 1
 	table = make_hashtable(64, 128, NULL, NULL);
 	num_items = 100000;
 	for (i = 0; i < num_items; i++) {
@@ -497,16 +542,17 @@ int main(void)
 	printf("------------------------------------\n\n");
 #endif
 
-#if 0
+#if 1
 	table = make_hashtable(64, 128, NULL, NULL);
 	for (i = 0; i < 100000; i++) {
 		hashtable_insert(i, i, table);
 	}
 	assert(hashtable_insert(1, 0, table) == EEXIST);
+	assert(hashtable_get(1, table) == (void *)1);
 	destroy_hashtable(table);
 #endif
 
-#if 0
+#if 1
 	table = make_string_hashtable(4, 2);
 
 	num_items = 100;
@@ -520,14 +566,15 @@ int main(void)
 	}
 
 	for (i = 0; i < num_items; i++) {
+		char *s;
 		char key[8];
+		char data[8];
 		sprintf(key, "key%lu", i);
-		printf("%s\n", (char *)hashtable_remove(key, table));
+		sprintf(data, "data%lu", i);
+		s = hashtable_remove(key, table);
+		assert(strcmp(s, data) == 0);
 	}
 	destroy_hashtable(table);
-	printf("------------------------------------\n");
-	printf("------------------------------------\n");
-	printf("------------------------------------\n\n");
 #endif
 
 #if 1
