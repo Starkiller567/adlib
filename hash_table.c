@@ -78,24 +78,36 @@ static bool strings_equal(const char *s1, const char *s2)
 }
 
 struct short_string {
-	char s[16];
+	char s[128];
 };
+
+static unsigned long short_string_hash(const struct short_string s)
+{
+	return string_hash(s.s);
+}
+
+static bool short_strings_equal(const struct short_string s1, const struct short_string s2)
+{
+	return strcmp(s1.s, s2.s) == 0;
+}
 
 HASHTABLE_IMPLEMENTATION(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8)
 HASHTABLE_IMPLEMENTATION(stable, char *, char *, string_hash, strings_equal, 8)
 HASHTABLE_IMPLEMENTATION(sstable, char *, struct short_string, string_hash, strings_equal, 8)
+HASHTABLE_IMPLEMENTATION(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
 
 int main(void)
 {
 	struct itable itable;
 	struct stable stable;
 	struct sstable sstable;
+	struct ssstable ssstable;
 	unsigned int i, num_items;
 	unsigned long long time;
 
 #if 1
-	itable_init(&itable, 64);
-	num_items = 100000;
+	itable_init(&itable, 128);
+	num_items = 1000000;
 
 	time = __rdtsc();
 	for (i = 0; i < num_items; i++) {
@@ -118,16 +130,16 @@ int main(void)
 #endif
 
 #if 1
-	stable_init(&stable, 4);
+	stable_init(&stable, 128);
 
-	num_items = 10000;
+	num_items = 1000000;
 
 	time = __rdtsc();
 	for (i = 0; i < num_items; i++) {
 		char *key = malloc(16);
 		char *data = malloc(16);
-		sprintf(data, "data%u", i);
-		sprintf(key, "key%u", i);
+		sprintf(data, "%u", i);
+		sprintf(key, "%u", i);
 		char **item = stable_insert(&stable, key);
 		*item = data;
 	}
@@ -136,8 +148,8 @@ int main(void)
 		char **s;
 		char key[16];
 		char data[16];
-		sprintf(key, "key%u", i);
-		sprintf(data, "data%u", i);
+		sprintf(key, "%u", i);
+		sprintf(data, "%u", i);
 		s = stable_lookup(&stable, key);
 		assert(strcmp(*s, data) == 0);
 		stable_remove(&stable, key);
@@ -147,25 +159,25 @@ int main(void)
 #endif
 
 #if 1
-	sstable_init(&sstable, 4);
+	sstable_init(&sstable, 128);
 
-	num_items = 100000;
+	num_items = 1000000;
 
 	time = __rdtsc();
 	for (i = 0; i < num_items; i++) {
 		char *key = malloc(16);
-		sprintf(key, "key%u", i);
+		sprintf(key, "%u", i);
 		struct short_string *item = sstable_insert(&sstable, key);
-		sprintf(item->s, "data%u", i);
+		sprintf(item->s, "%u", i);
 	}
 
 	for (i = 0; i < num_items; i++) {
 		char key[16];
-		char data[16];
-		sprintf(key, "key%u", i);
-		sprintf(data, "data%u", i);
+		struct short_string data;
+		sprintf(key, "%u", i);
+		sprintf(data.s, "%u", i);
 		struct short_string *item = sstable_lookup(&sstable, key);
-		assert(strcmp(item->s, data) == 0);
+		assert(strcmp(item->s, data.s) == 0);
 		sstable_remove(&sstable, key);
 	}
 	printf("cycles elapsed: %llu\n", __rdtsc() - time);
@@ -173,8 +185,34 @@ int main(void)
 #endif
 
 #if 1
-	itable_init(&itable, 32);
-	num_items = 100000;
+	ssstable_init(&ssstable, 128);
+
+	num_items = 1000000;
+
+	time = __rdtsc();
+	for (i = 0; i < num_items; i++) {
+		struct short_string key;
+		sprintf(key.s, "%u", i);
+		struct short_string *item = ssstable_insert(&ssstable, key);
+		sprintf(item->s, "%u", i);
+	}
+
+	for (i = 0; i < num_items; i++) {
+		struct short_string key;
+		struct short_string data;
+		sprintf(key.s, "%u", i);
+		sprintf(data.s, "%u", i);
+		struct short_string *item = ssstable_lookup(&ssstable, key);
+		assert(strcmp(item->s, data.s) == 0);
+		ssstable_remove(&ssstable, key);
+	}
+	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	ssstable_destroy(&ssstable);
+#endif
+
+#if 1
+	itable_init(&itable, 128);
+	num_items = 1000000;
 	time = __rdtsc();
 	for (i = 0; i < num_items; i++) {
 		unsigned int *item = itable_insert(&itable, i);

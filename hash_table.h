@@ -12,6 +12,7 @@
 	struct name##_list_entry { \
 		unsigned int hash; \
 		unsigned int next; \
+		key_type key; \
 	}; \
 	  \
 	struct name { \
@@ -19,7 +20,6 @@
 		unsigned int size; \
 		unsigned int *indices; \
 		struct name##_list_entry *list_entries; \
-		key_type *keys; \
 		item_type *items; \
 	}; \
 	  \
@@ -32,15 +32,12 @@
 	{ \
 		size_t indices_size = size * sizeof(*table->indices); \
 		size_t list_entries_size = size * sizeof(*table->list_entries); \
-		size_t keys_size = size * sizeof(*table->keys); \
 		size_t items_size = size * sizeof(*table->items); \
-		char *mem = malloc(list_entries_size + items_size + indices_size + keys_size); \
+		char *mem = malloc(list_entries_size + items_size + indices_size); \
 		table->indices = (unsigned int *)mem; \
 		mem += indices_size; \
 		table->list_entries = (struct name##_list_entry *)mem; \
 		mem += list_entries_size; \
-		table->keys = (key_type *)mem; \
-		mem += keys_size; \
 		table->items = (item_type *)mem; \
 		memset(table->indices, 0xff, indices_size); \
 		memset(table->list_entries, 0, list_entries_size); \
@@ -64,7 +61,7 @@
 				return NULL; \
 			} \
 			struct name##_list_entry *list_entry = &table->list_entries[index]; \
-			if (hash == list_entry->hash && keys_equal(key, table->keys[index])) {	\
+			if (hash == list_entry->hash && keys_equal(key, list_entry->key)) { \
 				return &table->items[index]; \
 			} \
 			index = list_entry->next; \
@@ -83,7 +80,7 @@
 				return false; \
 			} \
 			list_entry = &table->list_entries[index]; \
-			if (hash == list_entry->hash && keys_equal(key, table->keys[index])) {	\
+			if (hash == list_entry->hash && keys_equal(key, list_entry->key)) { \
 				break; \
 			} \
 			indirect = &list_entry->next; \
@@ -118,7 +115,7 @@
 	  \
 		list_entry->hash = hash; \
 		list_entry->next = next; \
-		table->keys[index] = key; \
+		list_entry->key = key; \
 		*indirect = index; \
 	  \
 		return &table->items[index]; \
@@ -139,7 +136,8 @@
 		for (unsigned int i = 0; i < table->size; i++) { \
 			struct name##_list_entry *list_entry = &table->list_entries[i]; \
 			if (list_entry->hash != 0) { \
-				item_type *item = __##name##_insert_internal(&new_table, table->keys[i], list_entry->hash); \
+				item_type *item = __##name##_insert_internal(&new_table, list_entry->key, \
+				                                             list_entry->hash); \
 				memcpy(item, &table->items[i], sizeof(item_type)); \
 			} \
 		} \
