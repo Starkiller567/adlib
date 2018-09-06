@@ -3,12 +3,15 @@
 #include <assert.h>
 #include <string.h>
 #include <stdbool.h>
-#include <x86intrin.h>
+#include <time.h>
 #include "hash_table.h"
 
 static inline unsigned int integer_hash(unsigned int key)
 {
-	return key * 2654435761;
+	unsigned int h = key;
+	h = ~h;
+	/* h ^= (key << 16) | (key >> 16); */
+	return h;
 }
 
 static inline bool integers_equal(unsigned int key1, unsigned int key2)
@@ -91,10 +94,22 @@ static bool short_strings_equal(const struct short_string s1, const struct short
 	return strcmp(s1.s, s2.s) == 0;
 }
 
-HASHTABLE_IMPLEMENTATION(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8)
-HASHTABLE_IMPLEMENTATION(stable, char *, char *, string_hash, strings_equal, 8)
-HASHTABLE_IMPLEMENTATION(sstable, char *, struct short_string, string_hash, strings_equal, 8)
-HASHTABLE_IMPLEMENTATION(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
+static unsigned long long tp_to_ns(struct timespec *tp)
+{
+	return tp->tv_nsec + 1000000000 * tp->tv_sec;
+}
+
+static unsigned long long ns_elapsed(struct timespec *start, struct timespec *end)
+{
+	unsigned long long s = end->tv_sec - start->tv_sec;
+	unsigned long long ns = end->tv_nsec - start->tv_nsec;
+	return ns + 1000000000 * s;
+}
+
+DEFINE_HASHTABLE(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8)
+DEFINE_HASHTABLE(stable, char *, char *, string_hash, strings_equal, 8)
+DEFINE_HASHTABLE(sstable, char *, struct short_string, string_hash, strings_equal, 8)
+DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
 
 int main(void)
 {
@@ -102,39 +117,41 @@ int main(void)
 	struct stable stable;
 	struct sstable sstable;
 	struct ssstable ssstable;
-	unsigned int i, num_items;
-	unsigned long long time;
+	unsigned int i, num_items, x = 0;
+	struct timespec start_tp, end_tp;
+	unsigned long long start_ns, ns, total_ns, sum_ns = 0;
+	bool verbose = true;
 
-#if 1
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
+	start_ns = tp_to_ns(&start_tp);
+#if 0
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
-	time = __rdtsc();
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int *item = itable_insert(&itable, i);
 		*item = i;
 	}
-	assert(itable.num_items == num_items);
 
 	for (i = 0; i < num_items; i++) {
 		unsigned int *item = itable_lookup(&itable, i);
 		assert(*item == i);
-		bool success = itable_remove(&itable, i);
-		assert(success);
-		item = itable_lookup(&itable, i);
-		assert(!item);
+		itable_remove(&itable, i, NULL, NULL);
 	}
-	printf("cycles elapsed: %llu\n", __rdtsc() - time);
-
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
 	itable_destroy(&itable);
 #endif
 
-#if 1
+#if 0
 	stable_init(&stable, 128);
 
 	num_items = 1000000;
 
-	time = __rdtsc();
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		char *key = malloc(16);
 		char *data = malloc(16);
@@ -152,18 +169,21 @@ int main(void)
 		sprintf(data, "%u", i);
 		s = stable_lookup(&stable, key);
 		assert(strcmp(*s, data) == 0);
-		stable_remove(&stable, key);
+		stable_remove(&stable, key, NULL, NULL);
 	}
-	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
 	stable_destroy(&stable);
 #endif
 
-#if 1
+#if 0
 	sstable_init(&sstable, 128);
 
 	num_items = 1000000;
 
-	time = __rdtsc();
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		char *key = malloc(16);
 		sprintf(key, "%u", i);
@@ -178,18 +198,21 @@ int main(void)
 		sprintf(data.s, "%u", i);
 		struct short_string *item = sstable_lookup(&sstable, key);
 		assert(strcmp(item->s, data.s) == 0);
-		sstable_remove(&sstable, key);
+		sstable_remove(&sstable, key, NULL, NULL);
 	}
-	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
 	sstable_destroy(&sstable);
 #endif
 
-#if 1
+#if 0
 	ssstable_init(&ssstable, 128);
 
 	num_items = 1000000;
 
-	time = __rdtsc();
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		struct short_string key;
 		sprintf(key.s, "%u", i);
@@ -204,27 +227,100 @@ int main(void)
 		sprintf(data.s, "%u", i);
 		struct short_string *item = ssstable_lookup(&ssstable, key);
 		assert(strcmp(item->s, data.s) == 0);
-		ssstable_remove(&ssstable, key);
+		ssstable_remove(&ssstable, key, NULL, NULL);
 	}
-	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
 	ssstable_destroy(&ssstable);
 #endif
 
 #if 1
 	itable_init(&itable, 128);
 	num_items = 1000000;
-	time = __rdtsc();
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int *item = itable_insert(&itable, i);
 		*item = i;
 	}
 	for (i = 0; i < num_items; i++) {
-		itable_lookup(&itable, i);
+		i = *itable_lookup(&itable, i);
 	}
 	for (i = 0; i < num_items; i++) {
-		itable_remove(&itable, i);
+		unsigned int key;
+		unsigned int item;
+		itable_remove(&itable, i, &key, &item);
+		assert(key == item);
+		i = key;
 	}
-	printf("cycles elapsed: %llu\n", __rdtsc() - time);
+	assert(itable.num_items == 0);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
 	itable_destroy(&itable);
 #endif
+
+#if 1
+	itable_init(&itable, 128);
+	num_items = 1000000;
+
+	srand(1234);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
+	for (i = 0; i < num_items; i++) {
+		unsigned int key = rand();
+		unsigned int *item = itable_insert(&itable, key);
+		*item = i;
+		for (unsigned int j = 0; j < 100; j++) {
+			item = itable_lookup(&itable, key);
+			*item = j;
+		}
+		itable_remove(&itable, key, NULL, NULL);
+		item = itable_insert(&itable, key);
+		*item = key;
+		item = itable_lookup(&itable, key);
+		*item = i;
+	}
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
+	itable_destroy(&itable);
+#endif
+
+#if 1
+	sstable_init(&sstable, 128);
+	num_items = 100000;
+
+	srand(1234);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
+	for (i = 0; i < num_items; i++) {
+		unsigned int r = rand();
+		char key[16];
+		sprintf(key, "%u", r);
+		struct short_string *item = sstable_insert(&sstable, key);
+		sprintf(item->s, "%u", i);
+		for (unsigned int j = 0; j < 100; j++) {
+			item = sstable_lookup(&sstable, key);
+			sprintf(item->s, "%u", j);
+		}
+		sstable_remove(&sstable, key, NULL, NULL);
+		item = sstable_insert(&sstable, key);
+		sprintf(item->s, "%u", r);
+		item = sstable_lookup(&sstable, key);
+		sprintf(item->s, "%u", i);
+	}
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
+	sstable_destroy(&sstable);
+#endif
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	total_ns = tp_to_ns(&end_tp) - start_ns;
+	printf("sum:   %llu\n", sum_ns);
+	printf("total: %llu\n", total_ns);
 }

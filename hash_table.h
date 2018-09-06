@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define HASHTABLE_IMPLEMENTATION(name, key_type, item_type, compute_hash, keys_equal, THRESHOLD) \
+#define DEFINE_HASHTABLE(name, key_type, item_type, compute_hash, keys_equal, THRESHOLD) \
 	  \
 	static const unsigned int name##_INVALID_INDEX = -1; \
 	  \
@@ -72,7 +72,7 @@
 		} \
 	} \
 	  \
-	static bool name##_remove(struct name *table, key_type key) \
+	static bool name##_remove(struct name *table, key_type key, key_type *ret_key, item_type *ret_item) \
 	{ \
 		unsigned int hash = compute_hash(key); \
 		hash = hash == 0 ? 1 : hash; \
@@ -90,6 +90,12 @@
 			indirect = &bucket->next; \
 			index = *indirect; \
 		} \
+		if (ret_key) { \
+			*ret_key = bucket->key; \
+		} \
+		if (ret_item) { \
+			*ret_item = table->items[index]; \
+		} \
 		*indirect = bucket->next; \
 		bucket->hash = 0; \
 		table->num_items--; \
@@ -102,7 +108,7 @@
 		unsigned int index = __##name##_hash_to_idx(hash, table->size); \
 	  \
 		unsigned int *indirect = &table->list_entries[index].first; \
-		unsigned int next = name##_INVALID_INDEX; \
+		unsigned int next = *indirect; \
 		struct name##_bucket *bucket; \
 		for (;;) { \
 			bucket = &table->list_entries[index]; \
@@ -140,7 +146,7 @@
 		for (unsigned int i = 0; i < table->size; i++) { \
 			struct name##_bucket *bucket = &table->list_entries[i]; \
 			if (bucket->hash != 0) { \
-				item_type *item = __##name##_insert_internal(&new_table, bucket->key, \
+				item_type *item = __##name##_insert_internal(&new_table, bucket->key,	\
 				                                             bucket->hash); \
 				memcpy(item, &table->items[i], sizeof(item_type)); \
 			} \
