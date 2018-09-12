@@ -29,7 +29,17 @@
 	  \
 	static void name##_init(struct name *table, unsigned int size) \
 	{ \
-		assert((size & (size - 1)) == 0); \
+		if ((size & (size - 1)) != 0) { \
+			/* round to next power of 2 */ \
+			size--; \
+			size |= size >> 1; \
+			size |= size >> 2; \
+			size |= size >> 4; \
+			size |= size >> 8; \
+			size |= size >> 16; \
+			/* size |= size >> 32; */ \
+			size++; \
+		} \
 		/* size_t indices_size = size * sizeof(*table->indices); */ \
 		size_t list_entries_size = size * sizeof(*table->list_entries); \
 		size_t items_size = size * sizeof(*table->items); \
@@ -133,7 +143,6 @@
 	  \
 	static void name##_resize(struct name *table, unsigned int size) \
 	{ \
-		assert((size & (size - 1)) == 0); \
 		unsigned int min_size = (table->num_items * 10 + THRESHOLD - 1) / THRESHOLD; \
 		if (size < min_size) { \
 			size = min_size; \

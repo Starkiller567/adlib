@@ -111,7 +111,7 @@ DEFINE_HASHTABLE(stable, char *, char *, string_hash, strings_equal, 8)
 DEFINE_HASHTABLE(sstable, char *, struct short_string, string_hash, strings_equal, 8)
 DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
 
-int main(void)
+int main(int argc, char **argv)
 {
 	struct itable itable;
 	struct stable stable;
@@ -120,11 +120,11 @@ int main(void)
 	unsigned int i, num_items, x = 0;
 	struct timespec start_tp, end_tp;
 	unsigned long long start_ns, ns, total_ns, sum_ns = 0;
-	bool verbose = true;
+	bool verbose = argc >= 2 && strcmp(argv[1], "verbose") == 0;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	start_ns = tp_to_ns(&start_tp);
-#if 0
+#if 1
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
@@ -146,7 +146,7 @@ int main(void)
 	itable_destroy(&itable);
 #endif
 
-#if 0
+#if 1
 	stable_init(&stable, 128);
 
 	num_items = 1000000;
@@ -178,7 +178,7 @@ int main(void)
 	stable_destroy(&stable);
 #endif
 
-#if 0
+#if 1
 	sstable_init(&sstable, 128);
 
 	num_items = 1000000;
@@ -207,7 +207,7 @@ int main(void)
 	sstable_destroy(&sstable);
 #endif
 
-#if 0
+#if 1
 	ssstable_init(&ssstable, 128);
 
 	num_items = 1000000;
@@ -236,7 +236,7 @@ int main(void)
 	ssstable_destroy(&ssstable);
 #endif
 
-#if 0
+#if 1
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
@@ -311,6 +311,37 @@ int main(void)
 		sprintf(item->s, "%u", r);
 		item = sstable_lookup(&sstable, key);
 		sprintf(item->s, "%u", i);
+	}
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
+	ns = ns_elapsed(&start_tp, &end_tp);
+	if (verbose) printf("[%u]: %llu\n", x++, ns);
+	sum_ns += ns;
+	sstable_destroy(&sstable);
+#endif
+
+#if 1
+	sstable_init(&sstable, 128);
+	num_items = 1000000;
+
+	srand(1234);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
+	for (i = 0; i < num_items; i++) {
+		unsigned int op = rand() % 100;
+		unsigned int r = rand() % num_items;
+		char key[16];
+		sprintf(key, "%u", r);
+		struct short_string *item;
+		if (op < 50) {
+			item = sstable_insert(&sstable, key);
+			sprintf(item->s, "%u", i);
+		} else if (op < 90) {
+			item = sstable_lookup(&sstable, key);
+			if (item) {
+				sprintf(item->s, "%u", i);
+			}
+		} else {
+			sstable_remove(&sstable, key, NULL, NULL);
+		}
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);

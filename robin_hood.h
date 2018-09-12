@@ -6,8 +6,6 @@
 
 #define DEFINE_HASHTABLE(name, key_type, item_type, compute_hash, keys_equal, THRESHOLD) \
 	  \
-	static const unsigned int name##_INVALID_INDEX = -1; \
-	  \
 	struct name##_bucket { \
 		unsigned int hash; \
 		key_type key; \
@@ -27,6 +25,17 @@
 	  \
 	static void name##_init(struct name *table, unsigned int size) \
 	{ \
+		if ((size & (size - 1)) != 0) { \
+			/* round to next power of 2 */ \
+			size--; \
+			size |= size >> 1; \
+			size |= size >> 2; \
+			size |= size >> 4; \
+			size |= size >> 8; \
+			size |= size >> 16; \
+			/* size |= size >> 32; */ \
+			size++; \
+		} \
 		size_t buckets_size = size * sizeof(*table->buckets); \
 		size_t items_size = size * sizeof(*table->items); \
 		char *mem = malloc(buckets_size + items_size); \
