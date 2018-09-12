@@ -9,16 +9,14 @@
 	static const unsigned int name##_INVALID_INDEX = -1; \
 	  \
 	struct name##_bucket { \
-		unsigned int first; \
 		unsigned int hash; \
-		unsigned int next; \
 		key_type key; \
 	}; \
 	  \
 	struct name { \
 		unsigned int num_items; \
 		unsigned int size; \
-		struct name##_bucket *list_entries; \
+		struct name##_bucket *buckets; \
 		item_type *items; \
 	}; \
 	  \
@@ -29,29 +27,20 @@
 	  \
 	static void name##_init(struct name *table, unsigned int size) \
 	{ \
-		assert((size & (size - 1)) == 0); \
-		/* size_t indices_size = size * sizeof(*table->indices); */ \
-		size_t list_entries_size = size * sizeof(*table->list_entries); \
+		size_t buckets_size = size * sizeof(*table->buckets); \
 		size_t items_size = size * sizeof(*table->items); \
-		char *mem = malloc(list_entries_size + items_size); \
-		/* table->indices = (unsigned int *)mem; */ \
-		/* mem += indices_size; */ \
-		table->list_entries = (struct name##_bucket *)mem; \
-		mem += list_entries_size; \
+		char *mem = malloc(buckets_size + items_size); \
+		table->buckets = (struct name##_bucket *)mem; \
+		mem += buckets_size; \
 		table->items = (item_type *)mem; \
-		/* memset(table->indices, 0xff, indices_size); */ \
-		/* memset(table->list_entries, 0, list_entries_size); */ \
-		for (unsigned int i = 0; i < size; i++) { \
-			table->list_entries[i].first = name##_INVALID_INDEX; \
-			table->list_entries[i].hash = 0; \
-		} \
+		memset(table->buckets, 0, buckets_size); \
 		table->num_items = 0; \
 		table->size = size; \
 	} \
 	  \
 	static void name##_destroy(struct name *table) \
 	{ \
-		free(table->list_entries); \
+		free(table->buckets); \
 		table->size = 0; \
 	} \
 	  \
@@ -59,81 +48,88 @@
 	{ \
 		unsigned int hash = compute_hash(key); \
 		hash = hash == 0 ? 1 : hash; \
-		unsigned int index = table->list_entries[__##name##_hash_to_idx(hash, table->size)].first; \
+		unsigned int start_index = __##name##_hash_to_idx(hash, table->size);	\
+		unsigned int index = start_index; \
 		for (;;) { \
-			if (index == name##_INVALID_INDEX) { \
-				return NULL; \
-			} \
-			struct name##_bucket *bucket = &table->list_entries[index]; \
+			struct name##_bucket *bucket = &table->buckets[index]; \
 			if (hash == bucket->hash && keys_equal(key, bucket->key)) { \
 				return &table->items[index]; \
 			} \
-			index = bucket->next; \
+			index = (index + 1) & (table->size - 1); \
+			if (index == start_index) { \
+				return NULL; \
+			} \
 		} \
 	} \
 	  \
-	static bool name##_remove(struct name *table, key_type key, key_type *ret_key, item_type *ret_item) \
+	static bool name##_remove(struct name *table, key_type key, key_type *pkey, item_type *pitem) \
 	{ \
 		unsigned int hash = compute_hash(key); \
 		hash = hash == 0 ? 1 : hash; \
-		unsigned int *indirect = &table->list_entries[__##name##_hash_to_idx(hash, table->size)].first; \
-		unsigned int index = *indirect; \
+		unsigned int index = __##name##_hash_to_idx(hash, table->size); \
 		struct name##_bucket *bucket; \
 		for (;;) { \
-			if (index == name##_INVALID_INDEX) { \
+			bucket = &table->buckets[index]; \
+			if (bucket->hash == 0) { \
 				return false; \
 			} \
-			bucket = &table->list_entries[index]; \
 			if (hash == bucket->hash && keys_equal(key, bucket->key)) { \
 				break; \
 			} \
-			indirect = &bucket->next; \
-			index = *indirect; \
+			index = (index + 1) & (table->size - 1); \
 		} \
-		if (ret_key) { \
-			*ret_key = bucket->key; \
+		if (pkey) { \
+			*pkey = bucket->key; \
 		} \
-		if (ret_item) { \
-			*ret_item = table->items[index]; \
+		if (pitem) { \
+			*pitem = table->items[index]; \
 		} \
-		*indirect = bucket->next; \
 		bucket->hash = 0; \
 		table->num_items--; \
 		return true; \
+	} \
+	  \
+	static inline unsigned int __##name##_compute_dist(struct name *table, unsigned int index, \
+	                                                   unsigned int hash)	\
+	{ \
+		unsigned int pref_index = __##name##_hash_to_idx(hash, table->size); \
+		unsigned int dist = pref_index - index; \
+		if (index > pref_index) { \
+			dist = index - pref_index; \
+		} \
+		return dist; \
 	} \
 	  \
 	static item_type *__##name##_insert_internal(struct name *table, key_type key, unsigned int hash) \
 	{ \
 		assert(table->num_items * 10 <= THRESHOLD * table->size); \
 		unsigned int index = __##name##_hash_to_idx(hash, table->size); \
+		unsigned int dist = 0; \
 	  \
-		unsigned int *indirect = &table->list_entries[index].first; \
-		unsigned int next = *indirect; \
 		struct name##_bucket *bucket; \
 		for (;;) { \
-			bucket = &table->list_entries[index]; \
+			bucket = &table->buckets[index]; \
 			if (bucket->hash == 0) { \
 				break; \
 			} \
-			index = (index + 1) & (table->size - 1); \
-			if (0 && index > *indirect) { \
-				struct name##_bucket *prev = &table->list_entries[*indirect]; \
-				indirect = &prev->next; \
-				next = prev->next; \
+			unsigned int bucket_dist = __##name##_compute_dist(table, index, bucket->hash); \
+			if (bucket_dist < dist) { \
+				item_type *item = __##name##_insert_internal(table, bucket->key, bucket->hash); \
+				*item = table->items[index]; \
+				break; \
 			} \
+			index = (index + 1) & (table->size - 1); \
+			dist++; \
 		} \
 	  \
 		bucket->hash = hash; \
-		bucket->next = next; \
 		bucket->key = key; \
-		*indirect = index; \
 	  \
 		return &table->items[index]; \
 	} \
 	  \
 	static void name##_resize(struct name *table, unsigned int size) \
 	{ \
-		assert((size & (size - 1)) == 0); \
 		unsigned int min_size = (table->num_items * 10 + THRESHOLD - 1) / THRESHOLD; \
 		if (size < min_size) { \
 			size = min_size; \
@@ -145,7 +141,7 @@
 		name##_init(&new_table, size); \
 	  \
 		for (unsigned int i = 0; i < table->size; i++) { \
-			struct name##_bucket *bucket = &table->list_entries[i]; \
+			struct name##_bucket *bucket = &table->buckets[i]; \
 			if (bucket->hash != 0) { \
 				item_type *item = __##name##_insert_internal(&new_table, bucket->key,	\
 				                                             bucket->hash); \
