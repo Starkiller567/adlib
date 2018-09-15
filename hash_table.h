@@ -114,7 +114,6 @@
 	  \
 	static item_type *__##name##_insert_internal(struct name *table, key_type key, unsigned int hash) \
 	{ \
-		assert(table->num_items * 10 <= THRESHOLD * table->size); \
 		unsigned int index = __##name##_hash_to_idx(hash, table->size); \
 	  \
 		unsigned int *indirect = &table->list_entries[index].first; \
