@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct __array {
+typedef struct {
 	unsigned int len;
 	unsigned int limit;
 } __arr;
