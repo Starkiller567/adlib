@@ -37,6 +37,17 @@ static inline size_t cbuf_avail_size(struct cbuf *cbuf)
 	return cbuf->capacity - cbuf_size(cbuf);
 }
 
+static bool cbuf_skip(struct cbuf *cbuf, size_t count)
+{
+	size_t avail = cbuf_size(cbuf);
+	if (count > avail) {
+		// TODO skip avail bytes instead and return the number of bytes skipped?
+		return false;
+	}
+	cbuf->start += count;
+	return true;
+}
+
 static bool cbuf_pushb(struct cbuf *cbuf, char byte, bool overwrite)
 {
 	size_t avail = cbuf_avail_size(cbuf);

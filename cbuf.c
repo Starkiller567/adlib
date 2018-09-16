@@ -7,6 +7,7 @@ int main(void)
 {
 	struct cbuf cbuf;
 	size_t k, n = 16;
+	bool b;
 	cbuf_init(&cbuf, malloc(n), n);
 
 	puts("---push/pop---");
@@ -42,10 +43,28 @@ int main(void)
 
 	cbuf_flush(&cbuf);
 
+	puts("---push/skip/peek/pop---");
+	n = cbuf_push(&cbuf, str, strlen(str), false);
+	printf("%lu\n", n);
+	b = cbuf_skip(&cbuf, n - 1);
+	assert(b);
+	n = cbuf_peek(&cbuf, buf, sizeof(buf));
+	assert(n == 1);
+	buf[1] = 0;
+	puts(buf);
+	b = cbuf_skip(&cbuf, 2);
+	assert(!b);
+	b = cbuf_skip(&cbuf, 1);
+	assert(b);
+	n = cbuf_pop(&cbuf, buf, sizeof(buf));
+	assert(n == 0);
+
+	cbuf_flush(&cbuf);
+
 	puts("---pushb/peekb/popb---");
 	n = 0;
 	for (size_t i = 0; i < 80; i++) {
-		bool b = cbuf_pushb(&cbuf, '0' + i, true);
+		b = cbuf_pushb(&cbuf, '0' + i, true);
 		if (b) {
 			n++;
 		}
