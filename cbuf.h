@@ -52,7 +52,7 @@ static bool cbuf_pushb(struct cbuf *cbuf, char byte, bool overwrite)
 	return true;
 }
 
-static bool cbuf_popb(struct cbuf *cbuf, char *bytep)
+static bool cbuf_peekb(struct cbuf *cbuf, char *bytep)
 {
 	size_t avail = cbuf_size(cbuf);
 	if (avail == 0) {
@@ -60,8 +60,16 @@ static bool cbuf_popb(struct cbuf *cbuf, char *bytep)
 	}
 	size_t index = cbuf->start & (cbuf->capacity - 1);
 	*bytep = cbuf->buf[index];
-	cbuf->start++;
 	return true;
+}
+
+static bool cbuf_popb(struct cbuf *cbuf, char *bytep)
+{
+	if (cbuf_peekb(cbuf, bytep)) {
+		cbuf->start++;
+		return true;
+	}
+	return false;
 }
 
 static void cbuf_write(struct cbuf *cbuf, size_t offset, const void *_buf, size_t count);
@@ -81,13 +89,19 @@ static size_t cbuf_push(struct cbuf *cbuf, const void *buf, size_t count, bool o
 	return count;
 }
 
-static size_t cbuf_pop(struct cbuf *cbuf, void *buf, size_t count)
+static size_t cbuf_peek(struct cbuf *cbuf, void *buf, size_t count)
 {
 	size_t avail = cbuf_size(cbuf);
 	if (avail < count) {
 		count = avail;
 	}
 	cbuf_read(cbuf, cbuf->start, buf, count);
+	return count;
+}
+
+static size_t cbuf_pop(struct cbuf *cbuf, void *buf, size_t count)
+{
+	count = cbuf_peek(cbuf, buf, count);
 	cbuf->start += count;
 	return count;
 }
