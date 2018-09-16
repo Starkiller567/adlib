@@ -86,6 +86,6 @@ int main(void)
 	}
 	putchar('\n');
 
-	free(cbuf.buf);
+	free(cbuf_buffer(&cbuf));
 	return 0;
 }

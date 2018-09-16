@@ -12,14 +12,24 @@ struct cbuf {
 	size_t end;
 };
 
-static void cbuf_init(struct cbuf *cbuf, void *mem, size_t capacity)
+static void cbuf_init(struct cbuf *cbuf, void *buf, size_t capacity)
 {
 	assert(capacity != 0 && (capacity & (capacity - 1)) == 0);
 
-	cbuf->buf = mem;
+	cbuf->buf = buf;
 	cbuf->capacity = capacity;
 	cbuf->start = 0;
 	cbuf->end = 0;
+}
+
+static inline void *cbuf_buffer(struct cbuf *cbuf)
+{
+	return cbuf->buf;
+}
+
+static inline size_t cbuf_capacity(struct cbuf *cbuf)
+{
+	return cbuf->capacity;
 }
 
 static inline void cbuf_flush(struct cbuf *cbuf)
