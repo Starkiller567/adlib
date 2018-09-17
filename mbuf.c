@@ -21,10 +21,13 @@ int main(void)
 		if (size > avail) {
 			size = avail;
 		}
-		n = mbuf_push(&mbuf, str, size);
+		n = mbuf_push(&mbuf, str, size, false);
 		assert(n == size);
 		sizes[i] = n;
 	}
+
+	n = mbuf_pop(&mbuf, NULL, 0);
+	assert(n == sizes[0]);
 
 	char *buf = malloc(len + 1);
 	for (size_t i = 0; i < 128; i++) {
@@ -40,12 +43,23 @@ int main(void)
 	n = mbuf_pop(&mbuf, buf, len);
 	assert(n == 0);
 
-	n = mbuf_push(&mbuf, str, len);
+	n = mbuf_push(&mbuf, str, len, false);
 	assert(n == len);
 	mbuf_flush(&mbuf);
 	n = mbuf_pop(&mbuf, buf, len);
 	assert(n == 0);
 
+	buf = malloc(mbuf_avail_size(&mbuf));
+	n = mbuf_push(&mbuf, buf, mbuf_avail_size(&mbuf), false);
+	assert(mbuf_avail_size(&mbuf) == 0);
+	for (size_t i = 0; i < len; i++) buf[len - i - 1] = str[i];
+	n = mbuf_push(&mbuf, buf, len, true);
+	n = mbuf_pop(&mbuf, buf, len);
+	assert(n == len);
+	buf[n] = 0;
+	puts(buf);
+
+	free(buf);
 	free(mbuf_buffer(&mbuf));
 	return 0;
 }

@@ -38,7 +38,7 @@ static inline size_t mbuf_avail_size(struct mbuf *mbuf)
 	return avail > hdr_size ? avail - hdr_size : 0;
 }
 
-static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count)
+static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count, bool overwrite)
 {
 	if (count == 0) {
 		// accepting empty messages would complicate the interface due
@@ -46,11 +46,20 @@ static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count)
 		// (was the header pushed or not?, empty message or no message?)
 		return 0;
 	}
-	size_t n;
 	__mbuf_msg_hdr hdr;
-	if (cbuf_avail_size(&mbuf->cbuf) < sizeof(hdr) + count) {
-		// TODO optional overwrite?
-		return 0;
+	size_t n, total_size = sizeof(hdr) + count;
+	if (cbuf_avail_size(&mbuf->cbuf) < total_size) {
+		if (!overwrite || total_size > cbuf_capacity(&mbuf->cbuf)) {
+			return 0;
+		}
+		// drain messages to make space
+		do {
+			n = cbuf_pop(&mbuf->cbuf, &hdr, sizeof(hdr));
+			assert(n == sizeof(hdr));
+			assert(0 < hdr.size && hdr.size <= cbuf_size(&mbuf->cbuf));
+			bool b = cbuf_skip(&mbuf->cbuf, hdr.size);
+			assert(b);
+		} while (cbuf_avail_size(&mbuf->cbuf) < total_size);
 	}
 	hdr.size = count;
 	n = cbuf_push(&mbuf->cbuf, &hdr, sizeof(hdr), false);
