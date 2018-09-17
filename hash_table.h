@@ -68,7 +68,7 @@
 	static item_type *name##_lookup(struct name *table, key_type key) \
 	{ \
 		unsigned int hash = compute_hash(key); \
-		hash = hash == 0 ? 1 : hash; \
+		hash = hash == 0 ? -1 : hash; \
 		unsigned int index = table->list_entries[__##name##_hash_to_idx(hash, table->size)].first; \
 		for (;;) { \
 			if (index == name##_INVALID_INDEX) { \
@@ -85,7 +85,7 @@
 	static bool name##_remove(struct name *table, key_type key, key_type *ret_key, item_type *ret_item) \
 	{ \
 		unsigned int hash = compute_hash(key); \
-		hash = hash == 0 ? 1 : hash; \
+		hash = hash == 0 ? -1 : hash; \
 		unsigned int *indirect = &table->list_entries[__##name##_hash_to_idx(hash, table->size)].first; \
 		unsigned int index = *indirect; \
 		struct name##_bucket *bucket; \
@@ -173,7 +173,7 @@
 		} \
 	  \
 		unsigned int hash = compute_hash(key); \
-		hash = hash == 0 ? 1 : hash; \
+		hash = hash == 0 ? -1 : hash; \
 		return __##name##_insert_internal(table, key, hash); \
 	}
 

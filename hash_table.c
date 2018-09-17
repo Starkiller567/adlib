@@ -9,7 +9,7 @@
 static inline unsigned int integer_hash(unsigned int key)
 {
 	unsigned int h = key;
-	h = ~h;
+	/* h = ~h; */
 	/* h ^= (key << 16) | (key >> 16); */
 	return h;
 }
