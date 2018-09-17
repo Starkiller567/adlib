@@ -22,29 +22,29 @@ static void cbuf_init(struct cbuf *cbuf, void *buf, size_t capacity)
 	cbuf->end = 0;
 }
 
-static inline void *cbuf_buffer(struct cbuf *cbuf)
+static inline void *cbuf_buffer(const struct cbuf *cbuf)
 {
 	return cbuf->buf;
 }
 
-static inline size_t cbuf_capacity(struct cbuf *cbuf)
+static inline size_t cbuf_capacity(const struct cbuf *cbuf)
 {
 	return cbuf->capacity;
+}
+
+static inline size_t cbuf_size(const struct cbuf *cbuf)
+{
+	return cbuf->end - cbuf->start;
+}
+
+static inline size_t cbuf_avail_size(const struct cbuf *cbuf)
+{
+	return cbuf->capacity - cbuf_size(cbuf);
 }
 
 static inline void cbuf_flush(struct cbuf *cbuf)
 {
 	cbuf->start = cbuf->end;
-}
-
-static inline size_t cbuf_size(struct cbuf *cbuf)
-{
-	return cbuf->end - cbuf->start;
-}
-
-static inline size_t cbuf_avail_size(struct cbuf *cbuf)
-{
-	return cbuf->capacity - cbuf_size(cbuf);
 }
 
 static bool cbuf_skip(struct cbuf *cbuf, size_t count)
@@ -93,7 +93,7 @@ static bool cbuf_popb(struct cbuf *cbuf, char *bytep)
 }
 
 static void cbuf_write(struct cbuf *cbuf, size_t offset, const void *_buf, size_t count);
-static void cbuf_read(struct cbuf *cbuf, size_t offset, void *_buf, size_t count);
+static void cbuf_read(const struct cbuf *cbuf, size_t offset, void *_buf, size_t count);
 
 static size_t cbuf_push(struct cbuf *cbuf, const void *buf, size_t count, bool overwrite)
 {
@@ -144,7 +144,7 @@ static void cbuf_write(struct cbuf *cbuf, size_t offset, const void *_buf, size_
 	memcpy(start, buf, count);
 }
 
-static void cbuf_read(struct cbuf *cbuf, size_t offset, void *_buf, size_t count)
+static void cbuf_read(const struct cbuf *cbuf, size_t offset, void *_buf, size_t count)
 {
 	char *buf = (char *)_buf;
 	offset &= cbuf->capacity - 1;

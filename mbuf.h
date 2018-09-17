@@ -16,26 +16,26 @@ static inline void mbuf_init(struct mbuf *mbuf, void *mem, size_t capacity)
 	cbuf_init(&mbuf->cbuf, mem, capacity);
 }
 
-static inline void *mbuf_buffer(struct mbuf *mbuf)
+static inline void *mbuf_buffer(const struct mbuf *mbuf)
 {
 	return cbuf_buffer(&mbuf->cbuf);
 }
 
-static inline size_t mbuf_capacity(struct mbuf *mbuf)
+static inline size_t mbuf_capacity(const struct mbuf *mbuf)
 {
 	return cbuf_capacity(&mbuf->cbuf);
+}
+
+static inline size_t mbuf_avail_size(const struct mbuf *mbuf)
+{
+	size_t avail = cbuf_avail_size(&mbuf->cbuf);
+	size_t hdr_size = sizeof(__mbuf_msg_hdr);
+	return avail > hdr_size ? avail - hdr_size : 0;
 }
 
 static inline void mbuf_flush(struct mbuf *mbuf)
 {
 	cbuf_flush(&mbuf->cbuf);
-}
-
-static inline size_t mbuf_avail_size(struct mbuf *mbuf)
-{
-	size_t avail = cbuf_avail_size(&mbuf->cbuf);
-	size_t hdr_size = sizeof(__mbuf_msg_hdr);
-	return avail > hdr_size ? avail - hdr_size : 0;
 }
 
 static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count, bool overwrite)

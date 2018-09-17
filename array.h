@@ -78,6 +78,7 @@ static void __array_resize(void **arrp, unsigned int elem_size, unsigned int lim
 	*arrp = head + 1;
 }
 
+// increase limit by atleast n elements
 static void __array_grow(void **arrp, unsigned int elem_size, unsigned int n)
 {
 	if (n == 0) {
