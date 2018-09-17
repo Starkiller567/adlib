@@ -13,8 +13,15 @@ int main(void)
 	dbuf_truncate(&dbuf, dbuf_size(&dbuf) / 2 + 1);
 	dbuf_addb(&dbuf, 0);
 	dbuf_shrink_to_fit(&dbuf);
-	printf("size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	puts(dbuf_buffer(&dbuf));
+	dbuf_truncate(&dbuf, 0);
+	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_addb(&dbuf, 0);
+	dbuf_add(&dbuf, NULL, 1000);
+	printf("%s", (char *)dbuf_buffer(&dbuf));
+	printf("size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	dbuf_free(&dbuf);
 	return 0;
 }

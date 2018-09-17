@@ -2,6 +2,8 @@
 #define __dbuf_include__
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 struct dbuf {
@@ -115,6 +117,22 @@ static inline void dbuf_addbuf(struct dbuf *dbuf, const struct dbuf *buf)
 static inline void dbuf_addstr(struct dbuf *dbuf, const char *str)
 {
 	dbuf_add(dbuf, str, strlen(str));
+}
+
+static void dbuf_sprint(struct dbuf *dbuf, const char *fmt, ...)
+{
+	va_list args, args2;
+	va_start(args, fmt);
+	va_copy(args2, args);
+	size_t n = vsnprintf(NULL, 0, fmt, args);
+	size_t avail = dbuf_avail_size(dbuf);
+	if (n + 1 > avail) {
+		dbuf_grow(dbuf, n + 1 - avail);
+	}
+	vsnprintf(dbuf->buf + dbuf->size, n + 1, fmt, args2);
+	dbuf->size += n;
+
+	va_end(args);
 }
 
 #endif
