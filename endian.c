@@ -3,7 +3,7 @@
 
 int main(void)
 {
-#define x 0xdeadbeefcafebabe
+	volatile uint64_t x = 0xdeadbeefcafebabe;
 
 	uint16_t x16 = (uint16_t)x;
 	uint32_t x32 = (uint32_t)x;
