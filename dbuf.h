@@ -53,6 +53,13 @@ static inline size_t dbuf_avail_size(const struct dbuf *dbuf)
 	return dbuf->capacity - dbuf->size;
 }
 
+static void dbuf_truncate(struct dbuf *dbuf, size_t new_size)
+{
+	if (new_size < dbuf->size) {
+		dbuf->size = new_size;
+	}
+}
+
 static void dbuf_resize(struct dbuf *dbuf, size_t capacity)
 {
 	dbuf->buf = realloc(dbuf->buf, capacity);
@@ -94,7 +101,9 @@ static void dbuf_add(struct dbuf *dbuf, const void *buf, size_t count)
 	if (count > avail) {
 		dbuf_grow(dbuf, count - avail);
 	}
-	memcpy(dbuf->buf + dbuf->size, buf, count);
+	if (buf) {
+		memcpy(dbuf->buf + dbuf->size, buf, count);
+	}
 	dbuf->size += count;
 }
 
