@@ -20,6 +20,12 @@ static void print_array(int *arr)
 
 int main(void)
 {
+#if 0
+	int _x;
+	int *x = &_x;
+	array_add(x, 1);
+#endif
+
 	int *arr1 = NULL;
 	array_push(arr1, 1);
 	array_push(arr1, 2);
@@ -37,12 +43,14 @@ int main(void)
 
 	int *arr2 = array_copy(arr1);
 
-	array_pop(arr1);
-	array_pop(arr1);
-	array_pop(arr1);
-	array_pop(arr1);
-	array_pop(arr1);
-	array_pop(arr1);
+	int i;
+	i = array_pop(arr1);
+	i = array_pop(arr1);
+	i = array_pop(arr1);
+	i = array_pop(arr1);
+	i = array_pop(arr1);
+	i = array_pop(arr1);
+	printf("%d\n", i);
 
 	array_make_valid(arr1, 1);
 	array_make_valid(arr1, 7);
@@ -69,5 +77,17 @@ int main(void)
 
 	array_free(arr1);
 	array_insertn(arr1, 0, 10);
+	array_free(arr1);
+
+	array_reserve(arr1, 1);
+	print_array(arr1);
+	array_reserve(arr1, 5);
+	print_array(arr1);
+	array_add(arr1, 0);
+	array_add(arr1, 0);
+	array_add(arr1, 0);
+	array_add(arr1, 0);
+	array_add(arr1, 0);
+	print_array(arr1);
 	array_free(arr1);
 }

@@ -6,11 +6,27 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef ARRAY_SAFETY_CHECKS
+# define ARRAY_SAFETY_CHECKS 1
+#endif
+
+#define ARRAY_MAGIC 0xdeadbabe
+
 typedef struct {
 	unsigned int len;
 	unsigned int limit;
+#if ARRAY_SAFETY_CHECKS
+	unsigned int magic;
+#endif
 } __arr;
-#define __arrhead(a) ((__arr *)a - 1)
+
+#if ARRAY_SAFETY_CHECKS
+# include <assert.h>
+# define __arrhead_unchecked(a) ((__arr *)a - 1)
+# define __arrhead(a) (assert(__arrhead_unchecked(a)->magic == ARRAY_MAGIC), __arrhead_unchecked(a))
+#else
+# define __arrhead(a) ((__arr *)a - 1)
+#endif
 
 #define array_len(a)                  (a ? __arrhead(a)->len : 0)
 #define array_empty(a)                (array_len(a) == 0)
@@ -25,6 +41,7 @@ typedef struct {
 #define array_insert(a, i, v)          (array_insertn(a, i, 1), ((a)[i] = v))
 #define array_clear(a)	               (__arrhead(a)->len = 0)
 #define array_resize(a, limit)         __array_resize((void **)&(a), sizeof((a)[0]), limit)
+#define array_reserve(a, n)            __array_reserve((void **)&(a), sizeof((a)[0]), n)
 #define array_grow(a, n)               __array_grow((void **)&(a), sizeof((a)[0]), n)
 #define array_shrink_to_fit(a)         array_resize(a, array_len(a));
 #define array_make_valid(a, i)         __array_make_valid((void **)&(a), sizeof((a)[0]), i);
@@ -68,6 +85,9 @@ static void __array_resize(void **arrp, unsigned int elem_size, unsigned int lim
 	if (!(*arrp)) {
 		head = malloc(new_size);
 		head->len = 0;
+#if ARRAY_SAFETY_CHECKS
+		head->magic = ARRAY_MAGIC;
+#endif
 	} else {
 		head = realloc(__arrhead(*arrp), new_size);
 		if (head->len > limit) {
@@ -87,6 +107,17 @@ static void __array_grow(void **arrp, unsigned int elem_size, unsigned int n)
 	unsigned int limit = array_limit(*arrp);
 	unsigned int new_limit = n < limit ? 2 * limit : limit + n;
 	__array_resize(arrp, elem_size, new_limit);
+}
+
+static void __array_reserve(void **arrp, unsigned int elem_size, unsigned int n)
+{
+	if (n == 0) {
+		return;
+	}
+	unsigned int rem = array_limit(*arrp) - array_len(*arrp);
+	if (n > rem) {
+		__array_grow(arrp, elem_size, n - rem);
+	}
 }
 
 static void __array_make_valid(void **arrp, unsigned int elem_size, unsigned int i)
