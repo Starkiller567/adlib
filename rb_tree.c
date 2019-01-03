@@ -19,7 +19,7 @@
 #include <stddef.h>
 // from wikipedia, the ternary operator forces matching types on pointer and member
 #define container_of(ptr, type, member)				\
-	((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
+((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
 #endif
 
 enum rb_colors {
@@ -545,7 +545,7 @@ int main(void)
 		}
 	}
 #endif
-#if 0
+#if 1
 	for (unsigned int i = 0; ; i++) {
 		{
 			int key = rand() % 10000;
