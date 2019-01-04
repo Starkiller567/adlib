@@ -53,11 +53,21 @@ static inline void avl_set_balance(struct avl_node *node, int balance)
 	node->__parent_balance = (node->__parent_balance & ~0x3) | (balance + 1);
 }
 
+static inline bool avl_is_left_child(struct avl_node *child, struct avl_node *parent)
+{
+	if (child == parent->left) {
+		return true;
+	} else {
+		assert(child == parent->right);
+		return false;
+	}
+}
+
 static inline void avl_change_child(struct avl_node *old_child, struct avl_node *new_child,
                                     struct avl_node *parent, struct avl_root *root)
 {
 	if (parent) {
-		if (old_child == parent->left) {
+		if (avl_is_left_child(old_child, parent)) {
 			parent->left = new_child;
 		} else {
 			assert(old_child == parent->right);
@@ -66,6 +76,104 @@ static inline void avl_change_child(struct avl_node *old_child, struct avl_node 
 	} else {
 		root->node = new_child;
 	}
+}
+
+static inline struct avl_node *avl_rotate_left(struct avl_root *root, struct avl_node *node)
+{
+	struct avl_node *right = node->right;
+	node->right = right->left;
+	if (node->right) {
+		avl_set_parent(node->right, node);
+	}
+	right->left = node;
+	avl_set_parent(node, right);
+	if (avl_balance(right) == 0) {
+		avl_set_balance(node, 1);
+		avl_set_balance(right, -1);
+	} else {
+		avl_set_balance(node, 0);
+		avl_set_balance(right, 0);
+	}
+	return right;
+}
+
+static inline struct avl_node *avl_rotate_right(struct avl_root *root, struct avl_node *node)
+{
+	struct avl_node *left = node->left;
+	node->left = left->right;
+	if (node->left) {
+		avl_set_parent(node->left, node);
+	}
+	left->right = node;
+	avl_set_parent(node, left);
+	if (avl_balance(left) == 0) {
+		avl_set_balance(node, -1);
+		avl_set_balance(left, 1);
+	} else {
+		avl_set_balance(node, 0);
+		avl_set_balance(left, 0);
+	}
+	return left;
+}
+
+static inline struct avl_node *avl_rotate_left_right(struct avl_root *root, struct avl_node *parent)
+{
+	struct avl_node *node = parent->left;
+	struct avl_node *right = node->right;
+	parent->left = right->right;
+	if (parent->left) {
+		avl_set_parent(parent->left, parent);
+	}
+	node->right = right->left;
+	if (node->right) {
+		avl_set_parent(node->right, node);
+	}
+	right->right = parent;
+	avl_set_parent(parent, right);
+	right->left = node;
+	avl_set_parent(node, right);
+	if (avl_balance(right) < 0) {
+		avl_set_balance(parent, 1);
+		avl_set_balance(node, 0);
+	} else if (avl_balance(right) == 0) {
+		avl_set_balance(parent, 0);
+		avl_set_balance(node, 0);
+	} else {
+		avl_set_balance(parent, 0);
+		avl_set_balance(node, -1);
+	}
+	avl_set_balance(right, 0);
+	return right;
+}
+
+static inline struct avl_node *avl_rotate_right_left(struct avl_root *root, struct avl_node *parent)
+{
+	struct avl_node *node = parent->right;
+	struct avl_node *left = node->left;
+	parent->right = left->left;
+	if (parent->right) {
+		avl_set_parent(parent->right, parent);
+	}
+	node->left = left->right;
+	if (node->left) {
+		avl_set_parent(node->left, node);
+	}
+	left->left = parent;
+	avl_set_parent(parent, left);
+	left->right = node;
+	avl_set_parent(node, left);
+	if (avl_balance(left) > 0) {
+		avl_set_balance(parent, -1);
+		avl_set_balance(node, 0);
+	} else if (avl_balance(left) == 0) {
+		avl_set_balance(parent, 0);
+		avl_set_balance(node, 0);
+	} else {
+		avl_set_balance(parent, 0);
+		avl_set_balance(node, 1);
+	}
+	avl_set_balance(left, 0);
+	return left;
 }
 
 static int num_nodes;
@@ -116,6 +224,134 @@ static struct avl_node *avl_find(struct avl_root *root, int key)
 	return NULL;
 }
 
+static void avl_remove_node(struct avl_root *root, struct avl_node *node)
+{
+	struct avl_node *child;
+	struct avl_node *parent;
+	bool is_left;
+
+	if (!node->left) {
+		child = node->right;
+	} else if (!node->right) {
+		child = node->left;
+	} else {
+		child = node->right;
+		parent = node;
+		is_left = false;
+		while (child->left) {
+			parent = child;
+			child = child->left;
+			is_left = true;
+		}
+
+		assert(is_left == avl_is_left_child(child, parent));
+
+		avl_change_child(node, child, avl_parent(node), root);
+		child->__parent_balance = node->__parent_balance;
+
+		if (node == parent) {
+			child->left = node->left;
+			avl_set_parent(child->left, child);
+
+			parent = child;
+		} else {
+			parent->left = child->right;
+			if (parent->left) {
+				avl_set_parent(parent->left, parent);
+			}
+
+			child->right = node->right;
+			avl_set_parent(child->right, child);
+
+			child->left = node->left;
+			avl_set_parent(child->left, child);
+
+
+		}
+		goto rebalance;
+	}
+
+	parent = avl_parent(node);
+	if (!parent) {
+		root->node = NULL;
+		return;
+	}
+	is_left = avl_is_left_child(node, parent);
+	if (is_left) {
+		parent->left = child;
+	} else {
+		parent->right = child;
+	}
+	if (child) {
+		avl_set_parent(child, parent);
+	}
+
+rebalance:;
+	// repair (generic)
+	struct avl_node *grandparent;
+	for (;;) {
+		grandparent = avl_parent(parent);
+		int balance = avl_balance(parent);
+		if (is_left) {
+			if (balance == 0) {
+				avl_set_balance(parent, 1);
+				break;
+			}
+			if (balance > 0) {
+				balance = avl_balance(parent->right);
+				if (balance < 0) {
+					node = avl_rotate_right_left(root, parent);
+				} else {
+					node = avl_rotate_left(root, parent);
+				}
+			} else {
+				avl_set_balance(parent, 0);
+				node = parent;
+				goto cont;
+			}
+		} else {
+			if (balance == 0) {
+				avl_set_balance(parent, -1);
+				break;
+			}
+			if (balance < 0) {
+				balance = avl_balance(parent->left);
+				if (balance > 0) {
+					node = avl_rotate_left_right(root, parent);
+				} else {
+					node = avl_rotate_right(root, parent);
+				}
+			} else {
+				avl_set_balance(parent, 0);
+				node = parent;
+				goto cont;
+			}
+		}
+		avl_change_child(parent, node, grandparent, root);
+		avl_set_parent(node, grandparent);
+		if (balance == 0) {
+			break;
+		}
+
+	cont:
+		debug_recursive_check_tree(parent);
+		parent = grandparent;
+		if (!parent) {
+			break;
+		}
+		is_left = avl_is_left_child(node, parent);
+	}
+}
+
+static struct avl_node *avl_remove_key(struct avl_root *root, int key)
+{
+	struct avl_node *node = avl_find(root, key);
+	if (node) {
+		avl_remove_node(root, node);
+	}
+	return node;
+}
+
 static bool avl_insert(struct avl_root *root, struct avl_node *node)
 {
 	// insert
@@ -141,140 +377,54 @@ static bool avl_insert(struct avl_root *root, struct avl_node *node)
 	// repair (generic)
 	for (;;) {
 		if (!parent) {
-			return true;
+			break;
 		}
-		int balance = avl_balance(parent);
-		if (node == parent->left) {
-			balance--;
-		} else {
-			balance++;
-		}
-
 		struct avl_node *grandparent = avl_parent(parent);
-		if (balance < -1) {
-			assert(node == parent->left);
-			assert(balance == -2);
-			if (avl_balance(node) > 0) {
-				// left-right rotate
-				struct avl_node *x = parent;
-				struct avl_node *z = node;
-				struct avl_node *y = node->right;
-				struct avl_node *t2 = y->right;
-				struct avl_node *t3 = y->left;
-				avl_change_child(x, y, grandparent, root);
-				avl_set_parent(y, grandparent);
-				y->right = x;
-				avl_set_parent(x, y);
-				y->left = z;
-				avl_set_parent(z, y);
-				x->left = t2;
-				if (x->left) {
-					avl_set_parent(x->left, x);
-				}
-				z->right = t3;
-				if (z->right) {
-					avl_set_parent(z->right, z);
-				}
-				if (avl_balance(y) < 0) {
-					avl_set_balance(x, 1);
-					avl_set_balance(z, 0);
-				} else if (avl_balance(y) == 0) {
-					avl_set_balance(x, 0);
-					avl_set_balance(z, 0);
+		int balance = avl_balance(parent);
+		if (avl_is_left_child(node, parent)) {
+			if (balance > 0) {
+				avl_set_balance(parent, 0);
+				break;
+			}
+			if (balance < 0) {
+				if (avl_balance(node) > 0) {
+					node = avl_rotate_left_right(root, parent);
 				} else {
-					avl_set_balance(x, 0);
-					avl_set_balance(z, -1);
+					node = avl_rotate_right(root, parent);
 				}
-				avl_set_balance(y, 0);
-				node = y;
-			} else {
 				avl_change_child(parent, node, grandparent, root);
 				avl_set_parent(node, grandparent);
-				parent->left = node->right;
-				if (parent->left) {
-					avl_set_parent(parent->left, parent);
-				}
-				node->right = parent;
-				avl_set_parent(parent, node);
-				if (avl_balance(node) == 0) {
-					avl_set_balance(node, 1);
-					avl_set_balance(parent, -1);
-				} else {
-					avl_set_balance(node, 0);
-					avl_set_balance(parent, 0);
-				}
+				break;
 			}
-		} else if (balance > 1) {
-			assert(node == parent->right);
-			assert(balance == 2);
-			if (avl_balance(node) < 0) {
-				// right-left rotate
-				struct avl_node *x = parent;
-				struct avl_node *z = node;
-				struct avl_node *y = node->left;
-				struct avl_node *t2 = y->left;
-				struct avl_node *t3 = y->right;
-				avl_change_child(x, y, grandparent, root);
-				avl_set_parent(y, grandparent);
-				y->left = x;
-				avl_set_parent(x, y);
-				y->right = z;
-				avl_set_parent(z, y);
-				x->right = t2;
-				if (x->right) {
-					avl_set_parent(x->right, x);
-				}
-				z->left = t3;
-				if (z->left) {
-					avl_set_parent(z->left, z);
-				}
-				if (avl_balance(y) > 0) {
-					avl_set_balance(x, -1);
-					avl_set_balance(z, 0);
-				} else if (avl_balance(y) == 0) {
-					avl_set_balance(x, 0);
-					avl_set_balance(z, 0);
-				} else {
-					avl_set_balance(x, 0);
-					avl_set_balance(z, 1);
-				}
-				avl_set_balance(y, 0);
-				node = y;
-			} else {
-				// rotate left
-				avl_change_child(parent, node, grandparent, root);
-				avl_set_parent(node, grandparent);
-				parent->right = node->left;
-				if (parent->right) {
-					avl_set_parent(parent->right, parent);
-				}
-				node->left = parent;
-				avl_set_parent(parent, node);
-				if (avl_balance(node) == 0) {
-					avl_set_balance(node, -1);
-					avl_set_balance(parent, 1);
-				} else {
-					avl_set_balance(node, 0);
-					avl_set_balance(parent, 0);
-				}
-			}
+			avl_set_balance(parent, -1);
 		} else {
-			avl_set_balance(parent, balance);
-			node = parent;
+			if (balance < 0) {
+				avl_set_balance(parent, 0);
+				break;
+			}
+			if (balance > 0) {
+				if (avl_balance(node) < 0) {
+					node = avl_rotate_right_left(root, parent);
+				} else {
+					node = avl_rotate_left(root, parent);
+				}
+				avl_change_child(parent, node, grandparent, root);
+				avl_set_parent(node, grandparent);
+				break;
+			}
+			avl_set_balance(parent, 1);
+
 		}
-		if (avl_balance(node) == 0) {
-			return true;
-		}
-		parent = grandparent;
+		node = parent;
+		parent = avl_parent(parent);
 		/* debug_recursive_check_tree(node); */
 	}
+	return true;
 }
 
 int main(void)
 {
 	struct avl_root root = EMPTY_ROOT;
-	srand(time(NULL));
-	/* srand(2); */
 #if 0
 	char buf[128];
 	while (fgets(buf, sizeof(buf), stdin)) {
@@ -302,8 +452,9 @@ int main(void)
 		debug_check_tree(&root);
 	}
 #endif
-#if 0
-	for (unsigned int i = 0; ; i++) {
+#if 1
+	srand(0);
+	for (unsigned int i = 0; i < 20000; i++) {
 		int key = rand();
 		struct thing *thing = malloc(sizeof(*thing));
 		thing->key = key;
@@ -316,8 +467,10 @@ int main(void)
 		printf("max depth: %d\n", depth);
 		printf("num nodes: %d\n", num_nodes);
 	}
+	return 0;
 #endif
 #if 1
+	srand(time(NULL));
 	for (unsigned int i = 0; ; i++) {
 		{
 			int key = rand() % 10000;
@@ -325,32 +478,29 @@ int main(void)
 			thing->key = key;
 			bool success = avl_insert(&root, &thing->avl_node);
 			if (!success) {
-				/*
 				struct avl_node *node = avl_remove_key(&root, key);
 				free(to_thing(node));
 				success = avl_insert(&root, &thing->avl_node);
 				assert(success);
-				*/
 			}
 			if (success) assert(avl_find(&root, key) == &thing->avl_node);
 		}
+		debug_check_tree(&root);
 		{
 			int key = rand() % 10000;
 			struct avl_node *node = avl_find(&root, key);
 			if (node) {
-				/*
 				avl_remove_node(&root, node);
 				assert(!avl_find(&root, key));
 				free(to_thing(node));
-				*/
 			}
 		}
 
-		// if (i % (1 << 20) == 0) {
-		int depth = debug_check_tree(&root);
-		printf("max depth: %d\n", depth);
-		printf("num nodes: %d\n", num_nodes);
-		// }
+		if (i % (1 << 20) == 0) {
+			int depth = debug_check_tree(&root);
+			printf("max depth: %d\n", depth);
+			printf("num nodes: %d\n", num_nodes);
+		}
 	}
 #endif
 }
