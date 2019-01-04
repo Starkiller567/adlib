@@ -454,7 +454,7 @@ int main(void)
 #endif
 #if 1
 	srand(0);
-	for (unsigned int i = 0; i < 20000; i++) {
+	for (unsigned int i = 0; i < 5000000; i++) {
 		int key = rand();
 		struct thing *thing = malloc(sizeof(*thing));
 		thing->key = key;
@@ -463,9 +463,9 @@ int main(void)
 		assert(node);
 		assert(!success || to_thing(node) == thing);
 		assert(to_thing(node)->key == key);
-		int depth = debug_check_tree(&root);
-		printf("max depth: %d\n", depth);
-		printf("num nodes: %d\n", num_nodes);
+		//int depth = debug_check_tree(&root);
+		//printf("max depth: %d\n", depth);
+		//printf("num nodes: %d\n", num_nodes);
 	}
 	return 0;
 #endif
@@ -496,7 +496,7 @@ int main(void)
 			}
 		}
 
-		if (i % (1 << 20) == 0) {
+		if (i % (1 << 10) == 0) {
 			int depth = debug_check_tree(&root);
 			printf("max depth: %d\n", depth);
 			printf("num nodes: %d\n", num_nodes);

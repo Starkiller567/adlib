@@ -1,10 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <time.h>
-#include <unistd.h>
 
 /* From Wikipedia:
  * 1) Each node is either red or black.
@@ -28,7 +27,7 @@ enum rb_colors {
 };
 
 struct rb_node {
-	unsigned long __parent_color;
+	uintptr_t __parent_color;
 	struct rb_node *left;
 	struct rb_node *right;
 };
@@ -62,12 +61,12 @@ static struct rb_node *rb_find(struct rb_root *root, int key)
 	return NULL;
 }
 
-static inline struct rb_node *__rb_parent(unsigned long pc)
+static inline struct rb_node *__rb_parent(uintptr_t pc)
 {
 	return (struct rb_node *)(pc & ~1);
 }
 
-static inline unsigned long __rb_color(unsigned long pc)
+static inline uintptr_t __rb_color(uintptr_t pc)
 {
 	return (pc & 1);
 }
@@ -77,21 +76,21 @@ static inline struct rb_node *rb_parent(struct rb_node *node)
 	return __rb_parent(node->__parent_color);
 }
 
-static inline unsigned long rb_color(struct rb_node *node)
+static inline uintptr_t rb_color(struct rb_node *node)
 {
 	return __rb_color(node->__parent_color);
 }
 
 static inline void rb_set_parent(struct rb_node *node, struct rb_node *parent)
 {
-	assert(((unsigned long)parent & 1) == 0);
-	node->__parent_color = rb_color(node) | (unsigned long)parent;
+	assert(((uintptr_t)parent & 1) == 0);
+	node->__parent_color = rb_color(node) | (uintptr_t)parent;
 }
 
-static inline void rb_set_color(struct rb_node *node, unsigned long color)
+static inline void rb_set_color(struct rb_node *node, uintptr_t color)
 {
 	assert(color == RB_RED || color == RB_BLACK);
-	node->__parent_color = (unsigned long)rb_parent(node) | color;
+	node->__parent_color = (uintptr_t)rb_parent(node) | color;
 }
 
 static inline bool rb_is_red(struct rb_node *node)
@@ -280,7 +279,7 @@ static void rb_remove_node(struct rb_root *root, struct rb_node *node)
 	struct rb_node *child = node->right;
 	struct rb_node *tmp = node->left;
 	struct rb_node *rebalance;
-	unsigned long pc;
+	uintptr_t pc;
 
 	// removal + trivial repairs
 	if (!tmp) {
@@ -499,7 +498,6 @@ static void debug_check_tree(struct rb_root *root)
 int main(void)
 {
 	struct rb_root root = EMPTY_ROOT;
-	srand(time(NULL));
 #if 0
 	char buf[128];
 	while (fgets(buf, sizeof(buf), stdin)) {
@@ -527,8 +525,9 @@ int main(void)
 		debug_check_tree(&root);
 	}
 #endif
-#if 0
-	for (unsigned int i = 0; ; i++) {
+#if 1
+	srand(0);
+	for (unsigned int i = 0; i < 5000000; i++) {
 		int key = rand();
 		struct thing *thing = malloc(sizeof(*thing));
 		thing->key = key;
@@ -537,15 +536,15 @@ int main(void)
 		assert(node);
 		assert(!success || to_thing(node) == thing);
 		assert(to_thing(node)->key == key);
-		if (i % (1 << 20) == 0) {
-			debug_check_tree(&root);
-			printf("black depth: %d\n", black_depth);
-			printf("max depth: %d\n", max_depth);
-			printf("num nodes: %d\n", num_nodes);
-		}
+		//debug_check_tree(&root);
+		//printf("black depth: %d\n", black_depth);
+		//printf("max depth: %d\n", max_depth);
+		//printf("num nodes: %d\n", num_nodes);
 	}
+	return 0;
 #endif
 #if 1
+	srand(time(NULL));
 	for (unsigned int i = 0; ; i++) {
 		{
 			int key = rand() % 10000;
