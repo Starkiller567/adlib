@@ -97,56 +97,63 @@ static inline struct avl_node *avl_single_rotate(struct avl_node *node, int dir)
 {
 	int left_dir = dir;
 	int right_dir = 1 - dir;
-	struct avl_node *right = node->children[right_dir];
-	node->children[right_dir] = right->children[left_dir];
+	struct avl_node *child = node->children[right_dir];
+	node->children[right_dir] = child->children[left_dir];
 	if (node->children[right_dir]) {
 		avl_set_parent(node->children[right_dir], node);
 	}
-	right->children[left_dir] = node;
-	avl_set_parent(node, right);
-	if (avl_balance(right) == 0) {
+	child->children[left_dir] = node;
+	avl_set_parent(node, child);
+
+#if 0
+	if (avl_balance(child) == 0) {
 		avl_set_balance(node, avl_d2b(right_dir));
-		avl_set_balance(right, avl_d2b(left_dir));
+		avl_set_balance(child, avl_d2b(left_dir));
 	} else {
 		avl_set_balance(node, 0);
-		avl_set_balance(right, 0);
+		avl_set_balance(child, 0);
 	}
-	return right;
+#else
+	int balance = (~avl_balance(child) & 1) * avl_d2b(right_dir);
+	avl_set_balance(node, balance);
+	avl_set_balance(child, -balance);
+#endif
+	return child;
 }
 
-static inline struct avl_node *avl_double_rotate(struct avl_node *parent, int dir)
+static inline struct avl_node *avl_double_rotate(struct avl_node *node, int dir)
 {
 	int left_dir = dir;
 	int right_dir = 1 - dir;
-	struct avl_node *node = parent->children[right_dir];
-	struct avl_node *left = node->children[left_dir];
-	parent->children[right_dir] = left->children[left_dir];
-	if (parent->children[right_dir]) {
-		avl_set_parent(parent->children[right_dir], parent);
+	struct avl_node *child = node->children[right_dir];
+	struct avl_node *left = child->children[left_dir];
+	node->children[right_dir] = left->children[left_dir];
+	if (node->children[right_dir]) {
+		avl_set_parent(node->children[right_dir], node);
 	}
-	node->children[left_dir] = left->children[right_dir];
-	if (node->children[left_dir]) {
-		avl_set_parent(node->children[left_dir], node);
+	child->children[left_dir] = left->children[right_dir];
+	if (child->children[left_dir]) {
+		avl_set_parent(child->children[left_dir], child);
 	}
-	left->children[left_dir] = parent;
-	avl_set_parent(parent, left);
-	left->children[right_dir] = node;
+	left->children[left_dir] = node;
 	avl_set_parent(node, left);
+	left->children[right_dir] = child;
+	avl_set_parent(child, left);
 	if (avl_balance(left) == 0) {
-		avl_set_balance(parent, 0);
 		avl_set_balance(node, 0);
+		avl_set_balance(child, 0);
 	} else if (avl_b2d(avl_balance(left)) == right_dir) {
-		avl_set_balance(parent, avl_d2b(left_dir));
-		avl_set_balance(node, 0);
+		avl_set_balance(node, avl_d2b(left_dir));
+		avl_set_balance(child, 0);
 	} else {
-		avl_set_balance(parent, 0);
-		avl_set_balance(node, avl_d2b(right_dir));
+		avl_set_balance(node, 0);
+		avl_set_balance(child, avl_d2b(right_dir));
 	}
 	avl_set_balance(left, 0);
 	return left;
 }
 
-static struct avl_node *avl_rotate(struct avl_node *node, int dir)
+static inline struct avl_node *avl_rotate(struct avl_node *node, int dir)
 {
 	/* assert(dir == AVL_LEFT || dir == AVL_RIGHT); */
 	int left_dir = dir;
