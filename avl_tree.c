@@ -139,16 +139,29 @@ static inline struct avl_node *avl_double_rotate(struct avl_node *node, int dir)
 	avl_set_parent(node, left);
 	left->children[right_dir] = child;
 	avl_set_parent(child, left);
+
+#if 1
+	int d = avl_balance(left) - avl_d2b(right_dir);
+	d = (d | (d >> 1)) & 1;
+	int x = avl_d2b(d * right_dir + (1 - d) * left_dir);
+	int b = avl_balance(left) & 1;
+	int node_balance = b * ((1 - d) * x);
+	int child_balance = b * (d * x);
+	avl_set_balance(node, node_balance);
+	avl_set_balance(child, child_balance);
+#else
 	if (avl_balance(left) == 0) {
 		avl_set_balance(node, 0);
 		avl_set_balance(child, 0);
-	} else if (avl_b2d(avl_balance(left)) == right_dir) {
+	} else if (avl_balance(left) == avl_d2b(right_dir)) {
 		avl_set_balance(node, avl_d2b(left_dir));
 		avl_set_balance(child, 0);
 	} else {
 		avl_set_balance(node, 0);
 		avl_set_balance(child, avl_d2b(right_dir));
 	}
+#endif
+
 	avl_set_balance(left, 0);
 	return left;
 }
