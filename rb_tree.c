@@ -38,28 +38,14 @@ struct rb_root {
 
 #define EMPTY_ROOT {NULL}
 
+#define rb_foreach(root) for (struct rb_node *cur = rb_first(root); cur; cur = rb_next(cur))
+
 struct thing {
 	int key;
 	struct rb_node rb_node;
 };
 
 #define to_thing(ptr) container_of(ptr, struct thing, rb_node)
-
-static struct rb_node *rb_find(struct rb_root *root, int key)
-{
-	struct rb_node *cur = root->node;
-	while (cur) {
-		if (key == to_thing(cur)->key) {
-			return cur;
-		}
-		int dir = RB_RIGHT;
-		if (key < to_thing(cur)->key) {
-			dir = RB_LEFT;
-		}
-		cur = cur->children[dir];
-	}
-	return NULL;
-}
 
 static inline struct rb_node *__rb_parent(uintptr_t pc)
 {
@@ -129,6 +115,52 @@ static inline void rb_change_child(struct rb_node *old_child, struct rb_node *ne
 	} else {
 		root->node = new_child;
 	}
+}
+
+static struct rb_node *rb_first(struct rb_root root)
+{
+	struct rb_node *node = NULL;
+	struct rb_node *cur = root.node;
+	while (cur) {
+		node = cur;
+		cur = cur->children[RB_LEFT];
+	}
+	return node;
+}
+
+static struct rb_node *rb_next(struct rb_node *node)
+{
+	if (node->children[RB_RIGHT]) {
+		node = node->children[RB_RIGHT];
+		while (node->children[RB_LEFT]) {
+			node = node->children[RB_LEFT];
+		}
+		return node;
+	}
+
+	struct rb_node *parent = rb_parent(node);
+	while (parent && node == parent->children[RB_RIGHT]) {
+		node = parent;
+		parent = rb_parent(node);
+	}
+
+	return parent;
+}
+
+static struct rb_node *rb_find(struct rb_root *root, int key)
+{
+	struct rb_node *cur = root->node;
+	while (cur) {
+		if (key == to_thing(cur)->key) {
+			return cur;
+		}
+		int dir = RB_RIGHT;
+		if (key < to_thing(cur)->key) {
+			dir = RB_LEFT;
+		}
+		cur = cur->children[dir];
+	}
+	return NULL;
 }
 
 static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
@@ -285,6 +317,7 @@ static struct rb_node *rb_remove_key(struct rb_root *root, int key)
 
 static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, int dir)
 {
+	assert(((uintptr_t)node & 1) == 0);
 	node->children[RB_LEFT] = NULL;
 	node->children[RB_RIGHT] = NULL;
 	rb_set_parent(node, parent);
@@ -457,6 +490,7 @@ int main(void)
 		debug_check_tree(&root);
 	}
 #endif
+
 #if 1
 	srand(0);
 	for (unsigned int i = 0; i < 3000000; i++) {
@@ -478,6 +512,24 @@ int main(void)
 	assert(root.node == NULL);
 	return 0;
 #endif
+
+#if 1
+	srand(0);
+	for (unsigned int i = 0; i < 5000000; i++) {
+		int key = rand();
+		rb_insert_key(&root, key);
+	}
+	struct thing *prev = NULL;
+	rb_foreach(root) {
+		struct thing *thing = to_thing(cur);
+		if (prev) {
+			assert(prev->key < thing->key);
+		}
+		prev = thing;
+	}
+	return 0;
+#endif
+
 #if 1
 	srand(time(NULL));
 	for (unsigned int i = 0; ; i++) {

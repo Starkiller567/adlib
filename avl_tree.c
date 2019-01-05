@@ -27,6 +27,8 @@ struct avl_root {
 
 #define EMPTY_ROOT {NULL}
 
+#define avl_foreach(root) for (struct avl_node *cur = avl_first(root); cur; cur = avl_next(cur))
+
 struct thing {
 	int key;
 	struct avl_node avl_node;
@@ -210,6 +212,36 @@ static int debug_check_tree(struct avl_root *root)
 {
 	num_nodes = 0;
 	return debug_recursive_check_tree(root->node);
+}
+
+static struct avl_node *avl_first(struct avl_root root)
+{
+	struct avl_node *node = NULL;
+	struct avl_node *cur = root.node;
+	while (cur) {
+		node = cur;
+		cur = cur->children[AVL_LEFT];
+	}
+	return node;
+}
+
+static struct avl_node *avl_next(struct avl_node *node)
+{
+	if (node->children[AVL_RIGHT]) {
+		node = node->children[AVL_RIGHT];
+		while (node->children[AVL_LEFT]) {
+			node = node->children[AVL_LEFT];
+		}
+		return node;
+	}
+
+	struct avl_node *parent = avl_parent(node);
+	while (parent && node == parent->children[AVL_RIGHT]) {
+		node = parent;
+		parent = avl_parent(node);
+	}
+
+	return parent;
 }
 
 static struct avl_node *avl_find(struct avl_root *root, int key)
@@ -447,6 +479,23 @@ int main(void)
 		assert(!node || to_thing(node)->key == key);
 	}
 	assert(root.node == NULL);
+	return 0;
+#endif
+
+#if 1
+	srand(0);
+	for (unsigned int i = 0; i < 5000000; i++) {
+		int key = rand();
+		avl_insert_key(&root, key);
+	}
+	struct thing *prev = NULL;
+	avl_foreach(root) {
+		struct thing *thing = to_thing(cur);
+		if (prev) {
+			assert(prev->key < thing->key);
+		}
+		prev = thing;
+	}
 	return 0;
 #endif
 
