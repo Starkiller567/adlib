@@ -475,7 +475,7 @@ int main(void)
 			}
 		}
 
-		if (i % (1 << 10) == 0) {
+		if (i % (1 << 20) == 0) {
 			int depth = debug_check_tree(&root);
 			printf("max depth: %d\n", depth);
 			printf("num nodes: %d\n", num_nodes);
