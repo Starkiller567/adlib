@@ -400,6 +400,9 @@ static bool rb_insert(struct rb_root *root, struct rb_node *node)
 				}
 				node->left = parent;
 				grandparent->left = node;
+				rb_set_parent(node, grandparent); // can remove this?
+				rb_set_parent(parent, node);
+				parent = node;
 			} else if (!parent_is_left && node == parent->left) {
 				// rotate right at parent
 				parent->left = node->right;
@@ -408,10 +411,10 @@ static bool rb_insert(struct rb_root *root, struct rb_node *node)
 				}
 				node->right = parent;
 				grandparent->right = node;
+				rb_set_parent(node, grandparent); // can remove this?
+				rb_set_parent(parent, node);
+				parent = node;
 			}
-			rb_set_parent(node, grandparent); // can remove this?
-			rb_set_parent(parent, node);
-			parent = node;
 
 			if (parent_is_left) {
 				// rotate right at grandparent
@@ -472,10 +475,12 @@ static void debug_recursive_check_tree(struct rb_node *node, int cur_black_depth
 	if (node->left) {
 		assert(rb_parent(node->left) == node);
 		assert(!(rb_is_red(node) && rb_is_red(node->left)));
+		assert(to_thing(node->left)->key < to_thing(node)->key);
 	}
 	if (node->right) {
 		assert(rb_parent(node->right) == node);
 		assert(!(rb_is_red(node) && rb_is_red(node->right)));
+		assert(to_thing(node->right)->key > to_thing(node)->key);
 	}
 	debug_recursive_check_tree(node->left, cur_black_depth, depth + 1);
 	debug_recursive_check_tree(node->right, cur_black_depth, depth + 1);
@@ -527,20 +532,25 @@ int main(void)
 #endif
 #if 1
 	srand(0);
-	for (unsigned int i = 0; i < 5000000; i++) {
+	for (unsigned int i = 0; i < 3000000; i++) {
 		int key = rand();
 		struct thing *thing = malloc(sizeof(*thing));
 		thing->key = key;
-		bool success = rb_insert(&root, &thing->rb_node);
-		struct rb_node *node = rb_find(&root, key);
-		assert(node);
-		assert(!success || to_thing(node) == thing);
-		assert(to_thing(node)->key == key);
-		//debug_check_tree(&root);
-		//printf("black depth: %d\n", black_depth);
-		//printf("max depth: %d\n", max_depth);
-		//printf("num nodes: %d\n", num_nodes);
+		rb_insert(&root, &thing->rb_node);
 	}
+	srand(0);
+	for (unsigned int i = 0; i < 3000000; i++) {
+		int key = rand();
+		struct rb_node *node = rb_find(&root, key);
+		assert(node && to_thing(node)->key == key);
+	}
+	srand(0);
+	for (unsigned int i = 0; i < 3000000; i++) {
+		int key = rand();
+		struct rb_node *node = rb_remove_key(&root, key);
+		assert(!node || to_thing(node)->key == key);
+	}
+	assert(root.node == NULL);
 	return 0;
 #endif
 #if 1
