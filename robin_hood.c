@@ -106,17 +106,17 @@ static unsigned long long ns_elapsed(struct timespec *start, struct timespec *en
 	return ns + 1000000000 * s;
 }
 
-DEFINE_HASHTABLE(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8)
+/* DEFINE_HASHTABLE(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8) */
 DEFINE_HASHTABLE(stable, char *, char *, string_hash, strings_equal, 8)
-DEFINE_HASHTABLE(sstable, char *, struct short_string, string_hash, strings_equal, 8)
-DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
+/* DEFINE_HASHTABLE(sstable, char *, struct short_string, string_hash, strings_equal, 8) */
+/* DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8) */
 
 int main(int argc, char **argv)
 {
-	struct itable itable;
+	/* struct itable itable; */
 	struct stable stable;
-	struct sstable sstable;
-	struct ssstable ssstable;
+	/* struct sstable sstable; */
+	/* struct ssstable ssstable; */
 	unsigned int i, num_items, x = 0;
 	struct timespec start_tp, end_tp;
 	unsigned long long start_ns, ns, total_ns, sum_ns = 0;
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	start_ns = tp_to_ns(&start_tp);
-#if 1
+#if 0
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 	stable_destroy(&stable);
 #endif
 
-#if 1
+#if 0
 	sstable_init(&sstable, 128);
 
 	num_items = 1000000;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 	sstable_destroy(&sstable);
 #endif
 
-#if 1
+#if 0
 	ssstable_init(&ssstable, 128);
 
 	num_items = 1000000;
@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 	ssstable_destroy(&ssstable);
 #endif
 
-#if 1
+#if 0
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
@@ -263,7 +263,7 @@ int main(int argc, char **argv)
 	itable_destroy(&itable);
 #endif
 
-#if 1
+#if 0
 	itable_init(&itable, 128);
 	num_items = 1000000;
 
@@ -290,7 +290,7 @@ int main(int argc, char **argv)
 	itable_destroy(&itable);
 #endif
 
-#if 1
+#if 0
 	sstable_init(&sstable, 128);
 	num_items = 100000;
 
@@ -319,7 +319,7 @@ int main(int argc, char **argv)
 	sstable_destroy(&sstable);
 #endif
 
-#if 1
+#if 0
 	sstable_init(&sstable, 128);
 	num_items = 1000000;
 

@@ -307,6 +307,7 @@ static size_t utf16_to_utf8(uint16_t *str, char *buf, size_t n, size_t *p_num_ch
 
 static bool check_utf8(char *str, size_t *p_num_chars)
 {
+	// TODO check for encoding of values used in surrogate pairs
 	size_t num_chars = 0;
 	while (*str) {
 		num_chars++;
@@ -364,8 +365,30 @@ static bool check_utf8(char *str, size_t *p_num_chars)
 	return true;
 }
 
+const unsigned char utf8_skip_table[256] = {
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+	4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1,
+};
+
 static char *advance(char *str, size_t n) {
 	for (size_t i = 0; i < n; i++) {
+#if 1
+		str += utf8_skip_table[(unsigned char)*str];
+#else
 		if ((*str & 0x80) == 0) {
 			str++;
 		} else if ((*str & 0xe0) == 0xc0) {
@@ -377,6 +400,7 @@ static char *advance(char *str, size_t n) {
 		} else {
 			// assert(0);
 		}
+#endif
 	}
 	return str;
 }

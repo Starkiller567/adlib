@@ -21,6 +21,8 @@ main(int argc, char **argv)
 	assert(memcmp(str16, buf16, i1) == 0);
 	assert(num_chars1 == num_chars2);
 	assert(num_chars1 == num_chars3);
-	puts(str8);
+	for (char *s = str8; *s; s = advance(s, 1)) {
+		puts(s);
+	}
 	return 0;
 }
