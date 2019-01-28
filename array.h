@@ -10,36 +10,40 @@
 # define ARRAY_SAFETY_CHECKS 1
 #endif
 
-#define ARRAY_MAGIC 0xdeadbabe
+#define ARRAY_MAGIC1 0xdeadbabe
+#define ARRAY_MAGIC2 0xbeefcafe
 
 typedef struct {
-	unsigned int len;
-	unsigned int limit;
+	size_t len;
+	size_t limit;
 #if ARRAY_SAFETY_CHECKS
-	unsigned int magic;
+	size_t magic1;
+	size_t magic2;
 #endif
 } __arr;
 
 #if ARRAY_SAFETY_CHECKS
 # include <assert.h>
-# define __arrhead_unchecked(a) ((__arr *)a - 1)
-# define __arrhead(a) (assert(__arrhead_unchecked(a)->magic == ARRAY_MAGIC), __arrhead_unchecked(a))
+# define __arrhead_unchecked(a) ((__arr *)(a) - 1)
+# define __arrhead(a) (assert(__arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1), \
+                       assert(__arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1), \
+                       __arrhead_unchecked(a))
 #else
-# define __arrhead(a) ((__arr *)a - 1)
+# define __arrhead(a) ((__arr *)(a) - 1)
 #endif
 
-#define array_len(a)                  (a ? __arrhead(a)->len : 0)
+#define array_len(a)                  ((a) ? __arrhead(a)->len : 0)
 #define array_empty(a)                (array_len(a) == 0)
 #define array_lasti(a)                (array_len(a) - 1)
-#define array_last(a)                 (a[array_lasti(a)])
-#define array_limit(a)                (a ? __arrhead(a)->limit : 0)
+#define array_last(a)                 ((a)[array_lasti(a)])
+#define array_limit(a)                ((a) ? __arrhead(a)->limit : 0)
 #define array_free(a)                  __array_free((void **)&(a))
 #define array_copy(a)	               __array_copy((a), sizeof((a)[0]))
 #define array_addn(a, n)               __array_addn((void **)&(a), sizeof((a)[0]), n)
-#define array_add(a, v)                (array_addn(a, 1), (a[array_lasti(a)]  = v))
+#define array_add(a, v)                (array_addn(a, 1), ((a)[array_lasti(a)]  = v))
 #define array_insertn(a, i, n)         __array_insertn((void **)&(a), sizeof((a)[0]), i, n)
 #define array_insert(a, i, v)          (array_insertn(a, i, 1), ((a)[i] = v))
-#define array_clear(a)	               (__arrhead(a)->len = 0)
+#define array_reset(a)	               do { if (a) __arrhead(a)->len = 0; } while(0);
 #define array_resize(a, limit)         __array_resize((void **)&(a), sizeof((a)[0]), limit)
 #define array_reserve(a, n)            __array_reserve((void **)&(a), sizeof((a)[0]), n)
 #define array_grow(a, n)               __array_grow((void **)&(a), sizeof((a)[0]), n)
@@ -52,10 +56,11 @@ typedef struct {
 #define array_fast_delete(a, i)        (((a)[i] = array_last(a)), __arrhead(a)->len--)
 #define array_ordered_deleten(a, i, n) __array_ordered_deleten((void **)&(a), sizeof((a)[0]), i, n)
 #define array_ordered_delete(a, i)     array_ordered_deleten(a, i, 1)
+// TODO change these to allow arbitrary modifications to the array inside the loop? (also add fori?)
 #define array_foreach(a, v)            for ((v) = (a); (v) < (a) + array_len(a); (v)++)
-#define array_foreach_reverse(a, v)    for ((v) = &array_last(a); (v) >= (a); (v)--)
+#define array_foreach_reverse(a, v)    for ((v) = (a) + array_len(a); !array_empty(a) && (--v) >= (a);)
 
-static void *__array_copy(void *arr, unsigned int elem_size)
+static void *__array_copy(void *arr, size_t elem_size)
 {
 	if (!arr) {
 		return NULL;
@@ -74,19 +79,23 @@ static void __array_free(void **arrp)
 	}
 }
 
-static void __array_resize(void **arrp, unsigned int elem_size, unsigned int limit)
+static void __array_resize(void **arrp, size_t elem_size, size_t limit)
 {
 	if (limit == 0) {
 		__array_free(arrp);
 		return;
 	}
-	__arr *head;
 	size_t new_size = sizeof(__arr) + (limit * elem_size);
+#if ARRAY_SAFETY_CHECKS
+	assert(((limit * elem_size) / elem_size == limit) && new_size > sizeof(__arr));
+#endif
+	__arr *head;
 	if (!(*arrp)) {
 		head = malloc(new_size);
 		head->len = 0;
 #if ARRAY_SAFETY_CHECKS
-		head->magic = ARRAY_MAGIC;
+		head->magic1 = ARRAY_MAGIC1;
+		head->magic2 = ARRAY_MAGIC2;
 #endif
 	} else {
 		head = realloc(__arrhead(*arrp), new_size);
@@ -99,30 +108,30 @@ static void __array_resize(void **arrp, unsigned int elem_size, unsigned int lim
 }
 
 // increase limit by atleast n elements
-static void __array_grow(void **arrp, unsigned int elem_size, unsigned int n)
+static void __array_grow(void **arrp, size_t elem_size, size_t n)
 {
 	if (n == 0) {
 		return;
 	}
-	unsigned int limit = array_limit(*arrp);
-	unsigned int new_limit = n < limit ? 2 * limit : limit + n;
+	size_t limit = array_limit(*arrp);
+	size_t new_limit = n < limit ? 2 * limit : limit + n;
 	__array_resize(arrp, elem_size, new_limit);
 }
 
-static void __array_reserve(void **arrp, unsigned int elem_size, unsigned int n)
+static void __array_reserve(void **arrp, size_t elem_size, size_t n)
 {
 	if (n == 0) {
 		return;
 	}
-	unsigned int rem = array_limit(*arrp) - array_len(*arrp);
+	size_t rem = array_limit(*arrp) - array_len(*arrp);
 	if (n > rem) {
 		__array_grow(arrp, elem_size, n - rem);
 	}
 }
 
-static void __array_make_valid(void **arrp, unsigned int elem_size, unsigned int i)
+static void __array_make_valid(void **arrp, size_t elem_size, size_t i)
 {
-	unsigned int limit = array_limit(*arrp);
+	size_t limit = array_limit(*arrp);
 	if (i >= limit) {
 		__array_grow(arrp, elem_size, i - limit + 1);
 	}
@@ -131,46 +140,48 @@ static void __array_make_valid(void **arrp, unsigned int elem_size, unsigned int
 	}
 }
 
-static void __array_addn(void **arrp, unsigned int elem_size, unsigned int n)
+static void *__array_addn(void **arrp, size_t elem_size, size_t n)
 {
 	if (!(*arrp)) {
 		__array_grow(arrp, elem_size, n);
 		__arrhead(*arrp)->len = n;
-		return;
+		return *arrp;
 	}
 	__arr *head = __arrhead(*arrp);
+	size_t old_len = head->len;
 	head->len += n;
 	if (head->len > head->limit) {
 		__array_grow(arrp, elem_size, head->len - head->limit);
 	}
+	return (char *)(*arrp) + (old_len * elem_size);
 }
 
-static void __array_insertn(void **arrp, unsigned int size, unsigned int i, unsigned int n)
+static void __array_insertn(void **arrp, size_t size, size_t i, size_t n)
 {
 	void *arr = *arrp;
 	if (!arr) {
 		__array_addn(arrp, size, n);
 		return;
 	}
-	unsigned int len = array_len(arr);
+	size_t len = array_len(arr);
 	__array_addn(&arr, size, n);
 	memmove((char *)arr + (i + n) * size, (char *)arr + i * size, (len - i) * size);
 	*arrp = arr;
 }
 
-static void __array_ordered_deleten(void **arrp, unsigned int size, unsigned int i, unsigned int n)
+static void __array_ordered_deleten(void **arrp, size_t size, size_t i, size_t n)
 {
 	char *arr = *arrp;
-	unsigned int len = array_len(arr);
+	size_t len = array_len(arr);
 	memmove(arr + i * size, arr + (i + n) * size, (len - (i + n)) * size);
 	__arrhead(arr)->len -= n;
 }
 
-static void __array_fast_deleten(void **arrp, unsigned int size, unsigned int i, unsigned int n)
+static void __array_fast_deleten(void **arrp, size_t size, size_t i, size_t n)
 {
 	char *arr = *arrp;
-	unsigned int len = array_len(arr);
-	unsigned int k = len - (i + n);
+	size_t len = array_len(arr);
+	size_t k = len - (i + n);
 	if (k > n) {
 		k = n;
 	}

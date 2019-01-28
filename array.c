@@ -3,11 +3,11 @@
 
 static void print_array(int *arr)
 {
-	unsigned int len = array_len(arr);
-	unsigned int limit = array_limit(arr);
-	printf("{\nlen = %u\nlimit = %u\nval = {", len, limit);
+	size_t len = array_len(arr);
+	size_t limit = array_limit(arr);
+	printf("{\nlen = %zu\nlimit = %zu\nval = {", len, limit);
 	int *cur;
-	unsigned int i = 0;
+	size_t i = 0;
 	array_foreach(arr, cur) {
 		printf("%i", *cur);
 		if (i != len - 1) {
@@ -15,6 +15,16 @@ static void print_array(int *arr)
 		}
 		i++;
 	}
+#if 1
+	printf("}\nreverse = {");
+	array_foreach_reverse(arr, cur) {
+		printf("%i", *cur);
+		i--;
+		if (i != 0) {
+			printf(", ");
+		}
+	}
+#endif
 	printf("}\n}\n");
 }
 
@@ -60,7 +70,7 @@ int main(void)
 	array_addn(arr2, 15);
 	array_popn(arr2, 10);
 
-	array_clear(arr2);
+	array_reset(arr2);
 	array_shrink_to_fit(arr2);
 
 	print_array(arr1);
