@@ -52,9 +52,9 @@ typedef struct {
 #define array_push(a, v)               array_add(a, v)
 #define array_pop(a)                   ((a)[--__arrhead(a)->len])
 #define array_popn(a, n)	       (__arrhead(a)->len -= n)
-#define array_fast_deleten(a, i, n)    __array_fast_deleten((void **)&(a), sizeof((a)[0]), i, n)
+#define array_fast_deleten(a, i, n)    __array_fast_deleten((a), sizeof((a)[0]), i, n)
 #define array_fast_delete(a, i)        (((a)[i] = array_last(a)), __arrhead(a)->len--)
-#define array_ordered_deleten(a, i, n) __array_ordered_deleten((void **)&(a), sizeof((a)[0]), i, n)
+#define array_ordered_deleten(a, i, n) __array_ordered_deleten((a), sizeof((a)[0]), i, n)
 #define array_ordered_delete(a, i)     array_ordered_deleten(a, i, 1)
 // TODO change these to allow arbitrary modifications to the array inside the loop? (also add fori?)
 #define array_foreach(a, v)            for ((v) = (a); (v) < (a) + array_len(a); (v)++)
@@ -169,23 +169,21 @@ static void __array_insertn(void **arrp, size_t size, size_t i, size_t n)
 	*arrp = arr;
 }
 
-static void __array_ordered_deleten(void **arrp, size_t size, size_t i, size_t n)
+static void __array_ordered_deleten(void *arr, size_t size, size_t i, size_t n)
 {
-	char *arr = *arrp;
 	size_t len = array_len(arr);
-	memmove(arr + i * size, arr + (i + n) * size, (len - (i + n)) * size);
+	memmove((char *)arr + i * size, (char *)arr + (i + n) * size, (len - (i + n)) * size);
 	__arrhead(arr)->len -= n;
 }
 
-static void __array_fast_deleten(void **arrp, size_t size, size_t i, size_t n)
+static void __array_fast_deleten(void *arr, size_t size, size_t i, size_t n)
 {
-	char *arr = *arrp;
 	size_t len = array_len(arr);
 	size_t k = len - (i + n);
 	if (k > n) {
 		k = n;
 	}
-	memmove(arr + i * size, arr + (len - k) * size, k * size);
+	memmove((char *)arr + i * size, (char *)arr + (len - k) * size, k * size);
 	__arrhead(arr)->len -= n;
 }
 
