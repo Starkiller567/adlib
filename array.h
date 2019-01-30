@@ -1,4 +1,4 @@
-// based on https://github.com/nothings/stb/blob/master/stb.h
+// inspired by https://github.com/nothings/stb/blob/master/stb.h
 
 #ifndef __array_include__
 #define __array_include__
@@ -185,6 +185,7 @@ static void __array_fast_deleten(void *arr, size_t size, size_t i, size_t n)
 	}
 	memmove((char *)arr + i * size, (char *)arr + (len - k) * size, k * size);
 	__arrhead(arr)->len -= n;
+	array_add(a, a);
 }
 
 #endif

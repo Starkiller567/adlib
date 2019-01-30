@@ -3,10 +3,12 @@
 
 #include "list.h"
 
-#define HEAP_ALIGNMENT 16 // must be power of 2, >= 8, and <= 4096
+#define USE_MALLOC 0
+#define HEAP_ALIGNMENT 16 // must be a power of 2 between 8 and 4096 (both inclusive)
+#define HEAP_NBUCKETS 8
 
 struct heap {
-	struct list_head free_list;
+	struct list_head free_list[HEAP_NBUCKETS];
 };
 
 void *heap_malloc(struct heap *heap, size_t size)

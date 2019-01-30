@@ -8,8 +8,9 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
+#define DIV_ROUND_UP(a, b) (((a) + (b) - 1) / (b))
 #define ALIGNP2(val, pow2) ((val) & ~((pow2) - 1))
+
 #define HEAP_ALIGN(val) ALIGNP2(val + (HEAP_ALIGNMENT - 1), HEAP_ALIGNMENT)
 #define HEAP_ALIGNED(val) (((size_t)val & (HEAP_ALIGNMENT - 1)) == 0)
 
@@ -19,7 +20,7 @@ static const size_t FLAG_LAST = 0x2;
 static const size_t FLAG_ZEROED = 0x4; // TODO use this
 static const size_t FLAG_BITS = HEAP_ALIGNMENT - 1;
 
-#define PADDING_BYTES (HEAP_ALIGNMENT - 2 * sizeof(size_t))
+#define PADDING_BYTES (HEAP_ALIGNMENT > 2 * sizeof(size_t) ? HEAP_ALIGNMENT - 2 * sizeof(size_t) : 0)
 
 struct memblock {
 	size_t prev_size;
@@ -145,10 +146,19 @@ static inline struct memblock *get_previous(struct memblock *block)
 	return prev;
 }
 
+static inline size_t size_to_bucket_index(size_t size)
+{
+	assert(size != 0);
+	size_t idx = DIV_ROUND_UP(size, MIN_BLOCK_SIZE);
+	idx = __builtin_ctz(idx); // log2
+	return MIN(idx, HEAP_NBUCKETS - 1);
+}
+
 static inline void free_list_insert(struct heap *heap, struct memblock *memblock)
 {
 	struct freeblock *freeblock = (struct freeblock *)memblock;
-	list_insert_first(&heap->free_list, &freeblock->list_head);
+	size_t idx = size_to_bucket_index(get_size(memblock));
+	list_insert_first(&heap->free_list[idx], &freeblock->list_head);
 }
 
 static inline void free_list_remove(struct heap *heap, struct memblock *memblock)
@@ -194,7 +204,7 @@ static struct memblock *try_merge(struct heap *heap, struct memblock *block, boo
 	return block;
 }
 
-// block will have atleast *size* free bytes afterwards
+// block will have atleast 'size' free bytes afterwards
 static void maybe_split_block(struct heap *heap, struct memblock *block, size_t size)
 {
 	assert(block_size_valid(size));
@@ -230,14 +240,15 @@ static void free_memblock(struct heap *heap, struct memblock *block)
 	assert(!is_free(block));
 
 	if (!get_previous(block) && !get_next(block)) {
-#if 0
-		if (munmap(block, get_size(block) + MEMBLOCK_EXTRA_SIZE) == 0) {
-			return;
-		}
-		assert(!"munmap failed");
-#else
+#if USE_MALLOC
 		free(block);
 		return;
+#else
+		size_t size = get_size(block) + MEMBLOCK_EXTRA_SIZE;
+		if (munmap(block, size) == 0) {
+			return;
+		}
+		// munmap failed so we just keep using the memory
 #endif
 	}
 
@@ -247,11 +258,13 @@ static void free_memblock(struct heap *heap, struct memblock *block)
 
 static struct memblock *find_free_block(struct heap *heap, size_t size)
 {
-	list_foreach(&heap->free_list) {
-		struct memblock *block = to_memblock(cur);
+	for (size_t i = size_to_bucket_index(size); i < HEAP_NBUCKETS; i++) {
 		// first fit
-		if (get_size(block) >= size) {
-			return block;
+		list_foreach(&heap->free_list[i]) {
+			struct memblock *block = to_memblock(cur);
+			if (get_size(block) >= size) {
+				return block;
+			}
 		}
 	}
 	return NULL;
@@ -271,22 +284,23 @@ static struct memblock *__heap_malloc(struct heap *heap, size_t size)
 	} else {
 		size_t map_size = MAX(DEFAULT_MAP_SIZE,
 		                      ALIGNP2(size + MEMBLOCK_EXTRA_SIZE + 4095, 4096));
-#if 0
+		size_t flags = FLAG_USED | FLAG_LAST;
+#if USE_MALLOC
+		void *ptr = aligned_alloc(HEAP_ALIGNMENT, map_size);
+		if (!ptr) {
+			return NULL;
+		}
+#else
+		flags |= FLAG_ZEROED;
 		void *ptr = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
 		                 MAP_PRIVATE | MAP_ANONYMOUS /* | MAP_POPULATE */, -1, 0);
 		if (ptr == MAP_FAILED) {
 			assert(errno == ENOMEM);
 			return NULL;
 		}
-#else
-		void *ptr = calloc(1, map_size);
-		if (!ptr) {
-			return NULL;
-		}
 #endif
 		block = (struct memblock *)ptr;
-		init_memblock(block, map_size - MEMBLOCK_EXTRA_SIZE,
-		              FLAG_USED | FLAG_LAST | FLAG_ZEROED, 0);
+		init_memblock(block, map_size - MEMBLOCK_EXTRA_SIZE, flags, 0);
 	}
 
 	maybe_split_block(heap, block, size);
@@ -334,7 +348,8 @@ void heap_free(struct heap *heap, void *ptr)
 		return;
 	}
 	struct memblock *block = (struct memblock *)ptr - 1;
-	if (is_free(block) || !block_size_valid(get_size(block))) {
+	size_t size = get_size(block);
+	if (is_free(block) || !block_size_valid(size)) {
 		assert(!"Invalid pointer");
 		abort();
 	}
@@ -396,7 +411,9 @@ void *heap_realloc(struct heap *heap, void *ptr, size_t size)
 
 void heap_init(struct heap *heap)
 {
-	list_head_init(&heap->free_list);
+	for (size_t i = 0; i < HEAP_NBUCKETS; i++) {
+		list_head_init(&heap->free_list[i]);
+	}
 }
 
 int main(void)
@@ -405,7 +422,7 @@ int main(void)
 	heap_init(&heap);
 	static unsigned char *p[4096] = {0};
 	size_t n = sizeof(p) / sizeof(p[0]);
-#if 1
+#if 0
 	for (size_t k = 0; k < 50000; k++) {
 		for (size_t i = 0; i < n; i++) {
 			size_t size = 16 * (rand() % 16);
@@ -413,49 +430,51 @@ int main(void)
 		}
 	}
 #else
-	for (size_t i = 0; i < n; i++) {
-		p[i] = heap_calloc(&heap, (i % 16), 16);
-		for (size_t k = 0; k < (i % 16) * 16; k++) {
-			assert(p[i][k] == 0);
-			p[i][k] = k;
+	for (size_t k = 0; k < 1000; k++) {
+		for (size_t i = 0; i < n; i++) {
+			p[i] = heap_calloc(&heap, (i % 16), 16);
+			for (size_t k = 0; k < (i % 16) * 16; k++) {
+				assert(p[i][k] == 0);
+				p[i][k] = k;
+			}
 		}
-	}
 
-	for (size_t i = 0; i < n; i++) {
-		size_t size = 16 * (i % 16);
-		p[i] = heap_realloc(&heap, p[i], size + 17);
-		for (size_t k = 0; k < size; k++) {
-			assert(p[i][k] == k);
+		for (size_t i = 0; i < n; i++) {
+			size_t size = 16 * (i % 16);
+			p[i] = heap_realloc(&heap, p[i], size + 17);
+			for (size_t k = 0; k < size; k++) {
+				assert(p[i][k] == k);
+			}
+			p[i] = heap_realloc(&heap, p[i], size);
+			for (size_t k = 0; k < size; k++) {
+				assert(p[i][k] == k);
+			}
 		}
-		p[i] = heap_realloc(&heap, p[i], size);
-		for (size_t k = 0; k < size; k++) {
-			assert(p[i][k] == k);
+
+		for (size_t i = 0; i < n; i++) {
+			heap_free(&heap, p[i]);
 		}
-	}
 
-	for (size_t i = 0; i < n; i++) {
-		heap_free(&heap, p[i]);
-	}
-
-	for (size_t i = 0; i < n; i++) {
-		size_t size = ((i & 1) + 1) * 16;
-		p[i] = heap_malloc(&heap, size);
-		memset(p[i], 0xcc, size);
-	}
-
-	for (size_t i = 0; i < n / 2; i++) {
-		heap_free(&heap, p[i]);
-	}
-
-	for (size_t i = 0; i < n / 2; i++) {
-		p[i] = heap_calloc(&heap, 16, 1);
-		for (size_t k = 0; k < 16; k++) {
-			assert(p[i][k] == 0);
+		for (size_t i = 0; i < n; i++) {
+			size_t size = ((i & 1) + 1) * 16;
+			p[i] = heap_malloc(&heap, size);
+			memset(p[i], 0xcc, size);
 		}
-	}
 
-	for (size_t i = 0; i < n; i++) {
-		heap_free(&heap, p[i]);
+		for (size_t i = 0; i < n / 2; i++) {
+			heap_free(&heap, p[i]);
+		}
+
+		for (size_t i = 0; i < n / 2; i++) {
+			p[i] = heap_calloc(&heap, 16, 1);
+			for (size_t k = 0; k < 16; k++) {
+				assert(p[i][k] == 0);
+			}
+		}
+
+		for (size_t i = 0; i < n; i++) {
+			heap_free(&heap, p[i]);
+		}
 	}
 #endif
 }
