@@ -260,8 +260,8 @@ static struct memblock *find_free_block(struct heap *heap, size_t size)
 {
 	for (size_t i = size_to_bucket_index(size); i < HEAP_NBUCKETS; i++) {
 		// first fit
-		list_foreach(&heap->free_list[i]) {
-			struct memblock *block = to_memblock(cur);
+		list_foreach_elem(&heap->free_list[i], cur, struct freeblock, list_head) {
+			struct memblock *block = &cur->memblock;
 			if (get_size(block) >= size) {
 				return block;
 			}
