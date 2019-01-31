@@ -15,10 +15,10 @@
 #define HEAP_ALIGNED(val) (((size_t)val & (HEAP_ALIGNMENT - 1)) == 0)
 
 // use bottom 3 bits because min alignment is 8
-static const size_t FLAG_USED = 0x1;
-static const size_t FLAG_LAST = 0x2;
-static const size_t FLAG_ZEROED = 0x4; // TODO use this
-static const size_t FLAG_BITS = HEAP_ALIGNMENT - 1;
+static const size_t FLAG_USED   = 0x1;
+static const size_t FLAG_LAST   = 0x2;
+static const size_t FLAG_ZEROED = 0x4;
+static const size_t FLAG_BITS   = HEAP_ALIGNMENT - 1;
 
 #define PADDING_BYTES (HEAP_ALIGNMENT > 2 * sizeof(size_t) ? HEAP_ALIGNMENT - 2 * sizeof(size_t) : 0)
 
@@ -235,20 +235,29 @@ static void alloc_memblock(struct heap *heap, struct memblock *block)
 	free_list_remove(heap, block);
 }
 
+static bool free_pages(void *ptr, size_t size)
+{
+#if GUARD_PAGES
+	ptr = (char *)ptr - 4096;
+	size += 2 * 4096;
+#endif
+	return munmap(ptr, size) == 0;
+}
+
 static void free_memblock(struct heap *heap, struct memblock *block)
 {
 	assert(!is_free(block));
 
 	if (!get_previous(block) && !get_next(block)) {
+		// TODO maybe don't free if this is our last free block
 #if USE_MALLOC
 		free(block);
 		return;
 #else
-		size_t size = get_size(block) + MEMBLOCK_EXTRA_SIZE;
-		if (munmap(block, size) == 0) {
+		if (free_pages(block, get_size(block) + MEMBLOCK_EXTRA_SIZE)) {
 			return;
 		}
-		// munmap failed so we just keep using the memory
+		// freeing failed so we just keep using the memory
 #endif
 	}
 
@@ -270,6 +279,33 @@ static struct memblock *find_free_block(struct heap *heap, size_t size)
 	return NULL;
 }
 
+static void *alloc_pages(size_t size)
+{
+	size_t total = size;
+	int prot = PROT_READ | PROT_WRITE;
+
+#if GUARD_PAGES
+	total += 2 * 4096;
+	prot = PROT_NONE;
+#endif
+
+	char *ptr = mmap(NULL, total, prot, MAP_PRIVATE | MAP_ANONYMOUS /* | MAP_POPULATE */, -1, 0);
+	if (ptr == MAP_FAILED) {
+		return NULL;
+	}
+
+#if GUARD_PAGES
+	ptr += 4096;
+	// TODO is it faster to call mprotect twice for single pages?
+	if (mprotect(ptr, size, PROT_READ | PROT_WRITE) != 0) {
+		munmap(ptr - 4096, total);
+		return NULL;
+	}
+#endif
+
+	return ptr;
+}
+
 static struct memblock *__heap_malloc(struct heap *heap, size_t size)
 {
 	if (size == 0) {
@@ -287,18 +323,14 @@ static struct memblock *__heap_malloc(struct heap *heap, size_t size)
 		size_t flags = FLAG_USED | FLAG_LAST;
 #if USE_MALLOC
 		void *ptr = aligned_alloc(HEAP_ALIGNMENT, map_size);
-		if (!ptr) {
-			return NULL;
-		}
 #else
 		flags |= FLAG_ZEROED;
-		void *ptr = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
-		                 MAP_PRIVATE | MAP_ANONYMOUS /* | MAP_POPULATE */, -1, 0);
-		if (ptr == MAP_FAILED) {
+		void *ptr = alloc_pages(map_size);
+#endif
+		if (!ptr) {
 			assert(errno == ENOMEM);
 			return NULL;
 		}
-#endif
 		block = (struct memblock *)ptr;
 		init_memblock(block, map_size - MEMBLOCK_EXTRA_SIZE, flags, 0);
 	}
@@ -422,6 +454,7 @@ int main(void)
 	heap_init(&heap);
 	static unsigned char *p[4096] = {0};
 	size_t n = sizeof(p) / sizeof(p[0]);
+
 #if 0
 	for (size_t k = 0; k < 50000; k++) {
 		for (size_t i = 0; i < n; i++) {
