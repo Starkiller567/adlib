@@ -5,6 +5,11 @@
 
 #define swap(a, b) do { int tmp = a; a = b; b = tmp; } while(0)
 
+struct partition {
+	size_t left;
+	size_t right;
+};
+
 static void insertion_sort(int *arr, size_t left, size_t right)
 {
 	for (size_t i = left + 1; i <= right; i++) {
@@ -16,7 +21,7 @@ static void insertion_sort(int *arr, size_t left, size_t right)
 
 static void quicksort(int *arr, size_t left, size_t right)
 {
-	size_t stack[128];
+	struct partition stack[128];
 	size_t sp = 0;
 
 	for (;;) {
@@ -25,8 +30,6 @@ static void quicksort(int *arr, size_t left, size_t right)
 				insertion_sort(arr, left, right);
 				break;
 			}
-			assert(sp < 128);
-			stack[sp++] = right;
 
 			size_t mid = (left + right) / 2;
 			if (arr[mid] < arr[left]) {
@@ -51,7 +54,18 @@ static void quicksort(int *arr, size_t left, size_t right)
 				} while (j >= left && arr[j] > pivot);
 
 				if (i >= j) {
-					right = j;
+					assert(sp < 128);
+					if (j - left < right - j) {
+						stack[sp].left = j + 1;
+						stack[sp].right = right;
+						right = j;
+
+					} else {
+						stack[sp].left = left;
+						stack[sp].right = j;
+						left = j + 1;
+					}
+					sp++;
 					break;
 				}
 
@@ -63,8 +77,9 @@ static void quicksort(int *arr, size_t left, size_t right)
 			break;
 		}
 
-		left = right + 1;
-		right = stack[--sp];
+		sp--;
+		left = stack[sp].left;
+		right = stack[sp].right;
 
 	}
 }
@@ -91,7 +106,7 @@ static int int_cmp(const void *a, const void *b)
 
 int main(int argc, char **argv)
 {
-	size_t n = 1024 * 1024 * 1024;
+	size_t n = 32 * 1024 * 1024;
 	int *arr = malloc(n * sizeof(arr[0]));
 
 	srand(1234);
