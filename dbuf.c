@@ -19,7 +19,7 @@ int main(void)
 	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	dbuf_addb(&dbuf, 0);
-	dbuf_add(&dbuf, NULL, 1000);
+	dbuf_add_uninitialized(&dbuf, 1000);
 	printf("%s", (char *)dbuf_buffer(&dbuf));
 	printf("size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	dbuf_free(&dbuf);

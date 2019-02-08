@@ -25,6 +25,13 @@ static void dbuf_free(struct dbuf *dbuf)
 	dbuf_init(dbuf);
 }
 
+static void *dbuf_finalize(struct dbuf *dbuf)
+{
+	void *buf = dbuf->buf;
+	dbuf_init(dbuf);
+	return buf;
+}
+
 static struct dbuf dbuf_copy(const struct dbuf *dbuf)
 {
 	struct dbuf copy;
@@ -87,26 +94,33 @@ static void dbuf_grow(struct dbuf *dbuf, size_t n)
 	dbuf_resize(dbuf, new_capacity);
 }
 
-static void dbuf_addb(struct dbuf *dbuf, char byte)
+static void dbuf_reserve(struct dbuf *dbuf, size_t n)
 {
 	size_t avail = dbuf_avail_size(dbuf);
-	if (avail == 0) {
-		dbuf_grow(dbuf, 1);
+	if (n > avail) {
+		dbuf_grow(dbuf, n - avail);
 	}
+}
+
+static void dbuf_addb(struct dbuf *dbuf, unsigned char byte)
+{
+	dbuf_reserve(dbuf, 1);
 	dbuf->buf[dbuf->size] = byte;
 	dbuf->size++;
 }
 
+static void *dbuf_add_uninitialized(struct dbuf *dbuf, size_t count)
+{
+	dbuf_reserve(dbuf, count);
+	void *p = dbuf->buf + dbuf->size;
+	dbuf->size += count;
+	return p;
+}
+
 static void dbuf_add(struct dbuf *dbuf, const void *buf, size_t count)
 {
-	size_t avail = dbuf_avail_size(dbuf);
-	if (count > avail) {
-		dbuf_grow(dbuf, count - avail);
-	}
-	if (buf) {
-		memcpy(dbuf->buf + dbuf->size, buf, count);
-	}
-	dbuf->size += count;
+	void *p = dbuf_add_uninitialized(dbuf, count);
+	memcpy(p, buf, count);
 }
 
 static inline void dbuf_addbuf(struct dbuf *dbuf, const struct dbuf *buf)
@@ -121,18 +135,18 @@ static inline void dbuf_addstr(struct dbuf *dbuf, const char *str)
 
 static void dbuf_sprint(struct dbuf *dbuf, const char *fmt, ...)
 {
-	va_list args, args2;
+	va_list args;
 	va_start(args, fmt);
-	va_copy(args2, args);
 	size_t n = vsnprintf(NULL, 0, fmt, args);
-	size_t avail = dbuf_avail_size(dbuf);
-	if (n + 1 > avail) {
-		dbuf_grow(dbuf, n + 1 - avail);
-	}
-	vsnprintf(dbuf->buf + dbuf->size, n + 1, fmt, args2);
-	dbuf->size += n;
-
 	va_end(args);
+
+	dbuf_reserve(dbuf, n + 1);
+
+	va_start(args, fmt);
+	vsnprintf(dbuf->buf + dbuf->size, n + 1, fmt, args);
+	va_end(args);
+
+	dbuf->size += n;
 }
 
 #endif
