@@ -1,95 +1,22 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <assert.h>
+#include "sort.h"
 
-#define swap(a, b) do { int tmp = a; a = b; b = tmp; } while(0)
-
-struct partition {
-	size_t left;
-	size_t right;
-};
-
-static void insertion_sort(int *arr, size_t left, size_t right)
+static int int_cmp(const void *a, const void *b)
 {
-	for (size_t i = left + 1; i <= right; i++) {
-		for (size_t j = i; j > left && arr[j - 1] > arr[j]; j--) {
-			swap(arr[j - 1], arr[j]);
-		}
-	}
+	return *(const int *)a - *(const int *)b;
 }
 
-static void quicksort(int *arr, size_t left, size_t right)
+static int string_cmp(const void *a, const void *b)
 {
-	struct partition stack[128];
-	size_t sp = 0;
-
-	for (;;) {
-		while (left < right) {
-			if (right - left < 16) {
-				insertion_sort(arr, left, right);
-				break;
-			}
-
-			size_t mid = (left + right) / 2;
-			if (arr[mid] < arr[left]) {
-				swap(arr[left], arr[mid]);
-			}
-			if (arr[right] < arr[left]) {
-				swap(arr[left], arr[right]);
-			}
-			if (arr[mid] < arr[right]) {
-				swap(arr[mid], arr[right]);
-			}
-			int pivot = arr[right];
-			size_t i = left - 1;
-			size_t j = right + 1;
-			for (;;) {
-				do {
-					i++;
-				} while (i <= right && arr[i] < pivot);
-
-				do {
-					j--;
-				} while (j >= left && arr[j] > pivot);
-
-				if (i >= j) {
-					assert(sp < 128);
-					if (j - left < right - j) {
-						stack[sp].left = j + 1;
-						stack[sp].right = right;
-						right = j;
-
-					} else {
-						stack[sp].left = left;
-						stack[sp].right = j;
-						left = j + 1;
-					}
-					sp++;
-					break;
-				}
-
-				swap(arr[i], arr[j]);
-			}
-		}
-
-		if (sp == 0) {
-			break;
-		}
-
-		sp--;
-		left = stack[sp].left;
-		right = stack[sp].right;
-
-	}
+	return strcmp(*(const char **)a, *(const char **)b);
 }
 
-static void sort(int *arr, size_t n)
-{
-	quicksort(arr, 0, n - 1);
-}
 
-static int is_sorted(int *arr, size_t n)
+static int int_is_sorted(int *arr, size_t n)
 {
 	for (size_t i = 1; i < n; i++) {
 		if (arr[i] < arr[i - 1]) {
@@ -99,55 +26,91 @@ static int is_sorted(int *arr, size_t n)
 	return 1;
 }
 
-static int int_cmp(const void *a, const void *b)
+static int string_is_sorted(char **arr, size_t n)
 {
-	return *(const int *)a - *(const int *)b;
+	for (size_t i = 1; i < n; i++) {
+		if (strcmp(arr[i], arr[i - 1]) < 0) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+DEFINE_SORTFUNC(integer_sort, int, int_cmp, 16)
+DEFINE_SORTFUNC(string_sort, char *, string_cmp, 16)
+
+static double ns_elapsed(struct timespec *start, struct timespec *end)
+{
+	long s = end->tv_sec - start->tv_sec;
+	long ns = end->tv_nsec - start->tv_nsec;
+	return ns / 1000000000.0 + s;
 }
 
 int main(int argc, char **argv)
 {
 	size_t n = 32 * 1024 * 1024;
-	int *arr = malloc(n * sizeof(arr[0]));
+	int *arr1 = malloc(n * sizeof(arr1[0]));
 
 	srand(1234);
 	for (size_t i = 0; i < n; i++) {
-		arr[i] = rand();
+		arr1[i] = rand();
 	}
 
 	struct timespec start, end;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
-	sort(arr, n);
+	integer_sort(arr1, n);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
-	assert(is_sorted(arr, n));
+	assert(int_is_sorted(arr1, n));
 
-	long sec = end.tv_sec - start.tv_sec;
-	long nsec = end.tv_nsec - start.tv_nsec;
-	if (nsec < 0) {
-		sec--;
-		nsec += 1000000000;
-	}
-	printf("%ld.%03ld\n", sec, nsec / 1000000);
+	double s = ns_elapsed(&start, &end);
+	printf("%.2f\n", s);
 
 	srand(1234);
 	for (size_t i = 0; i < n; i++) {
-		arr[i] = rand();
+		arr1[i] = rand();
 	}
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
-	qsort(arr, n, sizeof(arr[0]), int_cmp);
+	qsort(arr1, n, sizeof(arr1[0]), int_cmp);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
-	assert(is_sorted(arr, n));
+	assert(int_is_sorted(arr1, n));
 
-	sec = end.tv_sec - start.tv_sec;
-	nsec = end.tv_nsec - start.tv_nsec;
-	if (nsec < 0) {
-		sec--;
-		nsec += 1000000000;
-	}
-	printf("%ld.%ld\n", sec, nsec / 1000000);
+	s = ns_elapsed(&start, &end);
+	printf("%.2f\n", s);
+
+	free(arr1);
+
+	n = 8 * 1024 * 1024;
+	char **arr2 = malloc(n * sizeof(arr2[0]));
 
 	srand(1234);
 	for (size_t i = 0; i < n; i++) {
-		arr[i] = rand();
+		unsigned int r = rand();
+		char *s = malloc(16);
+		sprintf(s, "%u", r);
+		arr2[i] = s;
 	}
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	string_sort(arr2, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	assert(string_is_sorted(arr2, n));
+
+	s = ns_elapsed(&start, &end);
+	printf("%.2f\n", s);
+
+	srand(1234);
+	for (size_t i = 0; i < n; i++) {
+		unsigned int r = rand();
+		sprintf(arr2[i], "%u", r);
+	}
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	qsort(arr2, n, sizeof(arr2[0]), string_cmp);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	assert(string_is_sorted(arr2, n));
+
+	s = ns_elapsed(&start, &end);
+	printf("%.2f\n", s);
+
 }
