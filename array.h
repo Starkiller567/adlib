@@ -32,33 +32,36 @@ typedef struct {
 # define __arrhead(a) ((__arr *)(a) - 1)
 #endif
 
-#define array_len(a)                  ((a) ? __arrhead(a)->len : 0)
-#define array_empty(a)                (array_len(a) == 0)
-#define array_lasti(a)                (array_len(a) - 1)
-#define array_last(a)                 ((a)[array_lasti(a)])
-#define array_limit(a)                ((a) ? __arrhead(a)->limit : 0)
-#define array_free(a)                  __array_free((void **)&(a))
-#define array_copy(a)	               __array_copy((a), sizeof((a)[0]))
-#define array_addn(a, n)               __array_addn((void **)&(a), sizeof((a)[0]), n)
-#define array_add(a, v)                (array_addn(a, 1), ((a)[array_lasti(a)]  = v))
-#define array_insertn(a, i, n)         __array_insertn((void **)&(a), sizeof((a)[0]), i, n)
-#define array_insert(a, i, v)          (array_insertn(a, i, 1), ((a)[i] = v))
-#define array_reset(a)	               do { if (a) __arrhead(a)->len = 0; } while(0);
-#define array_resize(a, limit)         __array_resize((void **)&(a), sizeof((a)[0]), limit)
-#define array_reserve(a, n)            __array_reserve((void **)&(a), sizeof((a)[0]), n)
-#define array_grow(a, n)               __array_grow((void **)&(a), sizeof((a)[0]), n)
-#define array_shrink_to_fit(a)         array_resize(a, array_len(a));
-#define array_make_valid(a, i)         __array_make_valid((void **)&(a), sizeof((a)[0]), i);
-#define array_push(a, v)               array_add(a, v)
-#define array_pop(a)                   ((a)[--__arrhead(a)->len])
-#define array_popn(a, n)	       (__arrhead(a)->len -= n)
-#define array_fast_deleten(a, i, n)    __array_fast_deleten((a), sizeof((a)[0]), i, n)
-#define array_fast_delete(a, i)        (((a)[i] = array_last(a)), __arrhead(a)->len--)
-#define array_ordered_deleten(a, i, n) __array_ordered_deleten((a), sizeof((a)[0]), i, n)
-#define array_ordered_delete(a, i)     array_ordered_deleten(a, i, 1)
-// TODO change these to allow arbitrary modifications to the array inside the loop? (also add fori?)
-#define array_foreach(a, v)            for ((v) = (a); (v) < (a) + array_len(a); (v)++)
-#define array_foreach_reverse(a, v)    for ((v) = (a) + array_len(a); !array_empty(a) && (--v) >= (a);)
+#define array_len(a)                   ((a) ? __arrhead(a)->len : 0)
+#define array_empty(a)                 (array_len(a) == 0)
+#define array_lasti(a)                 (array_len(a) - 1)
+#define array_last(a)                  ((a)[array_lasti(a)])
+#define array_limit(a)                 ((a) ? __arrhead(a)->limit : 0)
+#define array_free(a)                   __array_free((void **)&(a))
+#define array_copy(a)	                __array_copy((a), sizeof((a)[0]))
+#define array_addn(a, n)                __array_addn((void **)&(a), sizeof((a)[0]), n)
+#define array_add(a, v)                 (array_addn(a, 1), ((a)[array_lasti(a)]  = v))
+#define array_insertn(a, i, n)          __array_insertn((void **)&(a), sizeof((a)[0]), i, n)
+#define array_insert(a, i, v)           (array_insertn(a, i, 1), ((a)[i] = v))
+#define array_reset(a)	                do { if (a) __arrhead(a)->len = 0; } while(0);
+#define array_resize(a, limit)          __array_resize((void **)&(a), sizeof((a)[0]), limit)
+#define array_reserve(a, n)             __array_reserve((void **)&(a), sizeof((a)[0]), n)
+#define array_grow(a, n)                __array_grow((void **)&(a), sizeof((a)[0]), n)
+#define array_shrink_to_fit(a)          array_resize(a, array_len(a));
+#define array_make_valid(a, i)          __array_make_valid((void **)&(a), sizeof((a)[0]), i);
+#define array_push(a, v)                array_add(a, v)
+#define array_pop(a)                    ((a)[--__arrhead(a)->len])
+#define array_popn(a, n)	        (__arrhead(a)->len -= n)
+#define array_fast_deleten(a, i, n)     __array_fast_deleten((a), sizeof((a)[0]), i, n)
+#define array_fast_delete(a, i)         (((a)[i] = array_last(a)), __arrhead(a)->len--)
+#define array_ordered_deleten(a, i, n)  __array_ordered_deleten((a), sizeof((a)[0]), i, n)
+#define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
+#define array_fori(a, itername)         for (size_t itername = 0; itername < array_len(a); itername++)
+#define array_fori_reverse(a, itername) for (size_t itername = array_len(a); \
+					     !array_empty(a) && --itername != 0;)
+#define array_foreach(a, v)             for ((v) = (a); (v) < (a) + array_len(a); (v)++)
+#define array_foreach_reverse(a, v)     for ((v) = (a) + array_len(a);	\
+					     !array_empty(a) && --(v) >= (a);)
 
 static void *__array_copy(void *arr, size_t elem_size)
 {
@@ -185,7 +188,6 @@ static void __array_fast_deleten(void *arr, size_t size, size_t i, size_t n)
 	}
 	memmove((char *)arr + i * size, (char *)arr + (len - k) * size, k * size);
 	__arrhead(arr)->len -= n;
-	array_add(a, a);
 }
 
 #endif

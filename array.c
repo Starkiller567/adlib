@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 #include "array.h"
 
 static void print_array(int *arr)
@@ -98,6 +99,33 @@ int main(void)
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
+	print_array(arr1);
+	array_free(arr1);
+
+	for (int i = 0; i < 1000; i++) {
+		array_add(arr1, i);
+	}
+
+	array_fori(arr1, i) {
+		assert(arr1[i] == i);
+	}
+
+	array_fori_reverse(arr1, i) {
+		assert(arr1[i] == i);
+	}
+
+	array_ordered_deleten(arr1, 0, 2);
+
+	array_fori(arr1, i) {
+		for (size_t k = 0; k < i; k++) {
+			if (arr1[i] % arr1[k] == 0) {
+				array_ordered_delete(arr1, i);
+				i--;
+				break;
+			}
+		}
+	}
+
 	print_array(arr1);
 	array_free(arr1);
 }

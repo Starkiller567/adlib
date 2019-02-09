@@ -1,4 +1,7 @@
+#include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
+#include <assert.h>
 #include "endian.h"
 
 int main(void)
@@ -35,4 +38,53 @@ int main(void)
 	printf("%lx\n", le64);
 	printf("%lx\n", be64_to_cpu(be64));
 	printf("%lx\n", le64_to_cpu(le64));
+
+	srand(time(NULL));
+	for (unsigned int i = 0; i < 10000000; i++) {
+		union {
+			uint16_t w;
+			unsigned char b[2];
+		} x, y;
+
+		for (unsigned int k = 0; k < sizeof(x); k++) {
+			unsigned char c = rand();
+			x.b[k] = c;
+			y.b[sizeof(x) - 1 - k] = c;
+		}
+
+		assert(be16_to_cpu(x.w) == le16_to_cpu(y.w));
+		assert(be16_to_cpu(y.w) == le16_to_cpu(x.w));
+	}
+
+	for (unsigned int i = 0; i < 10000000; i++) {
+		union {
+			uint32_t w;
+			unsigned char b[4];
+		} x, y;
+
+		for (unsigned int k = 0; k < sizeof(x); k++) {
+			unsigned char c = rand();
+			x.b[k] = c;
+			y.b[sizeof(x) - 1 - k] = c;
+		}
+
+		assert(be32_to_cpu(x.w) == le32_to_cpu(y.w));
+		assert(be32_to_cpu(y.w) == le32_to_cpu(x.w));
+	}
+
+	for (unsigned int i = 0; i < 10000000; i++) {
+		union {
+			uint64_t w;
+			unsigned char b[8];
+		} x, y;
+
+		for (unsigned int k = 0; k < sizeof(x); k++) {
+			unsigned char c = rand();
+			x.b[k] = c;
+			y.b[sizeof(x) - 1 - k] = c;
+		}
+
+		assert(be64_to_cpu(x.w) == le64_to_cpu(y.w));
+		assert(be64_to_cpu(y.w) == le64_to_cpu(x.w));
+	}
 }
