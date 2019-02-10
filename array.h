@@ -7,8 +7,14 @@
 #include <string.h>
 
 #ifndef ARRAY_SAFETY_CHECKS
-# define ARRAY_SAFETY_CHECKS 1
+# ifdef NDEBUG
+#  define ARRAY_SAFETY_CHECKS 0
+# else
+#  define ARRAY_SAFETY_CHECKS 1
+# endif
 #endif
+
+#define ARRAY_INITIAL_SIZE 8
 
 #define ARRAY_MAGIC1 0xdeadbabe
 #define ARRAY_MAGIC2 0xbeefcafe
@@ -118,6 +124,9 @@ static void __array_grow(void **arrp, size_t elem_size, size_t n)
 	}
 	size_t limit = array_limit(*arrp);
 	size_t new_limit = n < limit ? 2 * limit : limit + n;
+	if (new_limit < ARRAY_INITIAL_SIZE) {
+		new_limit = ARRAY_INITIAL_SIZE;
+	}
 	__array_resize(arrp, elem_size, new_limit);
 }
 

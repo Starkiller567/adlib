@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <assert.h>
 #include "array.h"
 
-static void print_array(int *arr)
+static void print_array(int *arr, bool print_reverse)
 {
 	size_t len = array_len(arr);
 	size_t limit = array_limit(arr);
@@ -16,16 +17,18 @@ static void print_array(int *arr)
 		}
 		i++;
 	}
-#if 1
-	printf("}\nreverse = {");
-	array_foreach_reverse(arr, cur) {
-		printf("%i", *cur);
-		i--;
-		if (i != 0) {
-			printf(", ");
+
+	if (print_reverse) {
+		printf("}\nreverse = {");
+		array_foreach_reverse(arr, cur) {
+			printf("%i", *cur);
+			i--;
+			if (i != 0) {
+				printf(", ");
+			}
 		}
 	}
-#endif
+
 	printf("}\n}\n");
 }
 
@@ -38,6 +41,8 @@ int main(void)
 #endif
 
 	int *arr1 = NULL;
+
+#if 1
 	array_push(arr1, 1);
 	array_push(arr1, 2);
 	array_push(arr1, 3);
@@ -74,7 +79,7 @@ int main(void)
 	array_reset(arr2);
 	array_shrink_to_fit(arr2);
 
-	print_array(arr1);
+	print_array(arr1, true);
 	array_ordered_deleten(arr1, 2, 1);
 	array_fast_deleten(arr1, 2, 1);
 
@@ -83,26 +88,29 @@ int main(void)
 
 	array_resize(arr1, 4);
 
-	print_array(arr1);
-	print_array(arr2);
+	print_array(arr1, true);
+	print_array(arr2, true);
 
 	array_free(arr1);
 	array_insertn(arr1, 0, 10);
 	array_free(arr1);
 
 	array_reserve(arr1, 1);
-	print_array(arr1);
+	print_array(arr1, true);
 	array_reserve(arr1, 5);
-	print_array(arr1);
+	print_array(arr1, true);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
-	print_array(arr1);
+	print_array(arr1, true);
 	array_free(arr1);
 
-	for (int i = 0; i < 1000; i++) {
+#else
+
+	int n = 300000;
+	for (int i = 0; i < n; i++) {
 		array_add(arr1, i);
 	}
 
@@ -117,7 +125,7 @@ int main(void)
 	array_ordered_deleten(arr1, 0, 2);
 
 	array_fori(arr1, i) {
-		for (size_t k = 0; k < i; k++) {
+		for (size_t k = 0; k < (i + 1) / 2; k++) {
 			if (arr1[i] % arr1[k] == 0) {
 				array_ordered_delete(arr1, i);
 				i--;
@@ -126,6 +134,7 @@ int main(void)
 		}
 	}
 
-	print_array(arr1);
+	printf("%zu primes between 0 and %d\n", array_len(arr1), n);
 	array_free(arr1);
+#endif
 }
