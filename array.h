@@ -62,6 +62,7 @@ typedef struct {
 #define array_fast_delete(a, i)         (((a)[i] = array_last(a)), __arrhead(a)->len--)
 #define array_ordered_deleten(a, i, n)  __array_ordered_deleten((a), sizeof((a)[0]), i, n)
 #define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
+#define array_index_of(a, ptr)          ((size_t)((ptr) - (a)))
 #define array_fori(a, itername)         for (size_t itername = 0; itername < array_len(a); itername++)
 #define array_fori_reverse(a, itername) for (size_t itername = array_len(a); \
 					     !array_empty(a) && --itername != 0;)
