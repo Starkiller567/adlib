@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define is_little_endian() ((const union {uint16_t i; uint8_t c;}){1}.c == 1)
+#define is_big_endian()    ((const union {uint16_t i; uint8_t c;}){1}.c == 0)
+
 #define bswap64(x) ((((uint64_t)x & 0xff00000000000000) >> 56) |	\
                     (((uint64_t)x & 0x00ff000000000000) >> 40) |	\
                     (((uint64_t)x & 0x0000ff0000000000) >> 24) |	\
@@ -20,25 +23,6 @@
 
 #define bswap16(x) ((((uint16_t)x & 0xff00) >> 8) |	\
                     (((uint16_t)x & 0x00ff) << 8))
-
-
-static inline bool is_little_endian()
-{
-	const union {
-		int i;
-		char c;
-	} u = {1};
-	return u.c == 1;
-}
-
-static inline bool is_big_endian()
-{
-	const union {
-		int i;
-		char c;
-	} u = {1};
-	return u.c == 0;
-}
 
 typedef uint16_t __be16;
 typedef uint32_t __be32;
