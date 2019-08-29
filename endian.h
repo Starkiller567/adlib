@@ -1,7 +1,6 @@
 #ifndef __endian_include__
 #define __endian_include__
 
-#include <stdbool.h>
 #include <stdint.h>
 
 #define is_little_endian() ((const union {uint16_t i; uint8_t c;}){1}.c == 1)
