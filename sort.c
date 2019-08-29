@@ -36,8 +36,8 @@ static int string_is_sorted(char **arr, size_t n)
 	return 1;
 }
 
-DEFINE_SORTFUNC(integer_sort, int, int_cmp, 16)
-DEFINE_SORTFUNC(string_sort, char *, string_cmp, 16)
+DEFINE_SORTFUNC(integer_sort, int, 16, *a - *b)
+DEFINE_SORTFUNC(string_sort, char *, 16, strcmp(*a, *b))
 
 static double ns_elapsed(struct timespec *start, struct timespec *end)
 {
