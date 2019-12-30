@@ -22,7 +22,7 @@ mprintf(const char *fmt, ...)
 	}
 
 	if (n < sizeof(buf)) {
-		strcpy(str, buf);
+		memcpy(str, buf, n + 1);
 		return str;
 	}
 

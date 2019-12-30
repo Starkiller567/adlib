@@ -5,8 +5,8 @@
 
 int main(int argc, char **argv)
 {
-#if 0
-	for (unsigned int i = 0; i < 50000000; i++) {
+#if 1
+	for (unsigned int i = 0; i < 1000000; i++) {
 		char *str = mprintf("%s %i %.3f\n", "abc", 123456, 123.456);
 		free(str);
 		str = mprintf("%s %s %i %i %.3f\n", "abcdef", "123 456", 123, 456, 123.456);

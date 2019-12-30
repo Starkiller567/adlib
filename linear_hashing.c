@@ -51,7 +51,7 @@ static unsigned long string_hashfunc(const void *string)
 
 	const int nblocks = nbytes / 4;
 	const uint32_t *blocks = (const uint32_t *) (data);
-	const uint8_t *tail = (const uint8_t *) (data + (nblocks * 4));
+	const uint8_t *tail = (const uint8_t *) data + (nblocks * 4);
 
 	uint32_t h = 0;
 
@@ -482,7 +482,7 @@ static void debug_print_table(struct hashtable *table)
 static bool increment(const void *key, void **data, void *iter_data)
 {
 	assert(key == *data);
-	(*data)++;
+	(*(unsigned long*)data)++;
 	return true;
 }
 
@@ -532,7 +532,7 @@ int main(void)
 
 	for (i = 0; i < num_items; i++) {
 		void *data = hashtable_remove(i, table);
-		assert(data == (void *)i + 1);
+		assert(data == (void *)(i + 1));
 	}
 	assert(table->num_items == 0);
 	destroy_hashtable(table);

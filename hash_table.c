@@ -4,8 +4,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
-#include "hash_table.h"
-//#include "flat_hash.h"
+// #include "hash_table.h"
+// #include "flat_hash.h"
+#include "robin_hood.h"
 
 static inline unsigned int integer_hash(unsigned int key)
 {
@@ -13,11 +14,6 @@ static inline unsigned int integer_hash(unsigned int key)
 	/* h = ~h; */
 	/* h ^= (key << 16) | (key >> 16); */
 	return h;
-}
-
-static inline bool integers_equal(unsigned int key1, unsigned int key2)
-{
-	return key1 == key2;
 }
 
 static unsigned long string_hash(const void *string)
@@ -76,11 +72,6 @@ static unsigned long string_hash(const void *string)
 	return h;
 }
 
-static bool strings_equal(const char *s1, const char *s2)
-{
-	return strcmp(s1, s2) == 0;
-}
-
 struct short_string {
 	char s[128];
 };
@@ -88,11 +79,6 @@ struct short_string {
 static unsigned long short_string_hash(const struct short_string s)
 {
 	return string_hash(s.s);
-}
-
-static bool short_strings_equal(const struct short_string s1, const struct short_string s2)
-{
-	return strcmp(s1.s, s2.s) == 0;
 }
 
 static unsigned long long tp_to_ns(struct timespec *tp)
@@ -107,10 +93,10 @@ static unsigned long long ns_elapsed(struct timespec *start, struct timespec *en
 	return ns + 1000000000 * s;
 }
 
-DEFINE_HASHTABLE(itable, unsigned int, unsigned int, integer_hash, integers_equal, 8)
-DEFINE_HASHTABLE(stable, char *, char *, string_hash, strings_equal, 8)
-DEFINE_HASHTABLE(sstable, char *, struct short_string, string_hash, strings_equal, 8)
-DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, short_string_hash, short_strings_equal, 8)
+DEFINE_HASHTABLE(itable, unsigned int, unsigned int, 8, (*a == *b))
+DEFINE_HASHTABLE(stable, const char *, char *, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHTABLE(sstable, const char *, struct short_string, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
 
 int main(int argc, char **argv)
 {
@@ -131,14 +117,14 @@ int main(int argc, char **argv)
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
-		unsigned int *item = itable_insert(&itable, i);
+		unsigned int *item = itable_insert(&itable, i, integer_hash(i));
 		*item = i;
 	}
 
 	for (i = 0; i < num_items; i++) {
-		unsigned int *item = itable_lookup(&itable, i);
+		unsigned int *item = itable_lookup(&itable, i, integer_hash(i));
 		assert(*item == i);
-		itable_remove(&itable, i, NULL, NULL);
+		itable_remove(&itable, i, integer_hash(i), NULL, NULL);
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);
@@ -158,7 +144,7 @@ int main(int argc, char **argv)
 		char *data = malloc(16);
 		sprintf(data, "%u", i);
 		sprintf(key, "%u", i);
-		char **item = stable_insert(&stable, key);
+		char **item = stable_insert(&stable, key, string_hash(key));
 		*item = data;
 	}
 
@@ -168,9 +154,10 @@ int main(int argc, char **argv)
 		char data[16];
 		sprintf(key, "%u", i);
 		sprintf(data, "%u", i);
-		s = stable_lookup(&stable, key);
+		unsigned int hash = string_hash(key);
+		s = stable_lookup(&stable, key, hash);
 		assert(strcmp(*s, data) == 0);
-		stable_remove(&stable, key, NULL, NULL);
+		stable_remove(&stable, key, hash, NULL, NULL);
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);
@@ -188,7 +175,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < num_items; i++) {
 		char *key = malloc(16);
 		sprintf(key, "%u", i);
-		struct short_string *item = sstable_insert(&sstable, key);
+		struct short_string *item = sstable_insert(&sstable, key, string_hash(key));
 		sprintf(item->s, "%u", i);
 	}
 
@@ -197,9 +184,10 @@ int main(int argc, char **argv)
 		struct short_string data;
 		sprintf(key, "%u", i);
 		sprintf(data.s, "%u", i);
-		struct short_string *item = sstable_lookup(&sstable, key);
+		unsigned int hash = string_hash(key);
+		struct short_string *item = sstable_lookup(&sstable, key, hash);
 		assert(strcmp(item->s, data.s) == 0);
-		sstable_remove(&sstable, key, NULL, NULL);
+		sstable_remove(&sstable, key, hash, NULL, NULL);
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);
@@ -217,7 +205,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < num_items; i++) {
 		struct short_string key;
 		sprintf(key.s, "%u", i);
-		struct short_string *item = ssstable_insert(&ssstable, key);
+		struct short_string *item = ssstable_insert(&ssstable, key, short_string_hash(key));
 		sprintf(item->s, "%u", i);
 	}
 
@@ -226,9 +214,10 @@ int main(int argc, char **argv)
 		struct short_string data;
 		sprintf(key.s, "%u", i);
 		sprintf(data.s, "%u", i);
-		struct short_string *item = ssstable_lookup(&ssstable, key);
+		unsigned int hash = short_string_hash(key);
+		struct short_string *item = ssstable_lookup(&ssstable, key, hash);
 		assert(strcmp(item->s, data.s) == 0);
-		ssstable_remove(&ssstable, key, NULL, NULL);
+		ssstable_remove(&ssstable, key, hash, NULL, NULL);
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);
@@ -243,16 +232,16 @@ int main(int argc, char **argv)
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
-		unsigned int *item = itable_insert(&itable, i);
+		unsigned int *item = itable_insert(&itable, i, integer_hash(i));
 		*item = i;
 	}
 	for (i = 0; i < num_items; i++) {
-		i = *itable_lookup(&itable, i);
+		i = *itable_lookup(&itable, i, integer_hash(i));
 	}
 	for (i = 0; i < num_items; i++) {
 		unsigned int key;
 		unsigned int item;
-		itable_remove(&itable, i, &key, &item);
+		itable_remove(&itable, i, integer_hash(i), &key, &item);
 		assert(key == item);
 		i = key;
 	}
@@ -272,16 +261,16 @@ int main(int argc, char **argv)
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int key = rand();
-		unsigned int *item = itable_insert(&itable, key);
+		unsigned int *item = itable_insert(&itable, key, integer_hash(i));
 		*item = i;
 		for (unsigned int j = 0; j < 100; j++) {
-			item = itable_lookup(&itable, key);
+			item = itable_lookup(&itable, key, integer_hash(i));
 			*item = j;
 		}
-		itable_remove(&itable, key, NULL, NULL);
-		item = itable_insert(&itable, key);
+		itable_remove(&itable, key, integer_hash(i), NULL, NULL);
+		item = itable_insert(&itable, key, integer_hash(i));
 		*item = key;
-		item = itable_lookup(&itable, key);
+		item = itable_lookup(&itable, key, integer_hash(i));
 		*item = i;
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
@@ -301,16 +290,17 @@ int main(int argc, char **argv)
 		unsigned int r = rand();
 		char key[16];
 		sprintf(key, "%u", r);
-		struct short_string *item = sstable_insert(&sstable, key);
+		unsigned int hash = string_hash(key);
+		struct short_string *item = sstable_insert(&sstable, key, hash);
 		sprintf(item->s, "%u", i);
 		for (unsigned int j = 0; j < 100; j++) {
-			item = sstable_lookup(&sstable, key);
+			item = sstable_lookup(&sstable, key, hash);
 			sprintf(item->s, "%u", j);
 		}
-		sstable_remove(&sstable, key, NULL, NULL);
-		item = sstable_insert(&sstable, key);
+		sstable_remove(&sstable, key, hash, NULL, NULL);
+		item = sstable_insert(&sstable, key, hash);
 		sprintf(item->s, "%u", r);
-		item = sstable_lookup(&sstable, key);
+		item = sstable_lookup(&sstable, key, hash);
 		sprintf(item->s, "%u", i);
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
@@ -331,14 +321,15 @@ int main(int argc, char **argv)
 		unsigned int r = rand() % num_items;
 		char key[16];
 		sprintf(key, "%u", r);
+		unsigned int hash = string_hash(key);
 		if (op < 75) {
-			struct short_string *item = sstable_lookup(&sstable, key);
+			struct short_string *item = sstable_lookup(&sstable, key, hash);
 			if (!item) {
-				item = sstable_insert(&sstable, key);
+				item = sstable_insert(&sstable, key, hash);
 			}
 			sprintf(item->s, "%u", i);
 		} else {
-			sstable_remove(&sstable, key, NULL, NULL);
+			sstable_remove(&sstable, key, hash, NULL, NULL);
 		}
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);

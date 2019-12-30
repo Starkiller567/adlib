@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define DEFINE_HASHTABLE(name, key_type, item_type, MAX_DIST, ...)	\
+#define DEFINE_HASHTABLE(name, key_type, item_type, THRESHOLD, ...)	\
 									\
 	struct name##_bucket {						\
 		unsigned int hash;					\
@@ -23,6 +23,11 @@
 		return hash & (table_size - 1);				\
 	}								\
 									\
+	static inline unsigned int __##name##_distance(unsigned int idx, unsigned int hash, unsigned int table_size) \
+	{								\
+		return (idx - __##name##_hash_to_idx(hash, table_size)) & (table_size - 1); \
+	}								\
+									\
 	static void name##_init(struct name *table, unsigned int size)	\
 	{								\
 		if ((size & (size - 1)) != 0) {				\
@@ -36,17 +41,12 @@
 			/* size |= size >> 32; */			\
 			size++;						\
 		}							\
-		/* size_t indices_size = size * sizeof(*table->indices); */ \
 		size_t buckets_size = size * sizeof(*table->buckets);	\
 		size_t items_size = size * sizeof(*table->items);	\
 		char *mem = malloc(buckets_size + items_size);		\
-		/* table->indices = (unsigned int *)mem; */		\
-		/* mem += indices_size; */				\
 		table->buckets = (struct name##_bucket *)mem;		\
 		mem += buckets_size;					\
 		table->items = (item_type *)mem;			\
-		/* memset(table->indices, 0xff, indices_size); */	\
-		/* memset(table->buckets, 0, buckets_size); */		\
 		for (unsigned int i = 0; i < size; i++) {		\
 			table->buckets[i].hash = 0;			\
 		}							\
@@ -60,65 +60,113 @@
 		table->size = 0;					\
 	}								\
 									\
-	static item_type *name##_lookup(struct name *table, key_type key, unsigned int hash) \
+	static unsigned int __##name##_lookup_internal(struct name *table, key_type key, unsigned int hash) \
 	{								\
 		hash = hash == 0 || hash == 1 ? hash - 2 : hash;	\
 		unsigned int index = __##name##_hash_to_idx(hash, table->size);	\
-		for (unsigned int i = 0; i < 2 * MAX_DIST; i++) {	\
+		unsigned int distance = 0;				\
+		for (;;) {						\
 			struct name##_bucket *bucket = &table->buckets[index]; \
 			key_type const *a = &key;			\
 			key_type const *b = &bucket->key;		\
 			if (bucket->hash == 0) {			\
-				break;					\
+				return -1;				\
 			}						\
-			if (hash == bucket->hash && (__VA_ARGS__)) {	\
-				return &table->items[index];		\
+									\
+			if (bucket->hash != 1) {			\
+				unsigned int d = __##name##_distance(index, bucket->hash, table->size);	\
+				if (distance > d) {			\
+					return -1;			\
+				}					\
+									\
+				if (hash == bucket->hash && (__VA_ARGS__)) { \
+					return index;			\
+				}					\
 			}						\
+									\
 			index = (index + 1) & (table->size - 1);	\
+			distance++;					\
 		}							\
-		return NULL;						\
+		return -1;						\
+	}								\
+									\
+	static item_type *name##_lookup(struct name *table, key_type key, unsigned int hash) \
+	{								\
+		unsigned int index = __##name##_lookup_internal(table, key, hash); \
+		if (index == -1) {					\
+			return NULL;					\
+		}							\
+		return &table->items[index];				\
 	}								\
 									\
 	static bool name##_remove(struct name *table, key_type key, unsigned int hash, key_type *ret_key, item_type *ret_item) \
 	{								\
-		hash = hash == 0 || hash == 1 ? hash - 2 : hash;	\
-		unsigned int index = __##name##_hash_to_idx(hash, table->size);	\
-		struct name##_bucket *bucket;				\
-		for (unsigned int i = 0; i < 2 * MAX_DIST; i++) {	\
-			bucket = &table->buckets[index];		\
-			key_type const *a = &key;				\
-			key_type const *b = &bucket->key;			\
-			if (hash == bucket->hash && (__VA_ARGS__)) {	\
-				break;					\
-			}						\
-			index = (index + 1) & (table->size - 1);	\
+		unsigned int index = __##name##_lookup_internal(table, key, hash); \
+		if (index == -1) {					\
+			return false;					\
 		}							\
+									\
 		if (ret_key) {						\
-			*ret_key = bucket->key;				\
+			*ret_key = table->buckets[index].key;		\
 		}							\
 		if (ret_item) {						\
 			*ret_item = table->items[index];		\
 		}							\
-		bucket->hash = 1;					\
+		table->buckets[index].hash = 1;				\
 		table->num_items--;					\
 		return true;						\
 	}								\
 									\
+	static void __##name##_move(struct name *table, unsigned int index) \
+	{								\
+		struct name##_bucket *bucket = &table->buckets[index];	\
+		unsigned int hash = bucket->hash;			\
+		key_type key = bucket->key;				\
+		item_type item = table->items[index];			\
+		unsigned int distance = __##name##_distance(index, bucket->hash, table->size); \
+		for (;;) {						\
+			index = (index + 1) & (table->size - 1);	\
+			distance++;					\
+			bucket = &table->buckets[index];		\
+			if (bucket->hash == 0 || bucket->hash == 1) {	\
+				bucket->hash = hash;			\
+				bucket->key = key;			\
+				table->items[index] = item;		\
+				break;					\
+			}						\
+			unsigned int d = __##name##_distance(index, bucket->hash, table->size);	\
+			if (d < distance) {				\
+				unsigned int tmp_hash = bucket->hash;	\
+				key_type tmp_key = bucket->key;		\
+				item_type tmp_item = table->items[index]; \
+				bucket->hash = hash;			\
+				bucket->key = key;			\
+				table->items[index] = item;		\
+				hash = tmp_hash;			\
+				key = tmp_key;				\
+				item = tmp_item;			\
+				distance = d;				\
+			}						\
+		}							\
+	}								\
+									\
 	static item_type *__##name##_insert_internal(struct name *table, key_type key, unsigned int hash) \
 	{								\
-		unsigned int index = __##name##_hash_to_idx(hash, table->size);	\
 		struct name##_bucket *bucket;				\
-		unsigned int i;						\
-		for (i = 0; i < 2 * MAX_DIST; i++) {			\
+		unsigned int index = __##name##_hash_to_idx(hash, table->size);	\
+		unsigned int distance = 0;				\
+		for (;;) {						\
 			bucket = &table->buckets[index];		\
 			if (bucket->hash == 0 || bucket->hash == 1) {	\
 				break;					\
 			}						\
+			unsigned int d = __##name##_distance(index, bucket->hash, table->size);	\
+			if (d < distance) {				\
+				__##name##_move(table, index);		\
+				break;					\
+			}						\
 			index = (index + 1) & (table->size - 1);	\
-		}							\
-									\
-		if (i == 2 * MAX_DIST) {				\
-			return NULL;					\
+			distance++;					\
 		}							\
 									\
 		bucket->hash = hash;					\
@@ -155,15 +203,13 @@
 									\
 	static item_type *name##_insert(struct name *table, key_type key, unsigned int hash) \
 	{								\
-		hash = hash == 0 || hash == 1 ? hash - 2 : hash;	\
 		table->num_items++;					\
-		for (;;) {						\
-			item_type *item = __##name##_insert_internal(table, key, hash);	\
-			if (item) {					\
-				return item;				\
-			}						\
+		if (table->num_items * 10 > THRESHOLD * table->size) {	\
 			name##_resize(table, 2 * table->size);		\
 		}							\
-	}
+									\
+		hash = hash == 0 || hash == 1 ? hash - 2 : hash;	\
+		return __##name##_insert_internal(table, key, hash);	\
+	}								\
 
 #endif
