@@ -175,11 +175,8 @@
 		return &table->items[index];				\
 	}								\
 									\
-	static bool name##_resize(struct name *table, unsigned int size) \
+	static void name##_resize(struct name *table, unsigned int size) \
 	{								\
-		if (size == table->size) {				\
-			return true;					\
-		}							\
 		struct name new_table;					\
 		name##_init(&new_table, size);				\
 									\
@@ -188,17 +185,12 @@
 			if (bucket->hash != 0 && bucket->hash != 1) {	\
 				item_type *item = __##name##_insert_internal(&new_table, bucket->key, \
 									     bucket->hash); \
-				if (!item) {				\
-					name##_destroy(&new_table);	\
-					return false;			\
-				}					\
 				*item = table->items[i];		\
 			}						\
 		}							\
 		new_table.num_items = table->num_items;			\
 		name##_destroy(table);					\
 		*table = new_table;					\
-		return true;						\
 	}								\
 									\
 	static item_type *name##_insert(struct name *table, key_type key, unsigned int hash) \

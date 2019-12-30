@@ -117,9 +117,7 @@
 	static item_type *__##name##_insert_internal(struct name *table, key_type key, unsigned int hash) \
 	{								\
 		unsigned int index = __##name##_hash_to_idx(hash, table->size); \
-									\
-		unsigned int *indirect = &table->list_entries[index].first; \
-		unsigned int next = *indirect;				\
+		unsigned int *pfirst = &table->list_entries[index].first; \
 		struct name##_bucket *bucket;				\
 		for (;;) {						\
 			bucket = &table->list_entries[index];		\
@@ -127,17 +125,12 @@
 				break;					\
 			}						\
 			index = (index + 1) & (table->size - 1);	\
-			if (0 && index > *indirect) {			\
-				struct name##_bucket *prev = &table->list_entries[*indirect]; \
-				indirect = &prev->next;			\
-				next = prev->next;			\
-			}						\
 		}							\
 									\
 		bucket->hash = hash;					\
-		bucket->next = next;					\
+		bucket->next = *pfirst;					\
 		bucket->key = key;					\
-		*indirect = index;					\
+		*pfirst = index;					\
 									\
 		return &table->items[index];				\
 	}								\
