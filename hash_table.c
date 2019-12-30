@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 	struct stable stable;
 	struct sstable sstable;
 	struct ssstable ssstable;
-	unsigned int i, num_items, x = 0;
+	unsigned int i, x = 0, seed = 12345, num_items = 1000000;
 	struct timespec start_tp, end_tp;
 	unsigned long long start_ns, ns, total_ns, sum_ns = 0;
 	bool verbose = argc >= 2 && strcmp(argv[1], "verbose") == 0;
@@ -113,7 +113,6 @@ int main(int argc, char **argv)
 	start_ns = tp_to_ns(&start_tp);
 #if 1
 	itable_init(&itable, 128);
-	num_items = 1000000;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
@@ -136,7 +135,6 @@ int main(int argc, char **argv)
 #if 1
 	stable_init(&stable, 128);
 
-	num_items = 1000000;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
@@ -169,7 +167,6 @@ int main(int argc, char **argv)
 #if 1
 	sstable_init(&sstable, 128);
 
-	num_items = 1000000;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
@@ -199,7 +196,6 @@ int main(int argc, char **argv)
 #if 1
 	ssstable_init(&ssstable, 128);
 
-	num_items = 1000000;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
@@ -228,7 +224,6 @@ int main(int argc, char **argv)
 
 #if 1
 	itable_init(&itable, 128);
-	num_items = 1000000;
 
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
@@ -245,7 +240,6 @@ int main(int argc, char **argv)
 		assert(key == item);
 		i = key;
 	}
-	assert(itable.num_items == 0);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
 	ns = ns_elapsed(&start_tp, &end_tp);
 	if (verbose) printf("[%u]: %llu\n", x++, ns);
@@ -255,9 +249,8 @@ int main(int argc, char **argv)
 
 #if 1
 	itable_init(&itable, 128);
-	num_items = 1000000;
 
-	srand(1234);
+	srand(seed);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int key = rand();
@@ -282,9 +275,8 @@ int main(int argc, char **argv)
 
 #if 1
 	sstable_init(&sstable, 128);
-	num_items = 100000;
 
-	srand(1234);
+	srand(seed);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int r = rand();
@@ -312,14 +304,13 @@ int main(int argc, char **argv)
 
 #if 1
 	sstable_init(&sstable, 128);
-	num_items = 1000000;
 
-	srand(1234);
+	srand(seed);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);
 	for (i = 0; i < num_items; i++) {
 		unsigned int op = rand() % 100;
 		unsigned int r = rand() % num_items;
-		char key[16];
+		char *key = malloc(16);
 		sprintf(key, "%u", r);
 		unsigned int hash = string_hash(key);
 		if (op < 75) {
@@ -329,7 +320,11 @@ int main(int argc, char **argv)
 			}
 			sprintf(item->s, "%u", i);
 		} else {
-			sstable_remove(&sstable, key, hash, NULL, NULL);
+			const char *stored_key;
+			if (sstable_remove(&sstable, key, hash, &stored_key, NULL)) {
+				free((void *)stored_key);
+			}
+			free(key);
 		}
 	}
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);
