@@ -163,7 +163,7 @@
 		}							\
 	}								\
 									\
-	static item_type *__##name##_insert_internal(struct name *table, key_type key, unsigned int hash) \
+	static item_type *__##name##_insert_internal(struct name *table, key_type *key, unsigned int hash) \
 	{								\
 		struct name##_bucket *bucket;				\
 		unsigned int index = __##name##_hash_to_idx(hash, table->size);	\
@@ -183,7 +183,7 @@
 		}							\
 									\
 		bucket->hash = hash;					\
-		bucket->key = key;					\
+		bucket->key = *key;					\
 									\
 		return &table->items[index];				\
 	}								\
@@ -196,7 +196,7 @@
 		for (unsigned int i = 0; i < table->size; i++) {	\
 			struct name##_bucket *bucket = &table->buckets[i]; \
 			if (bucket->hash != 0) {			\
-				item_type *item = __##name##_insert_internal(&new_table, bucket->key, \
+				item_type *item = __##name##_insert_internal(&new_table, &bucket->key, \
 									     bucket->hash); \
 				*item = table->items[i];		\
 			}						\
@@ -214,7 +214,7 @@
 		}							\
 									\
 		hash = hash == 0 ? -1 : hash;				\
-		return __##name##_insert_internal(table, key, hash);	\
+		return __##name##_insert_internal(table, &key, hash);	\
 	}								\
 
 #endif
