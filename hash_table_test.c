@@ -5,10 +5,11 @@
 #include <stdbool.h>
 #include <time.h>
 #include "array.h"
-// #include "hash_table.h"
-#include "block_table.h"
-// #include "robin_hood.h"
-// #include "flat_hash.h"
+// #include "hashtable_linked.h"
+// #include "hashtable_chunked.h"
+// #include "hashtable_maxdist.h"
+// #include "hashtable_robinhood.h"
+#include "hashtable.h"
 
 static inline unsigned int integer_hash(unsigned int key)
 {
@@ -32,7 +33,7 @@ int main(int argc, char **argv)
 	for (unsigned long counter = 0;; counter++) {
 		int r = rand() % 128;
 		if (r < 100) {
-			int x = rand() % (1 << 12);
+			int x = rand() % (1 << 20);
 			bool found = false;
 			int *item;
 			array_foreach(arr, item) {
@@ -65,7 +66,7 @@ int main(int argc, char **argv)
 			array_foreach(arr, i) {
 				assert(itable_lookup(&itable, *i, integer_hash(*i)));
 			}
-			printf("%zu %lu\r", array_len(arr), counter);
+			fprintf(stderr, "%zu %lu\r", array_len(arr), counter);
 		}
 	}
 

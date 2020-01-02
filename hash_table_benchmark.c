@@ -6,10 +6,11 @@
 #include <time.h>
 #include "array.h"
 #include "mprintf.h"
-// #include "hash_table.h"
-// #include "block_table.h"
-// #include "robin_hood.h"
-#include "flat_hash.h"
+// #include "hashtable_linked.h"
+// #include "hashtable_chunked.h"
+// #include "hashtable_maxdist.h"
+// #include "hashtable_robinhood.h"
+#include "hashtable.h"
 
 #define N 50
 
@@ -111,9 +112,9 @@ static double get_avg_rate(unsigned long long nanoseconds[N], unsigned int num_i
 }
 
 DEFINE_HASHTABLE(itable, int, int, 8, (*a == *b))
-	DEFINE_HASHTABLE(stable, char *, char *, 8, (strcmp(*a, *b) == 0))
-	DEFINE_HASHTABLE(sstable, char *, struct short_string, 8, (strcmp(*a, *b) == 0))
-	DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
+DEFINE_HASHTABLE(stable, char *, char *, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHTABLE(sstable, char *, struct short_string, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
 
 #define BENCHMARK(name, hash, key_type, item_type, keys1, values1, keys2, values2, keys3, values3, keys4, values4, ...) \
 	for (unsigned int n = 0; n < N; n++) {				\

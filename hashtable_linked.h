@@ -9,10 +9,10 @@
 	static const unsigned int name##_INVALID_INDEX = -1;		\
 									\
 	struct name##_bucket {						\
+		key_type key;						\
 		unsigned int first;					\
 		unsigned int hash;					\
 		unsigned int next;					\
-		key_type key;						\
 	};								\
 									\
 	struct name {							\
@@ -43,7 +43,7 @@
 		/* size_t indices_size = size * sizeof(*table->indices); */ \
 		size_t list_entries_size = size * sizeof(*table->list_entries); \
 		size_t items_size = size * sizeof(*table->items);	\
-		char *mem = malloc(list_entries_size + items_size);	\
+		char *mem = aligned_alloc(64, list_entries_size + items_size); \
 		/* table->indices = (unsigned int *)mem; */		\
 		/* mem += indices_size; */				\
 		table->list_entries = (struct name##_bucket *)mem;	\

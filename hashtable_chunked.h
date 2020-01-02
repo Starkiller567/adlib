@@ -48,7 +48,7 @@
 		size = num_blocks * __HASHTABLE_BLOCK_SIZE;		\
 		size_t blocks_size = num_blocks * sizeof(*table->blocks); \
 		size_t items_size = size * sizeof(*table->items);	\
-		char *mem = malloc(blocks_size + items_size);		\
+		char *mem = aligned_alloc(64, blocks_size + items_size); \
 		table->blocks = (struct name##_block *)mem;		\
 		mem += blocks_size;					\
 		table->items = (item_type *)mem;			\

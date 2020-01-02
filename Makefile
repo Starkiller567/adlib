@@ -21,7 +21,7 @@ BINPRE = $(addprefix $(BINDIR)/, $(BINARIES))
 all: $(BINPRE) $(MAKEFILE_LIST)
 
 debug:
-	@ $(MAKE) OPT=-O0 BINDIR=./debug DEPDIR=./debug-dep
+	@ $(MAKE) OPT=-O0 BINDIR=./bin/debug DEPDIR=./dep/debug
 
 # $(DEPDIR)/%.d : %.c $(MAKEFILE_LIST)
 # 	@echo "DEP		$@"

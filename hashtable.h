@@ -64,7 +64,7 @@
 		}							\
 		size_t buckets_size = size * sizeof(*table->buckets);	\
 		size_t items_size = size * sizeof(*table->items);	\
-		char *mem = malloc(buckets_size + items_size);		\
+		char *mem = aligned_alloc(64, buckets_size + items_size); \
 		table->buckets = (struct name##_bucket *)mem;		\
 		mem += buckets_size;					\
 		table->items = (item_type *)mem;			\
