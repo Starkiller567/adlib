@@ -69,6 +69,11 @@ static void dbuf_truncate(struct dbuf *dbuf, size_t new_size)
 	}
 }
 
+static void dbuf_reset(struct dbuf *dbuf)
+{
+	dbuf_truncate(dbuf, 0);
+}
+
 static void dbuf_resize(struct dbuf *dbuf, size_t capacity)
 {
 	dbuf->buf = realloc(dbuf->buf, capacity);
@@ -133,7 +138,7 @@ static inline void dbuf_addstr(struct dbuf *dbuf, const char *str)
 	dbuf_add(dbuf, str, strlen(str));
 }
 
-static void dbuf_sprint(struct dbuf *dbuf, const char *fmt, ...)
+static __attribute__ ((format (printf, 2, 3))) void dbuf_printf(struct dbuf *dbuf, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
