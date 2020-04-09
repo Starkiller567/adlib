@@ -15,9 +15,9 @@ int main(void)
 	dbuf_shrink_to_fit(&dbuf);
 	puts(dbuf_buffer(&dbuf));
 	dbuf_truncate(&dbuf, 0);
-	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
-	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
-	dbuf_sprint(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_printf(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_printf(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
+	dbuf_printf(&dbuf, "size = %lu, capacity = %lu\n", dbuf_size(&dbuf), dbuf_capacity(&dbuf));
 	dbuf_addb(&dbuf, 0);
 	dbuf_add_uninitialized(&dbuf, 1000);
 	printf("%s", (char *)dbuf_buffer(&dbuf));

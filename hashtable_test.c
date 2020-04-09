@@ -19,7 +19,7 @@ static inline unsigned int integer_hash(unsigned int key)
 	return h;
 }
 
-DEFINE_HASHTABLE(itable, int, int, 8, (*a == *b))
+DEFINE_HASHMAP(itable, int, int, 8, (*a == *b))
 
 int main(int argc, char **argv)
 {

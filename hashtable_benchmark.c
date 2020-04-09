@@ -111,10 +111,10 @@ static double get_avg_rate(unsigned long long nanoseconds[N], unsigned int num_i
 	return num_items / avg;
 }
 
-DEFINE_HASHTABLE(itable, int, int, 8, (*a == *b))
-DEFINE_HASHTABLE(stable, char *, char *, 8, (strcmp(*a, *b) == 0))
-DEFINE_HASHTABLE(sstable, char *, struct short_string, 8, (strcmp(*a, *b) == 0))
-DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
+DEFINE_HASHMAP(itable, int, int, 8, (*a == *b))
+DEFINE_HASHMAP(stable, char *, char *, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHMAP(sstable, char *, struct short_string, 8, (strcmp(*a, *b) == 0))
+DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
 
 #define BENCHMARK(name, hash, key_type, item_type, keys1, values1, keys2, values2, keys3, values3, keys4, values4, ...) \
 	for (unsigned int n = 0; n < N; n++) {				\
