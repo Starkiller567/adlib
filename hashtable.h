@@ -15,8 +15,7 @@
 		unsigned int num_items;					\
 		unsigned int num_tombstones;				\
 		unsigned int size;					\
-		struct name##_bucket *buckets;				\
-		item_type *items;					\
+		void *mem;						\
 	};								\
 									\
 	static inline unsigned int __##name##_hash_to_idx(unsigned int hash, unsigned int table_size) \
@@ -26,22 +25,22 @@
 									\
 	static inline unsigned int __##name##_get_hash(struct name *table, unsigned int index) \
 	{								\
-		return table->buckets[index].hash;			\
+		return ((struct name##_bucket *)table->mem)[index].hash; \
 	}								\
 									\
 	static inline void __##name##_set_hash(struct name *table, unsigned int index, unsigned int hash) \
 	{								\
-		table->buckets[index].hash = hash;			\
+		((struct name##_bucket *)table->mem)[index].hash = hash; \
 	}								\
 									\
 	static inline key_type *__##name##_key(struct name *table, unsigned int index) \
 	{								\
-		return &table->buckets[index].key;			\
+		return &((struct name##_bucket *)table->mem)[index].key; \
 	}								\
 									\
 	static inline item_type *__##name##_item(struct name *table, unsigned int index) \
 	{								\
-		return &table->items[index];				\
+		return &((item_type *)((unsigned char *)table->mem + table->size * sizeof(struct name##_bucket)))[index]; \
 	}								\
 									\
 	static inline unsigned int __##name##_probe_index(struct name *table, unsigned int start, unsigned int i) \
@@ -62,12 +61,9 @@
 			/* size |= size >> 32; */			\
 			size++;						\
 		}							\
-		size_t buckets_size = size * sizeof(*table->buckets);	\
-		size_t items_size = size * sizeof(*table->items);	\
-		char *mem = aligned_alloc(64, buckets_size + items_size); \
-		table->buckets = (struct name##_bucket *)mem;		\
-		mem += buckets_size;					\
-		table->items = (item_type *)mem;			\
+		size_t buckets_size = size * sizeof(struct name##_bucket); \
+		size_t items_size = size * sizeof(item_type);		\
+		table->mem = aligned_alloc(64, buckets_size + items_size); \
 		for (unsigned int i = 0; i < size; i++) {		\
 			__##name##_set_hash(table, i, 0);		\
 		}							\
@@ -78,7 +74,7 @@
 									\
 	static void name##_destroy(struct name *table)			\
 	{								\
-		free(table->buckets);					\
+		free(table->mem);					\
 		table->size = 0;					\
 	}								\
 									\
