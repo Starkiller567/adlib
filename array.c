@@ -175,6 +175,33 @@ int main(void)
 	array_free(arr2);
 
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
+	array_fori_reverse(arr1, i) {
+		array_add(arr2, arr1[i]);
+	}
+	print_array(arr2, true);
+	array_reverse(arr2);
+	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	array_fori(arr2, i) {
+		assert(arr2[i] == i);
+	}
+	array_reset(arr2);
+	int *it;
+	array_foreach_reverse(arr1, it) {
+		array_add(arr2, *it);
+	}
+	print_array(arr2, true);
+	array_reverse(arr2);
+	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	{
+		size_t i = 0;
+		array_foreach(arr2, it) {
+			assert(*it == i);
+			i++;
+		}
+	}
+	array_reset(arr1);
+
+	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	for (size_t i = 0; i < 10; i++) {
 		array_shuffle(arr1);
 		int *cur;

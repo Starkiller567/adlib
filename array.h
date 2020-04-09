@@ -96,7 +96,7 @@ typedef struct {
 #define array_fori(a, itername)         for (size_t itername = 0; itername < array_len(a); itername++)
 // iterate over all array indices in reverse (the variable 'itername' contains the current index)
 #define array_fori_reverse(a, itername) for (size_t itername = array_len(a); \
-					     !array_empty(a) && --itername != 0;)
+					     !array_empty(a) && itername-- != 0;)
 // iterate over all array elements (v must be a variable of type 'pointer to element' and contains the current element)
 #define array_foreach(a, v)             for ((v) = (a); (v) < (a) + array_len(a); (v)++)
 // iterate over all array elements in reverse (v must be a variable of type 'pointer to element' and contains the current element)
