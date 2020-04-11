@@ -18,6 +18,8 @@
 		void *mem;						\
 	};								\
 									\
+	static void name##_resize(struct name *table, unsigned int size); \
+									\
 	static inline unsigned int __##name##_hash_to_idx(unsigned int hash, unsigned int table_size) \
 	{								\
 		return hash & (table_size - 1);				\
@@ -137,9 +139,6 @@
 
 #define DEFINE_HASHMAP(name, key_type, item_type, THRESHOLD, ...)	\
 									\
-	struct name;							\
-	static void name##_resize(struct name *table, unsigned int size); \
-									\
 	DEFINE_HASHTABLE(name, key_type, THRESHOLD, __VA_ARGS__)	\
 									\
 	static inline item_type *__##name##_item(struct name *table, unsigned int index) \
@@ -226,9 +225,6 @@
 	}								\
 
 #define DEFINE_HASHSET(name, key_type, THRESHOLD, ...)			\
-									\
-	struct name;							\
-	static void name##_resize(struct name *table, unsigned int size); \
 									\
 	DEFINE_HASHTABLE(name, key_type, THRESHOLD, __VA_ARGS__)	\
 									\
