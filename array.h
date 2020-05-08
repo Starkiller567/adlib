@@ -3,6 +3,7 @@
 #ifndef __array_include__
 #define __array_include__
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,7 +16,9 @@
 # endif
 #endif
 
+#ifndef ARRAY_INITIAL_SIZE
 #define ARRAY_INITIAL_SIZE 8
+#endif
 
 #define ARRAY_MAGIC1 0xdeadbabe
 #define ARRAY_MAGIC2 0xbeefcafe
@@ -90,18 +93,20 @@ typedef struct {
 #define array_ordered_deleten(a, i, n)  __array_ordered_deleten((a), sizeof((a)[0]), i, n)
 // delete the element at index i keeping the original order of elements
 #define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
-// get the index of the element pointed to by ptr
+// get the index of the element pointed to by ptr (must be a valid array element!)
 #define array_index_of(a, ptr)          ((size_t)((ptr) - (a)))
-// iterate over all array indices (the variable 'itername' contains the current index)
+// iterate over all array indices (a variable named 'itername' will contain the current index) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
 #define array_fori(a, itername)         for (size_t itername = 0; itername < array_len(a); itername++)
-// iterate over all array indices in reverse (the variable 'itername' contains the current index)
-#define array_fori_reverse(a, itername) for (size_t itername = array_len(a); \
-					     !array_empty(a) && itername-- != 0;)
-// iterate over all array elements (v must be a variable of type 'pointer to element' and contains the current element)
+// iterate over all array indices in reverse (a variable named 'itername' will contain the current index) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
+#define array_fori_reverse(a, itername) for (size_t itername = array_len(a); itername-- > 0;)
+// iterate over all array elements (v must be a variable of type 'pointer to array element' (same as the array type) and will contain the current element) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
 #define array_foreach(a, v)             for ((v) = (a); (v) < (a) + array_len(a); (v)++)
-// iterate over all array elements in reverse (v must be a variable of type 'pointer to element' and contains the current element)
-#define array_foreach_reverse(a, v)     for ((v) = (a) + array_len(a);	\
-					     !array_empty(a) && --(v) >= (a);)
+// iterate over all array elements in reverse (v must be a variable of type 'pointer to array element' (same as the array type) and will contain the current element) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
+#define array_foreach_reverse(a, v)     for ((v) = (a) + array_len(a); (v)-- > (a);)
+// iterate over all array elements (v must be a variable of the same type as an array element and will contain the current element _by value_) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
+#define array_foreach_value(a, v)       for (size_t _array_loop_counter_##__LINE__ = 0; _array_loop_counter_##__LINE__ < array_len(a) && ((v) = (a)[_array_loop_counter_##__LINE__], true); _array_loop_counter_##__LINE__++)
+// iterate over all array elements (v must be a variable of the same type as an array element and will contain the current element _by value_) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
+#define array_foreach_value_reverse(a, v) for (size_t _array_loop_counter_##__LINE__ = array_len(a); _array_loop_counter_##__LINE__-- > 0 && ((v) = (a)[_array_loop_counter_##__LINE__], true);)
 // add the n first elements of array b to a (a and b should have the same type, but b can be a static array)
 #define array_add_arrayn(a, b, n)       (memcpy(array_addn(a, n), 1 ? (b) : (a), \
 						(n) * sizeof((a)[0])))

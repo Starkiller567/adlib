@@ -80,6 +80,7 @@ int main(void)
 	print_array(arr1, true);
 	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5);
 
+	assert(array_index_of(arr1, &arr1[3]) == 3);
 
 	int i;
 	i = array_pop(arr1);
@@ -185,20 +186,51 @@ int main(void)
 		assert(arr2[i] == i);
 	}
 	array_reset(arr2);
-	int *it;
-	array_foreach_reverse(arr1, it) {
-		array_add(arr2, *it);
+
+	{
+		int *it;
+		array_foreach_reverse(arr1, it) {
+			array_add(arr2, *it);
+		}
 	}
+
 	print_array(arr2, true);
 	array_reverse(arr2);
 	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	{
 		size_t i = 0;
+		int *it;
 		array_foreach(arr2, it) {
 			assert(*it == i);
 			i++;
 		}
 	}
+	array_reset(arr2);
+
+	{
+		int it;
+		array_foreach_value(arr1, it) {
+			array_add(arr2, it);
+		}
+		assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+		array_reset(arr2);
+		array_foreach_value_reverse(arr1, it) {
+			array_add(arr2, it);
+		}
+		array_reverse(arr1);
+		assert(array_equal(arr1, arr2));
+		assert_array_content(arr1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+		assert_array_content(arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+		array_reset(arr1);
+		array_foreach_value_reverse(arr1, it) {
+			array_add(arr1, it);
+		}
+		size_t i = 0;
+		array_foreach_value(arr1, it) {
+			assert(it == i);
+		}
+	}
+	array_reset(arr2);
 	array_reset(arr1);
 
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));

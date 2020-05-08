@@ -7,9 +7,16 @@ BINDIR ?= ./bin
 DEPDIR ?= ./dep
 
 WARNFLAGS = -Wall -pedantic -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-zero-length-array
+SANITIZER ?=
 OPT ?= -O3
+ifneq ($(SANITIZER),)
+OPT = -O0
+endif
 OPTFLAGS = $(OPT) -march=native
-CCFLAGS = $(OPTFLAGS) $(WARNFLAGS) -g -pthread
+CCFLAGS = $(OPTFLAGS) -g -pthread $(WARNFLAGS)
+ifneq ($(SANITIZER),)
+CCFLAGS += -fsanitize=$(SANITIZER)
+endif
 
 C_SOURCES = $(shell find . -name "*.c" -and ! -name '.*' )
 # C_OBJECTS = $(notdir $(C_SOURCES:.c=.o))
