@@ -51,6 +51,12 @@ static int cmp(const void *a, const void *b)
 	return *(const int *)a - *(const int *)b;
 }
 
+static void add_a_one(array(int) *some_array)
+{
+	array(int) *arr = some_array;
+	array_add(*arr, 1);
+}
+
 int main(void)
 {
 #if 0
@@ -62,7 +68,8 @@ int main(void)
 	int *arr1 = NULL;
 
 #if 1
-	array_push(arr1, 1);
+	add_a_one(&arr1);
+	// array_push(arr1, 1);
 	array_push(arr1, 2);
 	array_push(arr1, 3);
 	array_push(arr1, 4);
@@ -79,6 +86,9 @@ int main(void)
 	int *arr2 = array_copy(arr1);
 	print_array(arr1, true);
 	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5);
+
+	assert(arr2[array_lasti(arr2)] == 5);
+	assert(arr2[array_lasti(arr2)] == array_last(arr2));
 
 	assert(array_index_of(arr1, &arr1[3]) == 3);
 
