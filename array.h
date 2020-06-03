@@ -17,7 +17,7 @@
 #endif
 
 #ifndef ARRAY_INITIAL_SIZE
-#define ARRAY_INITIAL_SIZE 8
+# define ARRAY_INITIAL_SIZE 8
 #endif
 
 #define ARRAY_MAGIC1 0xdeadbabe
@@ -35,7 +35,8 @@ typedef struct {
 #if ARRAY_SAFETY_CHECKS
 # include <assert.h>
 # define __arrhead_unchecked(a) ((__arr *)(a) - 1)
-# define __arrhead(a) (assert(__arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1), \
+# define __arrhead(a) (assert(a),					\
+		       assert(__arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1), \
                        assert(__arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1), \
                        __arrhead_unchecked(a))
 #else
@@ -60,11 +61,11 @@ typedef struct {
 // TODO figure out how to return a pointer of the original type
 #define array_addn(a, n)                (__array_addn((void **)&(a), sizeof((a)[0]), n))
 // add the element v to the end of the array
-#define array_add(a, v)                 (array_addn(a, 1), ((a)[array_lasti(a)] = v))
+#define array_add(a, v)                 (array_addn(a, 1), ((a)[array_lasti(a)] = (v)))
 // insert n unitialized elements at index i
 #define array_insertn(a, i, n)          __array_insertn((void **)&(a), sizeof((a)[0]), i, n)
 // insert element v at index i
-#define array_insert(a, i, v)           (array_insertn(a, i, 1), ((a)[i] = v))
+#define array_insert(a, i, v)           (array_insertn(a, i, 1), ((a)[i] = (v)))
 // make the array empty (but keep the memory)
 #define array_reset(a)	                do { if (a) __arrhead(a)->len = 0; } while(0);
 // set the capacity of the array
@@ -104,9 +105,9 @@ typedef struct {
 // iterate over all array elements in reverse (v must be a variable of type 'pointer to array element' (same as the array type) and will contain the current element) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
 #define array_foreach_reverse(a, v)     for ((v) = (a) + array_len(a); (v)-- > (a);)
 // iterate over all array elements (v must be a variable of the same type as an array element and will contain the current element _by value_) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
-#define array_foreach_value(a, v)       for (size_t _array_loop_counter_##__LINE__ = 0; _array_loop_counter_##__LINE__ < array_len(a) && ((v) = (a)[_array_loop_counter_##__LINE__], true); _array_loop_counter_##__LINE__++)
+#define array_foreach_value(a, v)       for (size_t _array_loop_counter_##__LINE__ = 0; _array_loop_counter_##__LINE__ < array_len(a) && ((v) = (a)[_array_loop_counter_##__LINE__], 1); _array_loop_counter_##__LINE__++)
 // iterate over all array elements (v must be a variable of the same type as an array element and will contain the current element _by value_) (warning: do not modify the array inside this loop; use a custom fori loop that does the necessary index adjustments for this purpose instead)
-#define array_foreach_value_reverse(a, v) for (size_t _array_loop_counter_##__LINE__ = array_len(a); _array_loop_counter_##__LINE__-- > 0 && ((v) = (a)[_array_loop_counter_##__LINE__], true);)
+#define array_foreach_value_reverse(a, v) for (size_t _array_loop_counter_##__LINE__ = array_len(a); _array_loop_counter_##__LINE__-- > 0 && ((v) = (a)[_array_loop_counter_##__LINE__], 1);)
 // add the n first elements of array b to a (a and b should have the same type, but b can be a static array)
 #define array_add_arrayn(a, b, n)       (memcpy(array_addn(a, n), 1 ? (b) : (a), \
 						(n) * sizeof((a)[0])))
@@ -190,7 +191,9 @@ static void *__array_copy(void *arr, size_t elem_size)
 {
 	void *new_arr = NULL;
 	__array_resize(&new_arr, elem_size, array_capacity(arr));
-	__arrhead(new_arr)->len = array_len(arr);
+	if (new_arr) {
+		__arrhead(new_arr)->len = array_len(arr);
+	}
 	memcpy(new_arr, arr, elem_size * array_len(arr));
 	return new_arr;
 }
@@ -227,6 +230,7 @@ static void __array_make_valid(void **arrp, size_t elem_size, size_t i)
 		__array_grow(arrp, elem_size, i - capacity + 1);
 	}
 	if (i >= array_len(*arrp)) {
+		// *arrp cannot be null here
 		__arrhead(*arrp)->len = i + 1;
 	}
 }
@@ -235,7 +239,9 @@ static void *__array_addn(void **arrp, size_t elem_size, size_t n)
 {
 	if (!(*arrp)) {
 		__array_grow(arrp, elem_size, n);
-		__arrhead(*arrp)->len = n;
+		if (*arrp) {
+			__arrhead(*arrp)->len = n;
+		}
 		return *arrp;
 	}
 	__arr *head = __arrhead(*arrp);

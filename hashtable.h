@@ -90,6 +90,17 @@
 		return -1;						\
 	}								\
 									\
+	static unsigned int __##name##_get_next(struct name *table, size_t start) \
+	{								\
+		for (unsigned int index = start; index < table->size; index++) { \
+			unsigned int hash = __##name##_get_hash(table, index); \
+			if (hash != 0 && hash != 1) {			\
+				return index;				\
+			}						\
+		}							\
+		return table->size;					\
+	}								\
+									\
 	static unsigned int __##name##_table_do_insert(struct name *table, key_type *key, unsigned int hash) \
 	{								\
 		unsigned int start = __##name##_hash_to_idx(hash, table->size); \
@@ -134,12 +145,28 @@
 		}							\
 		return true;						\
 	}								\
+									\
+	static void __##name##_table_clear(struct name *table)		\
+	{								\
+		for (unsigned int i = 0; i < table->size; i++) {	\
+			__##name##_set_hash(table, i, 0);		\
+		}							\
+		table->num_items = 0;					\
+		table->num_tombstones = 0;				\
+	}								\
 
 
 
 #define DEFINE_HASHMAP(name, key_type, item_type, THRESHOLD, ...)	\
 									\
 	DEFINE_HASHTABLE(name, key_type, THRESHOLD, __VA_ARGS__)	\
+									\
+	typedef struct name##_iterator {				\
+		key_type *key;						\
+		item_type *value;					\
+		unsigned int _index;					\
+		struct name *_map;					\
+	} name##_iter_t;						\
 									\
 	static inline item_type *__##name##_item(struct name *table, unsigned int index) \
 	{								\
@@ -172,11 +199,50 @@
 		__##name##_table_destroy(table);			\
 	}								\
 									\
+	static void name##_clear(struct name *table)			\
+	{								\
+		__##name##_table_clear(table);				\
+	}								\
+									\
+	static struct name##_iterator name##_iter_start(struct name *table) \
+	{								\
+		struct name##_iterator iter;				\
+		iter._map = table;					\
+		iter._index = __##name##_get_next(iter._map, 0);	\
+		iter.key = NULL;					\
+		iter.value = NULL;					\
+		if (iter._index < iter._map->size) {			\
+			iter.key = __##name##_key(iter._map, iter._index); \
+			iter.value = __##name##_item(iter._map, iter._index); \
+		}							\
+		return iter;						\
+	}								\
+									\
+	static bool name##_iter_finished(struct name##_iterator *iter)	\
+	{								\
+		return iter->_index >= iter->_map->size;		\
+	}								\
+									\
+	static void name##_iter_advance(struct name##_iterator *iter)	\
+	{								\
+		iter->key = NULL;					\
+		iter->value = NULL;					\
+		if (iter->_index >= iter->_map->size) {			\
+			return;						\
+		}							\
+		iter->_index = __##name##_get_next(iter->_map, iter->_index + 1); \
+		if (iter->_index < iter->_map->size) {			\
+			iter->key = __##name##_key(iter->_map, iter->_index); \
+			iter->value = __##name##_item(iter->_map, iter->_index); \
+		}							\
+	}								\
+									\
 	static void name##_resize(struct name *table, unsigned int size) \
 	{								\
 		struct name new_table;					\
 		name##_init(&new_table, size);				\
 									\
+		/* rewrite this with get_next() */			\
 		for (unsigned int index = 0; index < table->size; index++) { \
 			unsigned int hash = __##name##_get_hash(table, index); \
 			if (hash != 0 && hash != 1) {			\
@@ -228,6 +294,12 @@
 									\
 	DEFINE_HASHTABLE(name, key_type, THRESHOLD, __VA_ARGS__)	\
 									\
+	typedef struct name##_iterator {				\
+		key_type *key;						\
+		unsigned int _index;					\
+		struct name *_map;					\
+	} name##_iter_t;						\
+									\
 	static void name##_init(struct name *table, unsigned int size)	\
 	{								\
 		if ((size & (size - 1)) != 0) {				\
@@ -249,6 +321,40 @@
 	{								\
 		free(__##name##_table_memory(table));			\
 		__##name##_table_destroy(table);			\
+	}								\
+									\
+	static void name##_clear(struct name *table)			\
+	{								\
+		__##name##_table_clear(table);				\
+	}								\
+									\
+	static struct name##_iterator name##_iter_start(struct name *table) \
+	{								\
+		struct name##_iterator iter;				\
+		iter._map = table;					\
+		iter._index = __##name##_get_next(iter._map, 0);	\
+		iter.key = NULL;					\
+		if (iter._index < iter._map->size) {			\
+			iter.key = __##name##_key(iter._map, iter._index); \
+		}							\
+		return iter;						\
+	}								\
+									\
+	static bool name##_iter_finished(struct name##_iterator *iter)	\
+	{								\
+		return iter->_index >= iter->_map->size;		\
+	}								\
+									\
+	static void name##_iter_advance(struct name##_iterator *iter)	\
+	{								\
+		iter->key = NULL;					\
+		if (iter->_index >= iter->_map->size) {			\
+			return;						\
+		}							\
+		iter->_index = __##name##_get_next(iter->_map, iter->_index + 1); \
+		if (iter->_index < iter->_map->size) {			\
+			iter->key = __##name##_key(iter->_map, iter->_index); \
+		}							\
 	}								\
 									\
 	static void name##_resize(struct name *table, unsigned int size) \

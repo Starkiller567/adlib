@@ -1,16 +1,24 @@
 #ifndef __bitmap_include__
 #define __bitmap_include__
 
+#include <stdbool.h>
+
+#ifndef BITS_PER_LONG
 #define BITS_PER_LONG (sizeof(long) * 8)
+#endif
+
+#define bm_required_size(nbits) (((nbits) + BITS_PER_LONG - 1) / BITS_PER_LONG * sizeof(long))
 
 #define DECLARE_BITMAP(name, nbits) \
-	unsigned long name[((nbits) + BITS_PER_LONG - 1) / BITS_PER_LONG]
+	unsigned long name[bm_required_size(nbits) / sizeof(long)]
 #define DECLARE_EMPTY_BITMAP(name, nbits) DECLARE_BITMAP(name, nbits) = {0}
 
-#define bm_foreach_zero(bitmap, nbits) for (size_t cur = bm_find_first_zero(bitmap, nbits); cur < nbits; cur = bm_find_next_zero(bitmap, cur + 1, nbits))
-#define bm_foreach_set(bitmap, nbits) for (size_t cur = bm_find_first_set(bitmap, nbits); cur < nbits; cur = bm_find_next_set(bitmap, cur + 1, nbits))
+#define bm_foreach_zero(bitmap, nbits, itername) for (size_t itername = bm_find_first_zero(bitmap, nbits); itername < nbits; itername = bm_find_next_zero(bitmap, itername + 1, nbits))
+#define bm_foreach_set(bitmap, nbits, itername) for (size_t itername = bm_find_first_set(bitmap, nbits); itername < nbits; itername = bm_find_next_set(bitmap, itername + 1, nbits))
+// _bm_loop_counter_##__LINE__
+#define bm_foreach(bitmap, nbits, itername) for (size_t counter = 0, itername; counter < nbits && (itername = bm_test_bit(bitmap, counter), true); counter++)
 
-static inline size_t __ffs(unsigned long word)
+static inline size_t _ffs(unsigned long word)
 {
 	if (word == 0) {
 		return BITS_PER_LONG;
@@ -45,7 +53,7 @@ static size_t bm_find_next(const void *bitmap, size_t start, size_t nbits, unsig
 		word = bm[start / BITS_PER_LONG];
 		word ^= xor_mask;
 	}
-	start += __ffs(word);
+	start += _ffs(word);
 	return start >= nbits ? nbits : start;
 }
 
@@ -85,6 +93,20 @@ static inline int bm_test_bit(const void *bitmap, size_t bit)
 {
 	const unsigned long *bm = bitmap;
 	return (bm[bit / BITS_PER_LONG] >> (bit & (BITS_PER_LONG - 1))) & 1;
+}
+
+static void bm_and(void *bitmap, const void *other_bitmap, size_t nbits)
+{
+	unsigned long *bm = bitmap;
+	const unsigned long *other = other_bitmap;
+
+	unsigned int i;
+	for (i = 0; i < nbits / BITS_PER_LONG; i++) {
+		bm[i] &= other[i];
+	}
+
+	unsigned long mask = ~0UL << (nbits & (BITS_PER_LONG - 1));
+	bm[i] &= other[i] | mask;
 }
 
 #endif
