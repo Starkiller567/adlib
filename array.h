@@ -210,17 +210,15 @@
 //        and will contain the current element _by value_
 #define array_foreach_value_reverse(a, itername) _arr_foreach_value_reverse(a, itername)
 
-#define _arr_alloc_size(...)               __attribute__((alloc_size (__VA_ARGS__)))
-#define _arr_always_inline                 __attribute__((always_inline)) inline
-#define _arr_assume_aligned(...)           __attribute__((assume_aligned (__VA_ARGS__)))
-#define _arr_const                         __attribute__((const))
-#define _arr_flatten                       __attribute__((flatten))
-#define _arr_malloc                        __attribute__((malloc))
-#define _arr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
-#define _arr_pure                          __attribute__((pure))
-#define _arr_returns_nonnull               __attribute__((returns_nonnull))
-#define _arr_maybe_unused                  __attribute__((unused))
-#define _arr_warn_unused_result            __attribute__((warn_unused_result))
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)
+# define _arr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
+# define _arr_maybe_unused                  __attribute__((unused))
+# define _arr_warn_unused_result            __attribute__((warn_unused_result))
+#else
+# define _arr_nonnull(...)
+# define _arr_maybe_unused
+# define _arr_warn_unused_result
+#endif
 
 #ifndef ARRAY_MAGIC1
 #define ARRAY_MAGIC1 0xdeadbabe
@@ -246,16 +244,15 @@ typedef struct {
 #else
 # define _arrhead_const(a) ((const _arr *)(a) - 1)
 #endif
+
 #define _arrhead(a) ((_arr *)_arrhead_const(a))
 
-static _arr_always_inline _arr_const _arr_maybe_unused
-size_t _arr_len(const void *arr)
+static _arr_maybe_unused size_t _arr_len(const void *arr)
 {
 	return arr ? _arrhead_const(arr)->len : 0;
 }
 
-static _arr_always_inline _arr_const _arr_nonnull(1) _arr_maybe_unused
-size_t _arr_lasti(const void *arr)
+static _arr_nonnull(1) _arr_maybe_unused size_t _arr_lasti(const void *arr)
 {
 	size_t len = _arr_len(arr);
 #if ARRAY_SAFETY_CHECKS
@@ -264,29 +261,26 @@ size_t _arr_lasti(const void *arr)
 	return len - 1;
 }
 
-static _arr_always_inline _arr_const _arr_maybe_unused
-size_t _arr_capacity(const void *arr)
+static _arr_maybe_unused size_t _arr_capacity(const void *arr)
 {
 	return arr ? _arrhead_const(arr)->capacity : 0;
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_reset(void *arr)
+static _arr_maybe_unused void _arr_reset(void *arr)
 {
 	if (arr) {
 		_arrhead(arr)->len = 0;
 	}
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_truncate(void *arr, size_t newlen)
+static _arr_maybe_unused void _arr_truncate(void *arr, size_t newlen)
 {
 	if (newlen < _arr_len(arr)) {
 		_arrhead(arr)->len = newlen;
 	}
 }
 
-static _arr_alloc_size(2, 3) _arr_maybe_unused _arr_warn_unused_result
+static _arr_maybe_unused _arr_warn_unused_result
 void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 {
 	if (capacity == 0) {
@@ -317,20 +311,17 @@ void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 	return head + 1;
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_free(void **arrp)
+static _arr_maybe_unused void _arr_free(void **arrp)
 {
 	*arrp = _arr_resize_internal(*arrp, 0, 0);
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_resize(void **arrp, size_t elem_size, size_t capacity)
+static _arr_maybe_unused void _arr_resize(void **arrp, size_t elem_size, size_t capacity)
 {
 	*arrp = _arr_resize_internal(*arrp, elem_size, capacity);
 }
 
-static _arr_maybe_unused _arr_warn_unused_result
-void *_arr_copy(const void *arr, size_t elem_size)
+static _arr_maybe_unused _arr_warn_unused_result void *_arr_copy(const void *arr, size_t elem_size)
 {
 	void *new_arr = _arr_resize_internal(NULL, elem_size, _arr_capacity(arr));
 	if (!new_arr) {
@@ -341,8 +332,7 @@ void *_arr_copy(const void *arr, size_t elem_size)
 	return new_arr;
 }
 
-static _arr_maybe_unused
-void _arr_grow(void **arrp, size_t elem_size, size_t n)
+static _arr_maybe_unused void _arr_grow(void **arrp, size_t elem_size, size_t n)
 {
 	if (n == 0) {
 		return;
@@ -355,8 +345,7 @@ void _arr_grow(void **arrp, size_t elem_size, size_t n)
 	*arrp = _arr_resize_internal(*arrp, elem_size, new_capacity);
 }
 
-static _arr_maybe_unused
-void _arr_reserve(void **arrp, size_t elem_size, size_t n)
+static _arr_maybe_unused void _arr_reserve(void **arrp, size_t elem_size, size_t n)
 {
 	size_t rem = _arr_capacity(*arrp) - _arr_len(*arrp);
 	if (n > rem) {
@@ -364,8 +353,7 @@ void _arr_reserve(void **arrp, size_t elem_size, size_t n)
 	}
 }
 
-static _arr_maybe_unused
-void _arr_make_valid(void **arrp, size_t elem_size, size_t i)
+static _arr_maybe_unused void _arr_make_valid(void **arrp, size_t elem_size, size_t i)
 {
 	size_t capacity = _arr_capacity(*arrp);
 	if (i >= capacity) {
@@ -377,8 +365,7 @@ void _arr_make_valid(void **arrp, size_t elem_size, size_t i)
 	}
 }
 
-static _arr_maybe_unused
-void *_arr_addn(void **arrp, size_t elem_size, size_t n)
+static _arr_maybe_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n)
 {
 	if (n == 0) {
 		return NULL;
@@ -397,8 +384,7 @@ void *_arr_addn(void **arrp, size_t elem_size, size_t n)
 	return (char *)(*arrp) + (old_len * elem_size);
 }
 
-static _arr_maybe_unused
-void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n)
+static _arr_maybe_unused void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n)
 {
 	void *arr = *arrp;
 	size_t len = _arr_len(arr);
@@ -416,8 +402,7 @@ void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n)
 	return src;
 }
 
-static _arr_maybe_unused
-void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
+static _arr_maybe_unused void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
 #if ARRAY_SAFETY_CHECKS
@@ -429,8 +414,7 @@ void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 	_arrhead(arr)->len -= n;
 }
 
-static _arr_maybe_unused
-void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
+static _arr_maybe_unused void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
 #if ARRAY_SAFETY_CHECKS
@@ -446,13 +430,12 @@ void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 	_arrhead(arr)->len -= n;
 }
 
-static _arr_maybe_unused
-void _arr_shrink_to_fit(void **arrp, size_t elem_size)
+static _arr_maybe_unused void _arr_shrink_to_fit(void **arrp, size_t elem_size)
 {
 	*arrp = _arr_resize_internal(*arrp, elem_size, _arr_len(*arrp));
 }
 
-static _arr_always_inline _arr_const _arr_nonnull(1, 3) _arr_maybe_unused
+static _arr_nonnull(1, 3) _arr_maybe_unused
 size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 {
 	size_t diff = (char *)ptr - (char *)arr;
@@ -464,33 +447,30 @@ size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 	return index;
 }
 
-static _arr_always_inline _arr_nonnull(1) _arr_maybe_unused
-void _arr_popn(void *arr, size_t n)
+static _arr_nonnull(1) _arr_maybe_unused void _arr_popn(void *arr, size_t n)
 {
 	assert(n <= _arr_len(arr));
 	_arrhead(arr)->len -= n;
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_add_arrayn(void **arrp, size_t elem_size, const void *arr2, size_t n)
+static _arr_maybe_unused void _arr_add_arrayn(void **arrp, size_t elem_size, const void *arr2, size_t n)
 {
 	void *dst = _arr_addn(arrp, elem_size, n);
 	memcpy(dst, arr2, n * elem_size);
 }
 
-static _arr_always_inline _arr_nonnull(3) _arr_maybe_unused
+static _arr_nonnull(3) _arr_maybe_unused
 void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
 {
 	qsort(arr, _arr_len(arr), elem_size, compare);
 }
 
-static _arr_always_inline _arr_maybe_unused
-void _arr_add_array(void **arrp, size_t elem_size, const void *arr2)
+static _arr_maybe_unused void _arr_add_array(void **arrp, size_t elem_size, const void *arr2)
 {
 	_arr_add_arrayn(arrp, elem_size, arr2, _arr_len(arr2));
 }
 
-static _arr_always_inline _arr_pure _arr_maybe_unused _arr_warn_unused_result
+static _arr_maybe_unused _arr_warn_unused_result
 _Bool _arr_equal(const void *arr1, size_t elem_size, const void *arr2)
 {
 	if (arr1 == arr2) {
@@ -504,7 +484,7 @@ _Bool _arr_equal(const void *arr1, size_t elem_size, const void *arr2)
 	return memcmp(arr1, arr2, len * elem_size) == 0;
 }
 
-static _arr_always_inline _arr_nonnull(1, 3) _arr_maybe_unused
+static _arr_nonnull(1, 3) _arr_maybe_unused
 void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t i, size_t j)
 {
 	if (i == j) {
@@ -517,8 +497,7 @@ void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t 
 	memcpy(&a[n * j], buf,       n);
 }
 
-static _arr_nonnull(3) _arr_maybe_unused
-void _arr_reverse(void *arr, size_t elem_size, unsigned char *buf)
+static _arr_nonnull(3) _arr_maybe_unused void _arr_reverse(void *arr, size_t elem_size, unsigned char *buf)
 {
 	for (size_t i = 0; i < _arr_len(arr) / 2; i++) {
 		_arr_swap_elements(arr, elem_size, buf, i, _arr_lasti(arr) - i);
@@ -557,8 +536,7 @@ void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size
 # define _arr_last(a) ((a)[array_lasti(a)])
 #else
 # define _arr_last(a) (*(__ARRAY_TYPEOF(a))_arr_last_pointer((a), sizeof((a)[0])))
-static _arr_always_inline _arr_const _arr_nonnull(1) _arr_returns_nonnull _arr_maybe_unused
-void *_arr_last_pointer(void *arr, size_t elem_size)
+static _arr_nonnull(1) _arr_maybe_unused void *_arr_last_pointer(void *arr, size_t elem_size)
 {
 	return (char *)arr + _arr_lasti(arr) * elem_size;
 }
@@ -576,8 +554,7 @@ void *_arr_last_pointer(void *arr, size_t elem_size)
 # endif
 #else
 # define _arr_pop(a) (*(__ARRAY_TYPEOF(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
-static _arr_always_inline _arr_nonnull(1) _arr_returns_nonnull _arr_maybe_unused
-void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)
+static _arr_nonnull(1) _arr_maybe_unused void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)
 {
 	_arrhead(arr)->len--;
 	return (char *)arr + _arr_len(arr) * elem_size;

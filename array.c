@@ -281,7 +281,7 @@ int main(void)
 
 	array_ordered_deleten(arr1, 0, 2);
 
-	array_fori(arr1, i) {
+	for (size_t i = 0; i < array_len(arr1); i++) {
 		for (size_t k = 0; k < (i + 1) / 2; k++) {
 			if (arr1[i] % arr1[k] == 0) {
 				array_ordered_delete(arr1, i);
