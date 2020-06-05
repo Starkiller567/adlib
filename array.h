@@ -24,7 +24,6 @@
 #ifndef __array_include__
 #define __array_include__
 
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
