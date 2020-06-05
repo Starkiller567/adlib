@@ -258,19 +258,19 @@ int main(int argc, char **argv)
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, i);
 		}
-		array_shuffle(arr1);
+		array_shuffle(arr1, (size_t(*)(void))random);
 
 		int *arr2 = array_copy(arr1);
-		array_shuffle(arr2);
+		array_shuffle(arr2, (size_t(*)(void))random);
 
 		int *arr3 = NULL;
 		for (i = 0; i < num_items; i++) {
 			array_add(arr3, i + num_items);
 		}
-		array_shuffle(arr3);
+		array_shuffle(arr3, (size_t(*)(void))random);
 
 		int *arr4 = array_copy(arr1);
-		array_shuffle(arr4);
+		array_shuffle(arr4, (size_t(*)(void))random);
 
 		BENCHMARK(itable, integer_hash, int, int, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, *k == *v);
 
@@ -294,19 +294,19 @@ int main(int argc, char **argv)
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, mprintf("%i", i));
 		}
-		array_shuffle(arr1);
+		array_shuffle(arr1, (size_t(*)(void))random);
 
 		char **arr2 = array_copy(arr1);
-		array_shuffle(arr2);
+		array_shuffle(arr2, (size_t(*)(void))random);
 
 		char **arr3 = NULL;
 		for (i = 0; i < num_items; i++) {
 			array_add(arr3, mprintf("%i", i + num_items));
 		}
-		array_shuffle(arr3);
+		array_shuffle(arr3, (size_t(*)(void))random);
 
 		char **arr4 = array_copy(arr1);
-		array_shuffle(arr4);
+		array_shuffle(arr4, (size_t(*)(void))random);
 
 		BENCHMARK(stable, string_hash, char *, char *, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(*k, *v) == 0);
 
@@ -336,20 +336,20 @@ int main(int argc, char **argv)
 			struct short_string *item = array_addn(values1, 1);
 			sprintf(item->s, "%i", i);
 		}
-		array_shuffle(values1);
+		array_shuffle(values1, (size_t(*)(void))random);
 
 		struct short_string *values2 = array_copy(values1);
-		array_shuffle(values2);
+		array_shuffle(values2, (size_t(*)(void))random);
 
 		struct short_string *values3 = NULL;
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(values3, 1);
 			sprintf(item->s, "%i", i + num_items);
 		}
-		array_shuffle(values3);
+		array_shuffle(values3, (size_t(*)(void))random);
 
 		struct short_string *values4 = array_copy(values1);
-		array_shuffle(values4);
+		array_shuffle(values4, (size_t(*)(void))random);
 
 		struct short_string *iter;
 		char **keys1 = NULL;
@@ -409,20 +409,20 @@ int main(int argc, char **argv)
 			struct short_string *item = array_addn(arr1, 1);
 			sprintf(item->s, "%i", i);
 		}
-		array_shuffle(arr1);
+		array_shuffle(arr1, (size_t(*)(void))random);
 
 		struct short_string *arr2 = array_copy(arr1);
-		array_shuffle(arr2);
+		array_shuffle(arr2, (size_t(*)(void))random);
 
 		struct short_string *arr3 = NULL;
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(arr3, 1);
 			sprintf(item->s, "%i", i + num_items);
 		}
-		array_shuffle(arr3);
+		array_shuffle(arr3, (size_t(*)(void))random);
 
 		struct short_string *arr4 = array_copy(arr1);
-		array_shuffle(arr4);
+		array_shuffle(arr4, (size_t(*)(void))random);
 
 		BENCHMARK(ssstable, short_string_hash, struct short_string, struct short_string, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(k->s, v->s) == 0);
 
