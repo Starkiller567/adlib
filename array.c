@@ -53,9 +53,9 @@ static int cmp(const void *a, const void *b)
 	return *(const int *)a - *(const int *)b;
 }
 
-static void add_a_one(array(int) *some_array)
+static void add_a_one(array_t(int) *some_array)
 {
-	array(int) *arr = some_array;
+	array_t(int) *arr = some_array;
 	array_add(*arr, 1);
 }
 

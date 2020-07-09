@@ -22,7 +22,7 @@ C_SOURCES = $(shell find . -name "*.c" -and ! -name '.*' )
 # C_OBJECTS = $(notdir $(C_SOURCES:.c=.o))
 BINARIES = $(notdir $(C_SOURCES:.c=))
 DEP_FILES = $(patsubst ./%.c,$(DEPDIR)/%.d,$(C_SOURCES))
-OBJPRE = $(addprefix $(OBJDIR)/, $(C_OBJECTS))
+# OBJPRE = $(addprefix $(OBJDIR)/, $(C_OBJECTS))
 BINPRE = $(addprefix $(BINDIR)/, $(BINARIES))
 
 all: $(BINPRE) $(MAKEFILE_LIST)
@@ -33,12 +33,12 @@ debug:
 # $(DEPDIR)/%.d : %.c $(MAKEFILE_LIST)
 # 	@echo "DEP		$@"
 # 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-# 	$(VERBOSE) $(CXX) $(CXXFLAGS) -MM -MT $(OBJDIR)/$*.o -MF $@ $<
+# 	$(VERBOSE) $(CC) $(CCFLAGS) -MM -MT $(OBJDIR)/$*.o -MF $@ $<
 
 $(DEPDIR)/%.d : %.c $(MAKEFILE_LIST)
 	@echo "DEP		$@"
 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-	$(VERBOSE) $(CXX) $(CXXFLAGS) -MM -MT $(BINDIR)/$* -MF $@ $<
+	$(VERBOSE) $(CC) $(CCFLAGS) -MM -MT $(BINDIR)/$* -MF $@ $<
 
 # $(OBJDIR)/%.o : %.c $(MAKEFILE_LIST)
 # 	@echo "CC		$@"

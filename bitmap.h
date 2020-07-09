@@ -77,19 +77,24 @@ static inline size_t bm_find_first_set(const void *bitmap, size_t nbits)
 	return bm_find_next_set(bitmap, 0, nbits);
 }
 
-static inline void bm_set_bit(void *bitmap, size_t bit)
+static inline void bm_set_bit_val(void *bitmap, size_t bit, bool val)
 {
 	unsigned long *bm = bitmap;
-	bm[bit / BITS_PER_LONG] |= 1UL << (bit & (BITS_PER_LONG - 1));
+	bm[bit / BITS_PER_LONG] &= ~(1UL << (bit & (BITS_PER_LONG - 1)));
+	bm[bit / BITS_PER_LONG] |= (unsigned long)val << (bit & (BITS_PER_LONG - 1));
+}
+
+static inline void bm_set_bit(void *bitmap, size_t bit)
+{
+	bm_set_bit_val(bitmap, bit, 1);
 }
 
 static inline void bm_clear_bit(void *bitmap, size_t bit)
 {
-	unsigned long *bm = bitmap;
-	bm[bit / BITS_PER_LONG] &= ~(1UL << (bit & (BITS_PER_LONG - 1)));
+	bm_set_bit_val(bitmap, bit, 0);
 }
 
-static inline int bm_test_bit(const void *bitmap, size_t bit)
+static inline bool bm_test_bit(const void *bitmap, size_t bit)
 {
 	const unsigned long *bm = bitmap;
 	return (bm[bit / BITS_PER_LONG] >> (bit & (BITS_PER_LONG - 1))) & 1;
@@ -100,13 +105,54 @@ static void bm_and(void *bitmap, const void *other_bitmap, size_t nbits)
 	unsigned long *bm = bitmap;
 	const unsigned long *other = other_bitmap;
 
-	unsigned int i;
+	size_t i;
 	for (i = 0; i < nbits / BITS_PER_LONG; i++) {
 		bm[i] &= other[i];
 	}
 
 	unsigned long mask = ~0UL << (nbits & (BITS_PER_LONG - 1));
 	bm[i] &= other[i] | mask;
+}
+
+static void bm_or(void *bitmap, const void *other_bitmap, size_t nbits)
+{
+	unsigned long *bm = bitmap;
+	const unsigned long *other = other_bitmap;
+
+	size_t i;
+	for (i = 0; i < nbits / BITS_PER_LONG; i++) {
+		bm[i] |= other[i];
+	}
+
+	unsigned long mask = ~0UL << (nbits & (BITS_PER_LONG - 1));
+	bm[i] |= other[i] & ~mask;
+}
+
+static void bm_xor(void *bitmap, const void *other_bitmap, size_t nbits)
+{
+	unsigned long *bm = bitmap;
+	const unsigned long *other = other_bitmap;
+
+	size_t i;
+	for (i = 0; i < nbits / BITS_PER_LONG; i++) {
+		bm[i] ^= other[i];
+	}
+
+	unsigned long mask = ~0UL << (nbits & (BITS_PER_LONG - 1));
+	bm[i] ^= other[i] & ~mask;
+}
+
+static void bm_not(void *bitmap, size_t nbits)
+{
+	unsigned long *bm = bitmap;
+
+	size_t i;
+	for (i = 0; i < nbits / BITS_PER_LONG; i++) {
+		bm[i] = ~bm[i];
+	}
+
+	unsigned long mask = ~0UL << (nbits & (BITS_PER_LONG - 1));
+	bm[i] ^= ~mask;
 }
 
 #endif

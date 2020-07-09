@@ -5,10 +5,10 @@
 #include <errno.h>
 
 #define error_on(expr, ...) (!(expr) ? (void)0 : error(__VA_ARGS__))
-#define error(...) __error(__FILE__, __LINE__, __func__, __VA_ARGS__)
+#define error(...) _error(__FILE__, __LINE__, __func__, __VA_ARGS__)
 
 static void __attribute__ ((format (printf, 4, 5)))
-__error(const char *file, const unsigned int line, const char *func, const char *fmt, ...)
+_error(const char *file, const unsigned int line, const char *func, const char *fmt, ...)
 {
 	fputs("Error: ", stderr);
 

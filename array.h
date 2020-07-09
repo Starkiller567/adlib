@@ -68,7 +68,7 @@ SOFTWARE.
 
 // this macro provides a more explicit way of declaring a dynamic array
 // (array(int) arr vs int *arr; the second could be a simple pointer or static array or dynamic array)
-#define array(T) T *
+#define array_t(T) T *
 
 // get number of elements in array (as size_t)
 #define array_len(a)                    _arr_len(a)

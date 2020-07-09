@@ -176,6 +176,9 @@
 									\
 	static void name##_init(struct name *table, unsigned int size)	\
 	{								\
+		if (size == 0) {					\
+			size = 16;					\
+		}							\
 		if ((size & (size - 1)) != 0) {				\
 			/* round to next power of 2 */			\
 			size--;						\
@@ -302,6 +305,9 @@
 									\
 	static void name##_init(struct name *table, unsigned int size)	\
 	{								\
+		if (size == 0) {					\
+			size = 16;					\
+		}							\
 		if ((size & (size - 1)) != 0) {				\
 			/* round to next power of 2 */			\
 			size--;						\
