@@ -6,6 +6,7 @@
 #include <string.h>
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
+// TODO try hopscotch hashing
 
 typedef unsigned int _hashtable_hash_t;
 typedef size_t _hashtable_uint_t;
@@ -18,7 +19,7 @@ struct _hashtable_info {
 	_hashtable_uint_t threshold;
 };
 
-#if 0
+#if 1
 
 struct _hashtable_bucket {
 	_hashtable_hash_t hash;
@@ -208,7 +209,8 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 	_hashtable_set_hash(table, index, 1, info);
 	table->num_items--;
 	table->num_tombstones++;
-	if (10 * table->num_items < table->capacity) {
+	// TODO figure out when to resize
+	if (table->num_items < table->capacity / 4) {
 		_hashtable_resize(table, table->capacity / 2, info);
 	} else if (table->num_tombstones > table->capacity / 4) {
 		_hashtable_resize(table, table->capacity, info);
@@ -559,7 +561,7 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 {
 	_hashtable_set_dib(table, index, __DIB_FREE, info);
 	table->num_items--;
-	if (10 * table->num_items < table->capacity) {
+	if (table->num_items < table->capacity / 4) {
 		_hashtable_resize(table, table->capacity / 2, info);
 	} else {
 		for (_hashtable_uint_t i = 0;; i++) {
