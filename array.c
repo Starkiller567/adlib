@@ -68,7 +68,7 @@ int main(void)
 #endif
 	int *arr1 = NULL;
 
-#if 1
+#if 0
 	add_a_one(&arr1);
 	// array_push(arr1, 1);
 	array_push(arr1, 2);

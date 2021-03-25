@@ -29,6 +29,7 @@ static struct rb_node *rb_first(struct rb_root *root);
 static struct rb_node *rb_next(struct rb_node *node);
 static void rb_remove_node(struct rb_root *root, struct rb_node *node);
 static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, int dir);
+static inline struct rb_node *rb_parent(struct rb_node *node);
 
 
 

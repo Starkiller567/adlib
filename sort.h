@@ -1,11 +1,6 @@
 #ifndef __SORT_INCLUDE__
 #define __SORT_INCLUDE__
 
-struct __quicksort_partition {
-	size_t left;
-	size_t right;
-};
-
 // 'name' is the identifier of the sort function.
 // 'type' is the element type of the array to sort.
 // 'threshold' is the minimum number of elements for which quicksort will be used,
@@ -35,7 +30,10 @@ struct __quicksort_partition {
 									\
 	static void name(type *arr, size_t n)				\
 	{								\
-		struct __quicksort_partition stack[128];		\
+		struct _quicksort_partition {				\
+			size_t left;					\
+			size_t right;					\
+		} stack[128];						\
 		size_t sp = 0;						\
 		size_t left = 0;					\
 		size_t right = n - 1;					\

@@ -12,7 +12,7 @@
 // #include "hashtable_robinhood.h"
 #include "hashtable.h"
 
-#define N 50
+#define N 2
 
 static inline uint32_t integer_hash(uint32_t x)
 {
@@ -255,6 +255,7 @@ int main(int argc, char **argv)
 		num_items = 500000;
 
 		int *arr1 = NULL;
+		array_reserve(arr1, num_items);
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, i);
 		}
@@ -264,6 +265,7 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, (size_t(*)(void))random);
 
 		int *arr3 = NULL;
+		array_reserve(arr3, num_items);
 		for (i = 0; i < num_items; i++) {
 			array_add(arr3, i + num_items);
 		}
@@ -291,6 +293,7 @@ int main(int argc, char **argv)
 		num_items = 200000;
 
 		char **arr1 = NULL;
+		array_reserve(arr1, num_items);
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, mprintf("%i", i));
 		}
@@ -300,6 +303,7 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, (size_t(*)(void))random);
 
 		char **arr3 = NULL;
+		array_reserve(arr3, num_items);
 		for (i = 0; i < num_items; i++) {
 			array_add(arr3, mprintf("%i", i + num_items));
 		}
@@ -325,6 +329,8 @@ int main(int argc, char **argv)
 		puts("--------------------------------------------------------");
 	}
 
+	srand(seed);
+
 	if (1) {
 		puts("sstable");
 		puts("--------------------------------------------------------");
@@ -332,6 +338,7 @@ int main(int argc, char **argv)
 		num_items = 200000;
 
 		struct short_string *values1 = NULL;
+		array_reserve(values1, num_items);
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(values1, 1);
 			sprintf(item->s, "%i", i);
@@ -342,6 +349,7 @@ int main(int argc, char **argv)
 		array_shuffle(values2, (size_t(*)(void))random);
 
 		struct short_string *values3 = NULL;
+		array_reserve(values3, num_items);
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(values3, 1);
 			sprintf(item->s, "%i", i + num_items);
@@ -353,18 +361,22 @@ int main(int argc, char **argv)
 
 		struct short_string *iter;
 		char **keys1 = NULL;
+		array_reserve(keys1, num_items);
 		array_foreach(values1, iter) {
 			array_add(keys1, strdup(iter->s));
 		}
 		char **keys2 = NULL;
+		array_reserve(keys2, num_items);
 		array_foreach(values2, iter) {
 			array_add(keys2, strdup(iter->s));
 		}
 		char **keys3 = NULL;
+		array_reserve(keys3, num_items);
 		array_foreach(values3, iter) {
 			array_add(keys3, strdup(iter->s));
 		}
 		char **keys4 = NULL;
+		array_reserve(keys4, num_items);
 		array_foreach(values4, iter) {
 			array_add(keys4, strdup(iter->s));
 		}
@@ -405,6 +417,7 @@ int main(int argc, char **argv)
 		num_items = 100000;
 
 		struct short_string *arr1 = NULL;
+		array_reserve(arr1, num_items);
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(arr1, 1);
 			sprintf(item->s, "%i", i);
@@ -415,6 +428,7 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, (size_t(*)(void))random);
 
 		struct short_string *arr3 = NULL;
+		array_reserve(arr3, num_items);
 		for (i = 0; i < num_items; i++) {
 			struct short_string *item = array_addn(arr3, 1);
 			sprintf(item->s, "%i", i + num_items);

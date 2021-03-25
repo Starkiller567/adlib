@@ -11,12 +11,12 @@ int main(void)
 	uint16_t x16 = (uint16_t)x;
 	uint32_t x32 = (uint32_t)x;
 	uint64_t x64 = (uint64_t)x;
-	__be16 be16 = cpu_to_be16(x16);
-	__be32 be32 = cpu_to_be32(x32);
-	__be64 be64 = cpu_to_be64(x64);
-	__le16 le16 = cpu_to_le16(x16);
-	__le32 le32 = cpu_to_le32(x32);
-	__le64 le64 = cpu_to_le64(x64);
+	_be16 be16 = cpu_to_be16(x16);
+	_be32 be32 = cpu_to_be32(x32);
+	_be64 be64 = cpu_to_be64(x64);
+	_le16 le16 = cpu_to_le16(x16);
+	_le32 le32 = cpu_to_le32(x32);
+	_le64 le64 = cpu_to_le64(x64);
 
 
 	printf("le: %i, be: %i\n", is_little_endian(), is_big_endian());

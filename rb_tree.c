@@ -69,6 +69,22 @@ static bool rb_insert_key(struct rb_root *root, int key)
 	return true;
 }
 
+static void _rb_destroy(struct rb_node *node)
+{
+	if (!node) {
+		return;
+	}
+	_rb_destroy(node->children[RB_LEFT]);
+	_rb_destroy(node->children[RB_RIGHT]);
+	free(to_thing(node));
+}
+
+static void rb_destroy_tree(struct rb_root *root)
+{
+	_rb_destroy(root->node);
+	root->node = NULL;
+}
+
 static int black_depth;
 static int max_depth;
 static int num_nodes;
@@ -186,9 +202,10 @@ int main(void)
 
 #if 1
 	srand(time(NULL));
-	for (unsigned int i = 0; ; i++) {
+	const int max_key = 10000;
+	for (unsigned int i = 0;; i++) {
 		{
-			int key = rand() % 10000;
+			int key = rand() % max_key;
 			bool success = rb_insert_key(&root, key);
 			if (!success) {
 				struct rb_node *node = rb_remove_key(&root, key);
@@ -199,7 +216,7 @@ int main(void)
 			assert(to_thing(rb_find(&root, key))->key == key);
 		}
 		{
-			int key = rand() % 10000;
+			int key = rand() % max_key;
 			struct rb_node *node = rb_find(&root, key);
 			if (node) {
 				rb_remove_node(&root, node);
@@ -215,5 +232,6 @@ int main(void)
 			printf("num nodes: %d\n", num_nodes);
 		}
 	}
+	rb_destroy_tree(&root);
 #endif
 }
