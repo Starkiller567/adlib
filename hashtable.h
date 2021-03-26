@@ -7,19 +7,55 @@
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 // TODO try hopscotch hashing
-
 typedef unsigned int _hashtable_hash_t;
 typedef size_t _hashtable_uint_t;
 typedef _hashtable_uint_t _hashtable_idx_t;
 
 struct _hashtable_info {
-	size_t key_size;
-	size_t value_size;
-	bool (*keys_match)(const void *a, const void *b);
+	_hashtable_uint_t key_size;
+	_hashtable_uint_t value_size;
 	_hashtable_uint_t threshold;
+	bool (*keys_match)(const void *a, const void *b);
+	unsigned char f1;
+	unsigned char f2;
+	unsigned char f3;
 };
 
-#if 1
+
+static _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_t capacity)
+{
+	/* round to next power of 2 */
+	capacity--;
+	capacity |= capacity >> 1;
+	capacity |= capacity >> 2;
+	capacity |= capacity >> 4;
+	capacity |= capacity >> 8;
+	capacity |= capacity >> 16;
+	capacity |= capacity >> (sizeof(capacity) * 4);
+	capacity++;
+	return capacity;
+}
+
+static _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_items,
+						 const struct _hashtable_info *info)
+{
+	// threshold=5 -> f1=2, f2=0, f2/threshold=0
+	// threshold=6 -> f1=1, f2=4, f2/threshold=4/6=2/3
+	// threshold=7 -> f1=1, f2=3, f2/threshold=3/7
+	// threshold=8 -> f1=1, f2=2, f2/threshold=2/8=1/4
+	// threshold=9 -> f1=1, f2=1, f2/threshold=1/9
+
+	_hashtable_uint_t f1 = info->f1;
+	_hashtable_uint_t f2 = info->f2;
+	_hashtable_uint_t f3 = info->f3;
+	_hashtable_uint_t capacity = num_items * f1 + (num_items * f2 + f3 - 1) / f3;
+	// assert(capacity > num_items); resize_unchecked does this already
+	return capacity;
+}
+
+// #define _HASHTABLE_ROBIN_HOOD 1
+
+#ifndef _HASHTABLE_ROBIN_HOOD
 
 struct _hashtable_bucket {
 	_hashtable_hash_t hash;
@@ -80,37 +116,28 @@ static void *_hashtable_value(struct _hashtable *table, _hashtable_idx_t index,
 static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
 			    const struct _hashtable_info *info)
 {
-	if (capacity == 0) {
+	if (capacity < 8) {
 		capacity = 8;
-	} else if ((capacity & (capacity - 1)) != 0) {
-		/* round to next power of 2 */
-		capacity--;
-		capacity |= capacity >> 1;
-		capacity |= capacity >> 2;
-		capacity |= capacity >> 4;
-		capacity |= capacity >> 8;
-		capacity |= capacity >> 16;
-		capacity |= capacity >> (sizeof(capacity) * 4);
-		capacity++;
 	}
-	size_t total_size = capacity * (sizeof(struct _hashtable_bucket) + info->key_size + info->value_size);
-	const size_t alignment = 64;
-	if (total_size % alignment != 0) {
-		total_size += alignment - (total_size % alignment);
-	}
-	table->storage = aligned_alloc(alignment, total_size);
-	for (_hashtable_uint_t i = 0; i < capacity; i++) {
-		_hashtable_set_hash(table, i, 0, info);
-	}
+	assert((capacity & (capacity - 1)) == 0);
+	const _hashtable_uint_t alignment = 64;
+	_hashtable_uint_t size = sizeof(struct _hashtable_bucket) + info->key_size + info->value_size;
+	assert(((_hashtable_uint_t)-alignment) / size >= capacity);
+	size *= capacity;
+	size = (size + alignment - 1) & ~(alignment - 1);
+	table->storage = aligned_alloc(alignment, size);
 	table->num_items = 0;
 	table->num_tombstones = 0;
 	table->capacity = capacity;
+	for (_hashtable_uint_t i = 0; i < capacity; i++) {
+		_hashtable_set_hash(table, i, 0, info);
+	}
 }
 
 static void _hashtable_destroy(struct _hashtable *table)
 {
 	free(table->storage);
-	table->storage = NULL;
+	memset(table, 0, sizeof(*table));
 }
 
 static bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
@@ -165,14 +192,10 @@ static _hashtable_idx_t _hashtable_do_insert(struct _hashtable *table, _hashtabl
 	return index;
 }
 
-static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
-			      const struct _hashtable_info *info)
+static void _hashtable_resize_unchecked(struct _hashtable *table, _hashtable_uint_t new_capacity,
+					const struct _hashtable_info *info)
 {
-	if (new_capacity < table->capacity ||
-	    (new_capacity == table->capacity && table->num_tombstones == 0)) {
-		// TODO support shrinking
-		return;
-	}
+	assert(new_capacity > table->num_items);
 	struct _hashtable new_table;
 	_hashtable_init(&new_table, new_capacity, info);
 
@@ -191,13 +214,24 @@ static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_ca
 	*table = new_table;
 }
 
+static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			      const struct _hashtable_info *info)
+{
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
+	if (new_capacity < min_capacity) {
+		new_capacity = min_capacity;
+	}
+	new_capacity = _hashtable_round_capacity(new_capacity);
+	_hashtable_resize_unchecked(table, new_capacity, info);
+}
+
 static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
 					  const struct _hashtable_info *info)
 {
 	table->num_items++;
-	// TODO change this computation to be overflow safe
-	if ((table->num_items + table->num_tombstones) * 10 > info->threshold * table->capacity) {
-		_hashtable_resize(table, 2 * table->capacity, info);
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items + table->num_tombstones, info);
+	if (min_capacity > table->capacity) {
+		_hashtable_resize_unchecked(table, 2 * table->capacity, info);
 	}
 	hash = hash == 0 || hash == 1 ? hash - 2 : hash;
 	return _hashtable_do_insert(table, hash, info);
@@ -209,11 +243,11 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 	_hashtable_set_hash(table, index, 1, info);
 	table->num_items--;
 	table->num_tombstones++;
-	// TODO figure out when to resize
-	if (table->num_items < table->capacity / 4) {
-		_hashtable_resize(table, table->capacity / 2, info);
-	} else if (table->num_tombstones > table->capacity / 4) {
-		_hashtable_resize(table, table->capacity, info);
+	if (table->num_items < table->capacity / 8) {
+		_hashtable_resize_unchecked(table, table->capacity / 4, info);
+	} else if (table->num_tombstones > table->capacity / 2) {
+		// can this even happen?
+		_hashtable_resize_unchecked(table, table->capacity, info);
 	}
 }
 
@@ -253,6 +287,7 @@ struct _hashtable {
 	_hashtable_uint_t num_items;
 	_hashtable_uint_t capacity;
 	unsigned char *storage;
+	_hashtable_dib_t *dibs;
 	// TODO add generation and check it during iteration?
 };
 
@@ -264,7 +299,6 @@ static _hashtable_idx_t _hashtable_wrap_index(_hashtable_idx_t start, _hashtable
 
 static _hashtable_idx_t _hashtable_hash_to_index(_hashtable_hash_t hash, _hashtable_uint_t capacity)
 {
-	// return _hashtable_wrap_index(11 * hash, 0, capacity);
 	return _hashtable_wrap_index(hash, 0, capacity);
 }
 
@@ -299,19 +333,22 @@ static void *_hashtable_value(struct _hashtable *table, _hashtable_idx_t index,
 	return &_hashtable_get_bucket(table, index, info)->data[info->key_size];
 }
 
+static _hashtable_uint_t _hashtable_dib_offset(_hashtable_uint_t capacity,
+					       const struct _hashtable_info *info)
+{
+	return capacity * (sizeof(struct _hashtable_bucket) + info->key_size + info->value_size);
+}
+
 static _hashtable_dib_t _hashtable_dib(struct _hashtable *table, _hashtable_idx_t index,
 				       const struct _hashtable_info *info)
 {
-	// has to match resize
-	size_t offset = table->capacity * (sizeof(struct _hashtable_bucket) + info->key_size + info->value_size);
-	return ((_hashtable_dib_t *)table->storage + offset)[index];
+	return table->dibs[index];
 }
 
 static void _hashtable_set_dib(struct _hashtable *table, _hashtable_idx_t index, _hashtable_dib_t dib,
 			       const struct _hashtable_info *info)
 {
-	size_t offset = table->capacity * (sizeof(struct _hashtable_bucket) + info->key_size + info->value_size);
-	((_hashtable_dib_t *)table->storage + offset)[index] = dib;
+	table->dibs[index] = dib;
 }
 
 static void _hashtable_set_distance(struct _hashtable *table, _hashtable_idx_t index, _hashtable_uint_t distance,
@@ -335,28 +372,14 @@ static _hashtable_uint_t _hashtable_distance(struct _hashtable *table, _hashtabl
 	return (index - _hashtable_hash_to_index(hash, table->capacity)) & (table->capacity - 1);
 }
 
-
-static _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_t capacity)
-{
-	if ((capacity & (capacity - 1)) != 0) {
-		/* round to next power of 2 */
-		capacity--;
-		capacity |= capacity >> 1;
-		capacity |= capacity >> 2;
-		capacity |= capacity >> 4;
-		capacity |= capacity >> 8;
-		capacity |= capacity >> 16;
-		capacity |= capacity >> (sizeof(capacity) * 4);
-		capacity++;
-	}
-	return capacity;
-}
-
 static void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
 {
-	size_t size = sizeof(struct _hashtable_bucket) + info->key_size + info->value_size + 1;
+	assert((table->capacity & (table->capacity - 1)) == 0);
+	_hashtable_uint_t size = sizeof(struct _hashtable_bucket) + info->key_size + info->value_size + 1;
+	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
+	table->dibs = table->storage + _hashtable_dib_offset(table->capacity, info);
 }
 
 static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
@@ -364,9 +387,8 @@ static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity
 {
 	if (capacity < 8) {
 		capacity = 8;
-	} else {
-		capacity = _hashtable_round_capacity(capacity);
 	}
+	assert((capacity & (capacity - 1)) == 0);
 	table->storage = NULL;
 	table->num_items = 0;
 	table->capacity = capacity;
@@ -379,14 +401,14 @@ static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity
 static void _hashtable_destroy(struct _hashtable *table)
 {
 	free(table->storage);
-	table->storage = NULL;
+	memset(table, 0, sizeof(*table));
 }
 
 static bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
 			      _hashtable_idx_t *ret_index, const struct _hashtable_info *info)
 {
 	_hashtable_idx_t start = _hashtable_hash_to_index(hash, table->capacity);
-	for (_hashtable_uint_t i = 0; /* i < table->capacity */; i++) {
+	for (_hashtable_uint_t i = 0;; i++) {
 		_hashtable_idx_t index = _hashtable_wrap_index(start, i, table->capacity);
 		_hashtable_dib_t dib = _hashtable_dib(table, index, info);
 
@@ -491,19 +513,63 @@ static _hashtable_idx_t _hashtable_do_insert(struct _hashtable *table, _hashtabl
 	return index;
 }
 
-static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
+static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_capacity,
 			      const struct _hashtable_info *info)
 {
-	if (new_capacity < table->capacity) {
-		// TODO support shrinking
-		return;
+	assert(new_capacity < table->capacity && new_capacity > table->num_items);
+	_hashtable_uint_t old_capacity = table->capacity;
+	table->capacity = new_capacity;
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		table->dibs[i] = table->dibs[i] == __DIB_FREE ? __DIB_FREE : __DIB_REHASH;
 	}
 
-	_hashtable_uint_t old_capacity = table->capacity;
-	table->capacity = _hashtable_round_capacity(new_capacity);
+	void *key = alloca(info->key_size);
+	void *value = alloca(info->value_size);
+	_hashtable_uint_t num_rehashed = 0;
+	for (_hashtable_idx_t index = 0; index < old_capacity; index++) {
+		_hashtable_dib_t dib = _hashtable_dib(table, index, info);
+		if (dib != __DIB_REHASH) {
+			continue;
+		}
+		_hashtable_hash_t hash = _hashtable_get_hash(table, index, info);
+		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
+		if (optimal_index == index) {
+			_hashtable_set_distance(table, index, 0, info);
+			num_rehashed++;
+			continue;
+		}
+		_hashtable_set_dib(table, index, __DIB_FREE, info);
+		memcpy(key, _hashtable_key(table, index, info), info->key_size);
+		memcpy(value, _hashtable_value(table, index, info), info->value_size);
+
+		for (;;) {
+			bool need_rehash = _hashtable_insert_robin_hood(table, optimal_index, 0,
+									&hash, key, value, info);
+			num_rehashed++;
+			if (!need_rehash) {
+				break;
+			}
+			optimal_index = _hashtable_hash_to_index(hash, table->capacity);
+		}
+	}
+
+	size_t new_dib_offset = _hashtable_dib_offset(table->capacity, info);
+	_hashtable_dib_t *new_dibs = (_hashtable_dib_t *)(table->storage + new_dib_offset);
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		new_dibs[i] = table->dibs[i];
+	}
 	_hashtable_realloc_storage(table, info);
-	size_t old_dib_offset = old_capacity * (sizeof(struct _hashtable_bucket) + info->key_size +
-						info->value_size);
+}
+
+static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			    const struct _hashtable_info *info)
+{
+	assert(new_capacity >= table->capacity && new_capacity > table->num_items);
+
+	_hashtable_uint_t old_capacity = table->capacity;
+	table->capacity = new_capacity;
+	_hashtable_realloc_storage(table, info);
+	size_t old_dib_offset = _hashtable_dib_offset(old_capacity, info);
 	_hashtable_dib_t *old_dibs = (_hashtable_dib_t *)(table->storage + old_dib_offset);
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
 		_hashtable_set_dib(table, i, old_dibs[i] == __DIB_FREE ? __DIB_FREE : __DIB_REHASH, info);
@@ -541,18 +607,31 @@ static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_ca
 			optimal_index = _hashtable_hash_to_index(hash, table->capacity);
 		}
 	}
+}
 
-	assert(num_rehashed == table->num_items);
+static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			      const struct _hashtable_info *info)
+{
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
+	if (new_capacity < min_capacity) {
+		new_capacity = min_capacity;
+	}
+	new_capacity = _hashtable_round_capacity(new_capacity);
+	if (new_capacity < table->capacity) {
+		_hashtable_shrink(table, new_capacity, info);
+	} else {
+		_hashtable_grow(table, new_capacity, info);
+	}
 }
 
 static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
 					  const struct _hashtable_info *info)
 {
-	// TODO change this computation to be overflow safe
-	if ((table->num_items + 1) * 10 > info->threshold * table->capacity) {
-		_hashtable_resize(table, 2 * table->capacity, info);
-	}
 	table->num_items++;
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
+	if (min_capacity > table->capacity) {
+		_hashtable_grow(table, 2 * table->capacity, info);
+	}
 	return _hashtable_do_insert(table, hash, info);
 }
 
@@ -561,8 +640,8 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 {
 	_hashtable_set_dib(table, index, __DIB_FREE, info);
 	table->num_items--;
-	if (table->num_items < table->capacity / 4) {
-		_hashtable_resize(table, table->capacity / 2, info);
+	if (table->num_items < table->capacity / 8) {
+		_hashtable_resize(table, table->capacity / 4, info);
 	} else {
 		for (_hashtable_uint_t i = 0;; i++) {
 			_hashtable_idx_t current_index = _hashtable_wrap_index(index, i, table->capacity);
@@ -601,6 +680,9 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 
 #define DEFINE_HASHTABLE_COMMON(name, key_type, value_size_, THRESHOLD, ...) \
 									\
+	_Static_assert(5 <= THRESHOLD && THRESHOLD <= 9,		\
+		       "resize threshold (load factor)  must be an integer in the range of 5 to 9 (50%-90%)"); \
+									\
 	typedef _hashtable_hash_t name##_hash_t;			\
 	typedef _hashtable_uint_t name##_uint_t;			\
 									\
@@ -616,10 +698,14 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 		.value_size = (value_size_),				\
 		.threshold = (THRESHOLD),				\
 		.keys_match = _##name##_keys_match,			\
+		.f1 = 10 / (THRESHOLD),					\
+		.f2 = (10 % (THRESHOLD)) / ((THRESHOLD) % 2 == 0 ? 2 : 1), \
+		.f3 = (THRESHOLD) / ((THRESHOLD) % 2 == 0 ? 2 : 1),	\
 	};								\
 									\
 	static void name##_init(struct name *table, name##_uint_t initial_capacity) \
 	{								\
+		initial_capacity = _hashtable_round_capacity(initial_capacity);	\
 		_hashtable_init(&table->impl, initial_capacity, &_##name##_info); \
 	}								\
 									\
