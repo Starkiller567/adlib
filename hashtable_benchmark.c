@@ -271,8 +271,8 @@ int main(int argc, char **argv)
 	struct ssstable ssstable;
 	unsigned int i, seed = 12345, num_items;
 	struct timespec start_tp, end_tp;
-	bool bad_hash = true;
-	// TODO option to sort instead of shuffle
+	bool bad_hash = false;
+	bool shuffle = true;
 
 	unsigned long long insert[N];
 	unsigned long long lookup1[N];
@@ -294,7 +294,9 @@ int main(int argc, char **argv)
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, i);
 		}
-		array_shuffle(arr1, random_size_t);
+		if (shuffle) {
+			array_shuffle(arr1, random_size_t);
+		}
 
 		int *arr2 = array_copy(arr1);
 		array_shuffle(arr2, random_size_t);
@@ -332,7 +334,9 @@ int main(int argc, char **argv)
 		for (i = 0; i < num_items; i++) {
 			array_add(arr1, mprintf("%i", i));
 		}
-		array_shuffle(arr1, random_size_t);
+		if (shuffle) {
+			array_shuffle(arr1, random_size_t);
+		}
 
 		char **arr2 = array_copy(arr1);
 		array_shuffle(arr2, random_size_t);
@@ -378,7 +382,9 @@ int main(int argc, char **argv)
 			struct short_string *item = array_addn(values1, 1);
 			sprintf(item->s, "%i", i);
 		}
-		array_shuffle(values1, random_size_t);
+		if (shuffle) {
+			array_shuffle(values1, random_size_t);
+		}
 
 		struct short_string *values2 = array_copy(values1);
 		array_shuffle(values2, random_size_t);
@@ -457,7 +463,9 @@ int main(int argc, char **argv)
 			struct short_string *item = array_addn(arr1, 1);
 			sprintf(item->s, "%i", i);
 		}
-		array_shuffle(arr1, random_size_t);
+		if (shuffle) {
+			array_shuffle(arr1, random_size_t);
+		}
 
 		struct short_string *arr2 = array_copy(arr1);
 		array_shuffle(arr2, random_size_t);
