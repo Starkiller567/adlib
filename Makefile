@@ -13,9 +13,9 @@ ifneq ($(SANITIZER),)
 OPT = -O0
 endif
 OPTFLAGS = $(OPT) -march=native
-CCFLAGS = $(OPTFLAGS) -g -pthread $(WARNFLAGS)
+CFLAGS = $(OPTFLAGS) -g -pthread $(WARNFLAGS)
 ifneq ($(SANITIZER),)
-CCFLAGS += -fsanitize=$(SANITIZER)
+CFLAGS += -fsanitize=$(SANITIZER)
 endif
 
 C_SOURCES = $(shell find . -name "*.c" -and ! -name '.*' )
@@ -33,22 +33,22 @@ debug:
 # $(DEPDIR)/%.d : %.c $(MAKEFILE_LIST)
 # 	@echo "DEP		$@"
 # 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-# 	$(VERBOSE) $(CC) $(CCFLAGS) -MM -MT $(OBJDIR)/$*.o -MF $@ $<
+# 	$(VERBOSE) $(CC) $(CFLAGS) -MM -MT $(OBJDIR)/$*.o -MF $@ $<
 
 $(DEPDIR)/%.d : %.c $(MAKEFILE_LIST)
 	@echo "DEP		$@"
 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-	$(VERBOSE) $(CC) $(CCFLAGS) -MM -MT $(BINDIR)/$* -MF $@ $<
+	$(VERBOSE) $(CC) $(CFLAGS) -MM -MT $(BINDIR)/$* -MF $@ $<
 
 # $(OBJDIR)/%.o : %.c $(MAKEFILE_LIST)
 # 	@echo "CC		$@"
 # 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-# 	$(VERBOSE) $(CC) -c $(CCFLAGS) -o $@ $<
+# 	$(VERBOSE) $(CC) -c $(CFLAGS) -o $@ $<
 
 $(BINDIR)/% : %.c $(MAKEFILE_LIST)
 	@echo "CCLD		$@"
 	@if test \( ! \( -d $(@D) \) \) ;then mkdir -p $(@D);fi
-	$(VERBOSE) $(CC) $(CCFLAGS) -o $@ $<
+	$(VERBOSE) $(CC) $(CFLAGS) -o $@ $< -lm
 
 clean:
 	@echo "RM		$(BINDIR)"
