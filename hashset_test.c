@@ -56,7 +56,6 @@ int main(int argc, char **argv)
 			} else {
 				assert(!found);
 				item = itable_insert(&itable, x, integer_hash(x));
-				// *item = x;
 				assert(*item == x);
 				array_add(arr, x);
 			}

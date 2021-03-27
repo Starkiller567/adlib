@@ -6,6 +6,7 @@
 #include <string.h>
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
+// TODO store maximum distance for lookup?
 // TODO try hopscotch hashing
 typedef unsigned int _hashtable_hash_t;
 typedef size_t _hashtable_uint_t;
@@ -78,7 +79,9 @@ static _hashtable_idx_t _hashtable_hash_to_index(_hashtable_hash_t hash, _hashta
 static _hashtable_idx_t _hashtable_probe_index(_hashtable_idx_t start, _hashtable_uint_t i,
 					       _hashtable_uint_t capacity)
 {
-	return (start + i) & (capacity - 1);
+	// http://www.chilton-computing.org.uk/acl/literature/reports/p012.htm
+	return (start + ((i + 1) * i) / 2) & (capacity - 1);
+	// return (start + i) & (capacity - 1);
 }
 
 static struct _hashtable_bucket *_hashtable_get_bucket(struct _hashtable *table, _hashtable_idx_t index,
@@ -272,6 +275,8 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
  * (The old dibs get copied to the back early on, so it's fine to overwrite them.
  *  But we don't want to copy any keys or values since those tend to be bigger.)
  */
+
+// TODO use quadratic hashing (this needs significant changes to the backward shift deletion)
 
 typedef uint8_t _hashtable_dib_t;
 #define __DIB_OVERFLOW ((_hashtable_dib_t)0xfdU)
@@ -498,7 +503,6 @@ static _hashtable_idx_t _hashtable_do_insert(struct _hashtable *table, _hashtabl
 		}
 		_hashtable_uint_t d = _hashtable_distance(table, index, info);
 		if (d < i) {
-			// TODO make pointer variants of all getters and setters
 			_hashtable_hash_t h = _hashtable_get_hash(table, index, info);
 			void *key = _hashtable_key(table, index, info);
 			void *value = _hashtable_value(table, index, info);

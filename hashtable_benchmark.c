@@ -24,7 +24,12 @@ static inline uint32_t integer_hash(uint32_t x)
 	return x;
 }
 
-static unsigned long string_hash(const void *string)
+static inline uint32_t bad_integer_hash(uint32_t x)
+{
+	return x;
+}
+
+static uint32_t string_hash(const void *string)
 {
 	const void *data = string;
 	const size_t nbytes = strlen(string);
@@ -80,6 +85,21 @@ static unsigned long string_hash(const void *string)
 	return h;
 }
 
+uint32_t bad_string_hash(const void *string)
+{
+	const unsigned char *s = string;
+	uint32_t h = 0, high;
+	while (*s) {
+		h = (h << 4) + *s++;
+		high = h & 0xF0000000;
+		if (high) {
+			h ^= high >> 24;
+		}
+		h &= ~high;
+	}
+	return h;
+}
+
 struct short_string {
 	char s[128];
 };
@@ -87,6 +107,11 @@ struct short_string {
 static unsigned long short_string_hash(const struct short_string s)
 {
 	return string_hash(s.s);
+}
+
+static unsigned long bad_short_string_hash(const struct short_string s)
+{
+	return bad_string_hash(s.s);
 }
 
 static unsigned long long tp_to_ns(struct timespec *tp)
@@ -124,7 +149,7 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_insert(&name, keys1[i], hash(keys1[i])); \
+			item_type *item = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
 			*item = values1[i];				\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
@@ -133,7 +158,7 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_lookup(&name, keys2[i], hash(keys2[i])); \
+			item_type *item = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
 			key_type *k = &keys2[i];			\
 			item_type *v = item;				\
 			assert(__VA_ARGS__);				\
@@ -144,14 +169,14 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_lookup(&name, keys3[i], hash(keys3[i])); \
+			item_type *item = name##_lookup(&name, keys3[i], (hash)(keys3[i])); \
 			assert(!item);					\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
 		lookup2[n] = ns_elapsed(&start_tp, &end_tp);		\
 									\
 		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_insert(&name, keys3[i], hash(keys3[i])); \
+			item_type *item = name##_insert(&name, keys3[i], (hash)(keys3[i])); \
 			*item = values3[i];				\
 		}							\
 									\
@@ -159,7 +184,7 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		for (i = 0; i < num_items; i++) {			\
 			key_type key;					\
 			item_type item;					\
-			bool found = name##_remove(&name, keys4[i], hash(keys4[i]), &key, &item); \
+			bool found = name##_remove(&name, keys4[i], (hash)(keys4[i]), &key, &item); \
 			key_type *k = &key;				\
 			item_type *v = &item;				\
 			assert(found && (__VA_ARGS__));			\
@@ -174,23 +199,23 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
 			{						\
-				item_type *item = name##_lookup(&name, keys2[i], hash(keys2[i])); \
+				item_type *item = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
 				assert(!item);				\
 			}						\
 			{						\
-				item_type *item = name##_insert(&name, keys2[i], hash(keys2[i])); \
+				item_type *item = name##_insert(&name, keys2[i], (hash)(keys2[i])); \
 				*item = values2[i];			\
 			}						\
 			{						\
 				key_type key;				\
 				item_type item;				\
-				bool found = name##_remove(&name, keys1[i], hash(keys1[i]), &key, &item); \
+				bool found = name##_remove(&name, keys1[i], (hash)(keys1[i]), &key, &item); \
 				key_type *k = &key;			\
 				item_type *v = &item;			\
 				assert(!found || (__VA_ARGS__));	\
 			}						\
 			{						\
-				item_type *item = name##_lookup(&name, keys4[i], hash(keys4[i])); \
+				item_type *item = name##_lookup(&name, keys4[i], (hash)(keys4[i])); \
 				key_type *k = &keys4[i];		\
 				item_type *v = item;			\
 				assert(!item || (__VA_ARGS__));		\
@@ -206,11 +231,11 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
 			{						\
-				item_type *item = name##_insert(&name, keys1[i], hash(keys1[i])); \
+				item_type *item = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
 				*item = values1[i];			\
 			}						\
 			for (unsigned int j = i - 10; j < i; j++) {	\
-				item_type *item = name##_lookup(&name, keys1[j], hash(keys1[j])); \
+				item_type *item = name##_lookup(&name, keys1[j], (hash)(keys1[j])); \
 				key_type *k = &keys1[j];		\
 				item_type *v = item;			\
 				assert(__VA_ARGS__);			\
@@ -238,6 +263,8 @@ int main(int argc, char **argv)
 	struct ssstable ssstable;
 	unsigned int i, seed = 12345, num_items;
 	struct timespec start_tp, end_tp;
+	bool bad_hash = true;
+	// TODO option to sort instead of shuffle
 
 	unsigned long long insert[N];
 	unsigned long long lookup1[N];
@@ -274,7 +301,7 @@ int main(int argc, char **argv)
 		int *arr4 = array_copy(arr1);
 		array_shuffle(arr4, (size_t(*)(void))random);
 
-		BENCHMARK(itable, integer_hash, int, int, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, *k == *v);
+		BENCHMARK(itable, bad_hash ? bad_integer_hash : integer_hash, int, int, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, *k == *v);
 
 		array_free(arr1);
 		array_free(arr2);
@@ -312,7 +339,7 @@ int main(int argc, char **argv)
 		char **arr4 = array_copy(arr1);
 		array_shuffle(arr4, (size_t(*)(void))random);
 
-		BENCHMARK(stable, string_hash, char *, char *, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(*k, *v) == 0);
+		BENCHMARK(stable, bad_hash ? bad_string_hash : string_hash, char *, char *, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(*k, *v) == 0);
 
 		char **iter;
 		array_foreach(arr1, iter) {
@@ -381,7 +408,7 @@ int main(int argc, char **argv)
 			array_add(keys4, strdup(iter->s));
 		}
 
-		BENCHMARK(sstable, string_hash, char *, struct short_string, keys1, values1, keys2, values2, keys3, values3, keys4, values4, strcmp(*k, v->s) == 0);
+		BENCHMARK(sstable, bad_hash ? bad_string_hash : string_hash, char *, struct short_string, keys1, values1, keys2, values2, keys3, values3, keys4, values4, strcmp(*k, v->s) == 0);
 
 		char **s;
 		array_foreach(keys1, s) {
@@ -438,7 +465,7 @@ int main(int argc, char **argv)
 		struct short_string *arr4 = array_copy(arr1);
 		array_shuffle(arr4, (size_t(*)(void))random);
 
-		BENCHMARK(ssstable, short_string_hash, struct short_string, struct short_string, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(k->s, v->s) == 0);
+		BENCHMARK(ssstable, bad_hash ? bad_short_string_hash : short_string_hash, struct short_string, struct short_string, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(k->s, v->s) == 0);
 
 		array_free(arr1);
 		array_free(arr2);
