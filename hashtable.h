@@ -435,12 +435,6 @@ static void *_hashtable_entry(struct _hashtable *table, _hashtable_idx_t index,
 	return table->storage + index * info->entry_size;
 }
 
-static _hashtable_uint_t _hashtable_hashes_offset(_hashtable_uint_t capacity,
-						  const struct _hashtable_info *info)
-{
-	return capacity * info->entry_size;
-}
-
 static _hashtable_hash_t _hashtable_get_hash(struct _hashtable *table, _hashtable_idx_t index,
 					     const struct _hashtable_info *info)
 {
@@ -456,7 +450,7 @@ static void _hashtable_set_hash(struct _hashtable *table, _hashtable_idx_t index
 static _hashtable_uint_t _hashtable_metadata_offset(_hashtable_uint_t capacity,
 					       const struct _hashtable_info *info)
 {
-	return capacity * (info->entry_size + sizeof(_hashtable_hash_t));
+	return capacity * info->entry_size;
 }
 
 static _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _hashtable_idx_t index,
@@ -475,7 +469,7 @@ static _hashtable_uint_t _hashtable_get_distance(struct _hashtable *table, _hash
 static void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	assert((table->capacity & (table->capacity - 1)) == 0);
-	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_hash_t) + sizeof(_hashtable_metadata_t);
+	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_metadata_t);
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
