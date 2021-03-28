@@ -9,6 +9,7 @@
 //      how to implement resize cleanly?
 // TODO try hopscotch hashing
 // TODO add generation and check it during iteration?
+// TODO test the case where the metadata is bigger than the entries
 
 /* Memory layout:
  * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
@@ -303,7 +304,12 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 	_hashtable_realloc_storage(table, info);
 	size_t old_metadata_offset = _hashtable_metadata_offset(old_capacity, info);
 	_hashtable_metadata_t *old_metadata = (_hashtable_metadata_t *)(table->storage + old_metadata_offset);
-	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+	/* Need to iterate backwards in case the metadata is bigger than the entries:
+	 * eeeeemmmmmmmmmm
+	 * eeeeeeeeeemmmmmmmmmmmmmmmmmmmm
+	 */
+	for (_hashtable_uint_t j = old_capacity; j > 0; j--) {
+		_hashtable_uint_t i = j - 1;
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		if (old_metadata[i].hash >= _HASHTABLE_MIN_VALID_HASH) {
 			m->hash = old_metadata[i].hash;
@@ -668,17 +674,17 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 {
 	assert(new_capacity >= table->capacity && new_capacity > table->num_items);
 
-	/*
-	 * eeeeehhhhhddddd
-	 * eeeeeeeeeehhhhhhhhhhdddddddddd
-	 */
-
 	_hashtable_uint_t old_capacity = table->capacity;
 	table->capacity = new_capacity;
 	_hashtable_realloc_storage(table, info);
 	size_t old_metadata_offset = _hashtable_metadata_offset(old_capacity, info);
 	_hashtable_metadata_t *old_metadata = (_hashtable_metadata_t *)(table->storage + old_metadata_offset);
-	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+	/* Need to iterate backwards in case the metadata is bigger than the entries:
+	 * eeeeemmmmmmmmmm
+	 * eeeeeeeeeemmmmmmmmmmmmmmmmmmmm
+	 */
+	for (_hashtable_uint_t j = old_capacity; j > 0; j--) {
+		_hashtable_uint_t i = j - 1;
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		if (old_metadata[i].hash >= _HASHTABLE_MIN_VALID_HASH) {
 			m->hash = old_metadata[i].hash;
