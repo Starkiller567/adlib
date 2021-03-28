@@ -66,13 +66,10 @@ static _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_items,
 	return capacity;
 }
 
-// #define _HASHTABLE_ROBIN_HOOD 1
+#define _HASHTABLE_ROBIN_HOOD 1
 
 #ifndef _HASHTABLE_ROBIN_HOOD
 
-// TODO store the hash in the metadata
-// combine the two insertion functions by making a helper that finds the right spot for insertion
-// tombstone and needs_rehash can probably be the same value?
 #define _HASHTABLE_EMPTY_HASH 0
 #define _HASHTABLE_TOMBSTONE_HASH 1
 #define _HASHTABLE_MIN_VALID_HASH 2
@@ -404,17 +401,21 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 
 #else
 
-typedef uint8_t _hashtable_dib_t;
-#define __DIB_OVERFLOW ((_hashtable_dib_t)0xfdU)
-#define __DIB_REHASH   ((_hashtable_dib_t)0xfeU)
-#define __DIB_FREE     ((_hashtable_dib_t)0xffU)
+#define _HASHTABLE_EMPTY_HASH 0
+#define _HASHTABLE_MIN_VALID_HASH 1
+
+typedef struct {
+	// Instead of using one bit of the hash for this flag we could allocate a bitmap in grow/shrink,
+	// but that would require some bitmap code...
+	_hashtable_hash_t needs_rehash : 1;
+	_hashtable_hash_t hash : 8 * sizeof(_hashtable_hash_t) - 1;
+} _hashtable_metadata_t;
 
 struct _hashtable {
 	_hashtable_uint_t num_items;
 	_hashtable_uint_t capacity;
 	unsigned char *storage;
-	_hashtable_hash_t *hashes;
-	_hashtable_dib_t *dibs;
+	_hashtable_metadata_t *metadata;
 };
 
 static _hashtable_idx_t _hashtable_wrap_index(_hashtable_idx_t start, _hashtable_uint_t i,
@@ -443,50 +444,30 @@ static _hashtable_uint_t _hashtable_hashes_offset(_hashtable_uint_t capacity,
 static _hashtable_hash_t _hashtable_get_hash(struct _hashtable *table, _hashtable_idx_t index,
 					     const struct _hashtable_info *info)
 {
-	return table->hashes[index];
+	return table->metadata[index].hash;
 }
 
 static void _hashtable_set_hash(struct _hashtable *table, _hashtable_idx_t index, _hashtable_hash_t hash,
 				const struct _hashtable_info *info)
 {
-	table->hashes[index] = hash;
+	table->metadata[index].hash = hash;
 }
 
-static _hashtable_uint_t _hashtable_dib_offset(_hashtable_uint_t capacity,
+static _hashtable_uint_t _hashtable_metadata_offset(_hashtable_uint_t capacity,
 					       const struct _hashtable_info *info)
 {
 	return capacity * (info->entry_size + sizeof(_hashtable_hash_t));
 }
 
-static _hashtable_dib_t _hashtable_get_dib(struct _hashtable *table, _hashtable_idx_t index,
-					   const struct _hashtable_info *info)
+static _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _hashtable_idx_t index,
+						  const struct _hashtable_info *info)
 {
-	return table->dibs[index];
+	return &table->metadata[index];
 }
 
-static void _hashtable_set_dib(struct _hashtable *table, _hashtable_idx_t index, _hashtable_dib_t dib,
-			       const struct _hashtable_info *info)
-{
-	table->dibs[index] = dib;
-}
-
-static void _hashtable_set_distance(struct _hashtable *table, _hashtable_idx_t index, _hashtable_uint_t distance,
-				    const struct _hashtable_info *info)
-{
-	_hashtable_dib_t dib = distance;
-	if (distance >= __DIB_OVERFLOW) {
-		dib = __DIB_OVERFLOW;
-	}
-	_hashtable_set_dib(table, index, dib, info);
-}
-
-static _hashtable_uint_t _hashtable_distance(struct _hashtable *table, _hashtable_idx_t index,
+static _hashtable_uint_t _hashtable_get_distance(struct _hashtable *table, _hashtable_idx_t index,
 					     const struct _hashtable_info *info)
 {
-	_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-	if (dib < __DIB_OVERFLOW) {
-		return dib;
-	}
 	_hashtable_hash_t hash = _hashtable_get_hash(table, index, info);
 	return (index - _hashtable_hash_to_index(hash, table->capacity)) & (table->capacity - 1);
 }
@@ -494,12 +475,12 @@ static _hashtable_uint_t _hashtable_distance(struct _hashtable *table, _hashtabl
 static void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	assert((table->capacity & (table->capacity - 1)) == 0);
-	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_hash_t) + sizeof(_hashtable_dib_t);
+	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_hash_t) + sizeof(_hashtable_metadata_t);
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
-	table->dibs = table->storage + _hashtable_dib_offset(table->capacity, info);
-	table->hashes = (_hashtable_hash_t *)(table->storage + _hashtable_hashes_offset(table->capacity, info));
+	table->metadata = (_hashtable_metadata_t *)(table->storage +
+						    _hashtable_metadata_offset(table->capacity, info));
 }
 
 static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
@@ -514,7 +495,9 @@ static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity
 	table->capacity = capacity;
 	_hashtable_realloc_storage(table, info);
 	for (_hashtable_uint_t i = 0; i < capacity; i++) {
-		_hashtable_set_dib(table, i, __DIB_FREE, info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
 	}
 }
 
@@ -524,19 +507,28 @@ static void _hashtable_destroy(struct _hashtable *table)
 	memset(table, 0, sizeof(*table));
 }
 
+static _hashtable_hash_t _hashtable_sanitize_hash(_hashtable_hash_t hash)
+{
+	hash = hash < _HASHTABLE_MIN_VALID_HASH ? hash - _HASHTABLE_MIN_VALID_HASH : hash;
+	_hashtable_metadata_t m;
+	m.hash = hash;
+	return m.hash;
+}
+
 static bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
 			      _hashtable_idx_t *ret_index, const struct _hashtable_info *info)
 {
+	hash = _hashtable_sanitize_hash(hash);
 	_hashtable_idx_t start = _hashtable_hash_to_index(hash, table->capacity);
 	for (_hashtable_uint_t i = 0;; i++) {
 		_hashtable_idx_t index = _hashtable_wrap_index(start, i, table->capacity);
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
 
-		if (dib == __DIB_FREE) {
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
 			break;
 		}
 
-		_hashtable_uint_t dist = _hashtable_distance(table, index, info);
+		_hashtable_uint_t dist = _hashtable_get_distance(table, index, info);
 		if (dist < i) {
 			break;
 		}
@@ -554,8 +546,8 @@ static _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t sta
 					    const struct _hashtable_info *info)
 {
 	for (_hashtable_idx_t index = start; index < table->capacity; index++) {
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-		if (dib != __DIB_FREE) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash >= _HASHTABLE_MIN_VALID_HASH) {
 			return index;
 		}
 	}
@@ -569,18 +561,15 @@ static bool _hashtable_insert_robin_hood(struct _hashtable *table, _hashtable_id
 	void *tmp_entry = alloca(info->entry_size);
 	for (_hashtable_uint_t i = 0;; i++, distance++) {
 		_hashtable_idx_t index = _hashtable_wrap_index(start, i, table->capacity);
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-		if (dib == __DIB_FREE) {
-			_hashtable_set_distance(table, index, distance, info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
 			_hashtable_set_hash(table, index, *phash, info);
 			memcpy(_hashtable_entry(table, index, info), entry, info->entry_size);
 			return false;
 		}
 
 		_hashtable_uint_t d;
-		if (dib == __DIB_REHASH || (d = _hashtable_distance(table, index, info)) < distance) {
-			_hashtable_set_distance(table, index, distance, info);
-
+		if (m->needs_rehash || (d = _hashtable_get_distance(table, index, info)) < distance) {
 			_hashtable_hash_t tmp_hash = _hashtable_get_hash(table, index, info);
 			memcpy(tmp_entry, _hashtable_entry(table, index, info), info->entry_size);
 
@@ -590,7 +579,8 @@ static bool _hashtable_insert_robin_hood(struct _hashtable *table, _hashtable_id
 			*phash = tmp_hash;
 			memcpy(entry, tmp_entry, info->entry_size);
 
-			if (dib == __DIB_REHASH) {
+			if (m->needs_rehash) {
+				m->needs_rehash = false;
 				return true;
 			}
 
@@ -607,11 +597,11 @@ static _hashtable_idx_t _hashtable_do_insert(struct _hashtable *table, _hashtabl
 	_hashtable_uint_t i;
 	for (i = 0;; i++) {
 		index = _hashtable_wrap_index(start, i, table->capacity);
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-		if (dib == __DIB_FREE) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
 			break;
 		}
-		_hashtable_uint_t d = _hashtable_distance(table, index, info);
+		_hashtable_uint_t d = _hashtable_get_distance(table, index, info);
 		if (d < i) {
 			_hashtable_hash_t h = _hashtable_get_hash(table, index, info);
 			void *entry = _hashtable_entry(table, index, info);
@@ -620,7 +610,6 @@ static _hashtable_idx_t _hashtable_do_insert(struct _hashtable *table, _hashtabl
 			break;
 		}
 	}
-	_hashtable_set_distance(table, index, i, info);
 	_hashtable_set_hash(table, index, hash, info);
 	return index;
 }
@@ -638,24 +627,27 @@ static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_ca
 	_hashtable_uint_t old_capacity = table->capacity;
 	table->capacity = new_capacity;
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
-		table->dibs[i] = table->dibs[i] == __DIB_FREE ? __DIB_FREE : __DIB_REHASH;
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		if (m->hash >= _HASHTABLE_MIN_VALID_HASH) {
+			m->needs_rehash = true;
+		}
 	}
 
 	void *entry = alloca(info->entry_size);
 	_hashtable_uint_t num_rehashed = 0;
 	for (_hashtable_idx_t index = 0; index < old_capacity; index++) {
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-		if (dib != __DIB_REHASH) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (!m->needs_rehash) {
 			continue;
 		}
+		m->needs_rehash = false;
 		_hashtable_hash_t hash = _hashtable_get_hash(table, index, info);
 		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
 		if (optimal_index == index) {
-			_hashtable_set_distance(table, index, 0, info);
 			num_rehashed++;
 			continue;
 		}
-		_hashtable_set_dib(table, index, __DIB_FREE, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
 		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
 
 		for (;;) {
@@ -669,15 +661,10 @@ static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_ca
 		}
 	}
 
-	size_t new_hashes_offset = _hashtable_hashes_offset(table->capacity, info);
-	_hashtable_hash_t *new_hashes = (_hashtable_hash_t *)(table->storage + new_hashes_offset);
+	size_t new_metadata_offset = _hashtable_metadata_offset(table->capacity, info);
+	_hashtable_metadata_t *new_metadata = (_hashtable_metadata_t *)(table->storage + new_metadata_offset);
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
-		new_hashes[i] = table->hashes[i];
-	}
-	size_t new_dib_offset = _hashtable_dib_offset(table->capacity, info);
-	_hashtable_dib_t *new_dibs = (_hashtable_dib_t *)(table->storage + new_dib_offset);
-	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
-		new_dibs[i] = table->dibs[i];
+		new_metadata[i] = table->metadata[i];
 	}
 	_hashtable_realloc_storage(table, info);
 }
@@ -695,35 +682,39 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 	_hashtable_uint_t old_capacity = table->capacity;
 	table->capacity = new_capacity;
 	_hashtable_realloc_storage(table, info);
-	size_t old_dib_offset = _hashtable_dib_offset(old_capacity, info);
-	_hashtable_dib_t *old_dibs = (_hashtable_dib_t *)(table->storage + old_dib_offset);
+	size_t old_metadata_offset = _hashtable_metadata_offset(old_capacity, info);
+	_hashtable_metadata_t *old_metadata = (_hashtable_metadata_t *)(table->storage + old_metadata_offset);
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
-		_hashtable_set_dib(table, i, old_dibs[i] == __DIB_FREE ? __DIB_FREE : __DIB_REHASH, info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		if (old_metadata[i].hash >= _HASHTABLE_MIN_VALID_HASH) {
+			m->hash = old_metadata[i].hash;
+			m->needs_rehash = true;
+		} else {
+			m->hash = _HASHTABLE_EMPTY_HASH;
+			m->needs_rehash = false;
+		}
 	}
 	for (_hashtable_uint_t i = old_capacity; i < table->capacity; i++) {
-		_hashtable_set_dib(table, i, __DIB_FREE, info);
-	}
-	size_t old_hashes_offset = _hashtable_hashes_offset(old_capacity, info);
-	_hashtable_hash_t *old_hashes = (_hashtable_hash_t *)(table->storage + old_hashes_offset);
-	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
-		_hashtable_set_hash(table, i, old_hashes[i], info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
 	}
 
 	void *entry = alloca(info->entry_size);
 	_hashtable_uint_t num_rehashed = 0;
 	for (_hashtable_idx_t index = 0; index < old_capacity; index++) {
-		_hashtable_dib_t dib = _hashtable_get_dib(table, index, info);
-		if (dib != __DIB_REHASH) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (!m->needs_rehash) {
 			continue;
 		}
+		m->needs_rehash = false;
 		_hashtable_hash_t hash = _hashtable_get_hash(table, index, info);
 		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
 		if (optimal_index == index) {
-			_hashtable_set_distance(table, index, 0, info);
 			num_rehashed++;
 			continue;
 		}
-		_hashtable_set_dib(table, index, __DIB_FREE, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
 		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
 
 		for (;;) {
@@ -756,6 +747,7 @@ static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_ca
 static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
 					  const struct _hashtable_info *info)
 {
+	hash = _hashtable_sanitize_hash(hash);
 	table->num_items++;
 	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
 	if (min_capacity > table->capacity) {
@@ -767,7 +759,7 @@ static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_h
 static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 			      const struct _hashtable_info *info)
 {
-	_hashtable_set_dib(table, index, __DIB_FREE, info);
+	_hashtable_metadata(table, index, info)->hash = _HASHTABLE_EMPTY_HASH;
 	table->num_items--;
 	if (table->num_items < table->capacity / 8) {
 		_hashtable_resize(table, table->capacity / 4, info);
@@ -775,14 +767,13 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 		for (_hashtable_uint_t i = 0;; i++) {
 			_hashtable_idx_t current_index = _hashtable_wrap_index(index, i, table->capacity);
 			_hashtable_idx_t next_index = _hashtable_wrap_index(index, i + 1, table->capacity);
-			_hashtable_dib_t dib = _hashtable_get_dib(table, next_index, info);
+			_hashtable_metadata_t *m = _hashtable_metadata(table, next_index, info);
 			_hashtable_uint_t distance;
-			if (dib == __DIB_FREE ||
-			    (distance = _hashtable_distance(table, next_index, info)) == 0) {
-				_hashtable_set_dib(table, current_index, __DIB_FREE, info);
+			if (m->hash == _HASHTABLE_EMPTY_HASH ||
+			    (distance = _hashtable_get_distance(table, next_index, info)) == 0) {
+				_hashtable_metadata(table, current_index, info)->hash = _HASHTABLE_EMPTY_HASH;
 				break;
 			}
-			_hashtable_set_distance(table, current_index, distance - 1, info);
 			_hashtable_hash_t hash = _hashtable_get_hash(table, next_index, info);
 			_hashtable_set_hash(table, current_index, hash, info);
 			const void *entry = _hashtable_entry(table, next_index, info);
@@ -794,14 +785,15 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
-		_hashtable_set_dib(table, i, __DIB_FREE, info);
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
 	}
 	table->num_items = 0;
 }
 
-#undef __DIB_OVERFLOW
-#undef __DIB_REHASH
-#undef __DIB_FREE
+#undef __METADATA_OVERFLOW
+#undef __METADATA_REHASH
+#undef __METADATA_FREE
 
 #endif
 
