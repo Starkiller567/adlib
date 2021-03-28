@@ -7,7 +7,6 @@
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
-// TODO try hopscotch hashing
 // TODO add generation and check it during iteration?
 // TODO test the case where the metadata is bigger than the entries
 
@@ -67,9 +66,10 @@ static _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_items,
 	return capacity;
 }
 
-#define _HASHTABLE_ROBIN_HOOD 1
+// #define _HASHTABLE_ROBIN_HOOD 1
+#define _HASHTABLE_HOPSCOTCH 1
 
-#ifndef _HASHTABLE_ROBIN_HOOD
+#if !defined(_HASHTABLE_ROBIN_HOOD) && !defined(_HASHTABLE_HOPSCOTCH)
 
 #define _HASHTABLE_EMPTY_HASH 0
 #define _HASHTABLE_TOMBSTONE_HASH 1
@@ -405,7 +405,519 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 #undef _HASHTABLE_META_NEEDS_REHASH
 #undef _HASHTABLE_META_ENTRY
 
-#else
+#elif defined(_HASHTABLE_HOPSCOTCH)
+
+#define _HASHTABLE_NEIGHBORHOOD 32 // TODO put this in the info?
+
+#define _HASHTABLE_EMPTY_HASH 0
+#define _HASHTABLE_MIN_VALID_HASH 1
+
+#define _HASHTABLE_INVALID_DELTA ((unsigned char)-1)
+
+typedef struct {
+	_hashtable_hash_t hash;
+	unsigned char delta_first;
+	unsigned char delta_next;
+	unsigned char delta_prev;
+	bool needs_rehash;
+} _hashtable_metadata_t;
+
+struct _hashtable {
+	_hashtable_uint_t num_items;
+	_hashtable_uint_t capacity;
+	unsigned char *storage;
+	_hashtable_metadata_t *metadata;
+};
+
+static _hashtable_idx_t _hashtable_wrap_index(_hashtable_idx_t index, _hashtable_uint_t capacity)
+{
+	// http://www.chilton-computing.org.uk/acl/literature/reports/p012.htm
+	return index & (capacity - 1);
+}
+
+static _hashtable_idx_t _hashtable_hash_to_index(_hashtable_hash_t hash, _hashtable_uint_t capacity)
+{
+	return _hashtable_wrap_index(hash, capacity);
+}
+
+static void *_hashtable_entry(struct _hashtable *table, _hashtable_idx_t index,
+			      const struct _hashtable_info *info)
+{
+	return table->storage + index * info->entry_size;
+}
+
+static _hashtable_uint_t _hashtable_metadata_offset(_hashtable_uint_t capacity,
+						    const struct _hashtable_info *info)
+{
+	return capacity * info->entry_size;
+}
+
+static _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _hashtable_idx_t index,
+						  const struct _hashtable_info *info)
+{
+	return &table->metadata[index];
+}
+
+static _hashtable_uint_t _hashtable_get_distance(struct _hashtable *table, _hashtable_idx_t index,
+						 const struct _hashtable_info *info)
+{
+	_hashtable_hash_t hash = _hashtable_metadata(table, index, info)->hash;
+	return (index - _hashtable_hash_to_index(hash, table->capacity)) & (table->capacity - 1);
+}
+
+static void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
+{
+	assert((table->capacity & (table->capacity - 1)) == 0);
+	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_metadata_t);
+	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
+	size *= table->capacity;
+	table->storage = realloc(table->storage, size);
+	table->metadata = (_hashtable_metadata_t *)(table->storage +
+						    _hashtable_metadata_offset(table->capacity, info));
+}
+
+static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
+			    const struct _hashtable_info *info)
+{
+	if (capacity < 8) {
+		capacity = 8;
+	}
+	table->storage = NULL;
+	table->capacity = capacity;
+	table->num_items = 0;
+	_hashtable_realloc_storage(table, info);
+	for (_hashtable_uint_t i = 0; i < capacity; i++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
+		m->delta_first = _HASHTABLE_INVALID_DELTA;
+		m->delta_prev = _HASHTABLE_INVALID_DELTA;
+		m->delta_next = _HASHTABLE_INVALID_DELTA;
+	}
+}
+
+static void _hashtable_destroy(struct _hashtable *table)
+{
+	free(table->storage);
+	memset(table, 0, sizeof(*table));
+}
+
+static _hashtable_hash_t _hashtable_sanitize_hash(_hashtable_hash_t hash)
+{
+	hash = hash < _HASHTABLE_MIN_VALID_HASH ? hash - _HASHTABLE_MIN_VALID_HASH : hash;
+	_hashtable_metadata_t m;
+	m.hash = hash;
+	return m.hash;
+}
+
+static bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
+			      _hashtable_idx_t *ret_index, const struct _hashtable_info *info)
+{
+	hash = _hashtable_sanitize_hash(hash);
+	_hashtable_idx_t index = _hashtable_hash_to_index(hash, table->capacity);
+	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+	if (m->delta_first == _HASHTABLE_INVALID_DELTA) {
+		return false;
+	}
+	index = _hashtable_wrap_index(index + m->delta_first, table->capacity);
+	for (_hashtable_uint_t i = 0;; i++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		assert(m->hash != _HASHTABLE_EMPTY_HASH);
+		if (hash == m->hash &&
+		    info->keys_match(key, _hashtable_entry(table, index, info))) {
+			*ret_index = index;
+			return true;
+		}
+		if (m->delta_next == _HASHTABLE_INVALID_DELTA) {
+			break;
+		}
+		index = _hashtable_wrap_index(index + m->delta_next, table->capacity);
+	}
+	return false;
+}
+
+static _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
+					    const struct _hashtable_info *info)
+{
+	for (_hashtable_idx_t index = start; index < table->capacity; index++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash >= _HASHTABLE_MIN_VALID_HASH) {
+			return index;
+		}
+	}
+	return table->capacity;
+}
+
+static bool _hashtable_do_insert(struct _hashtable *table, _hashtable_hash_t hash,
+				 _hashtable_idx_t *pindex, const struct _hashtable_info *info)
+{
+	_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
+	_hashtable_idx_t index = home;
+	_hashtable_uint_t distance;
+	for (distance = 0; distance < _HASHTABLE_NEIGHBORHOOD; distance++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
+			goto found;
+		}
+		index = _hashtable_wrap_index(index + 1, table->capacity);
+	}
+
+	for (;;) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
+			break;
+		}
+		index = _hashtable_wrap_index(index + 1, table->capacity);
+		distance++;
+	}
+
+	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
+		_hashtable_idx_t empty_index = index;
+		_hashtable_uint_t i;
+		for (i = 1;; i++) {
+			if (i == _HASHTABLE_NEIGHBORHOOD) {
+				return false;
+			}
+			index = _hashtable_wrap_index(index - 1, table->capacity);
+			distance--;
+			_hashtable_uint_t d = _hashtable_get_distance(table, index, info) + i;
+			if (d < _HASHTABLE_NEIGHBORHOOD) {
+				break;
+			}
+		}
+		_hashtable_metadata_t *old_m = _hashtable_metadata(table, index, info);
+		_hashtable_metadata_t *new_m = _hashtable_metadata(table, empty_index, info);
+		_hashtable_idx_t prev_index = _hashtable_wrap_index(index - old_m->delta_prev, table->capacity);
+		_hashtable_idx_t next_index = _hashtable_wrap_index(index + old_m->delta_next, table->capacity);
+		_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev_index, info);
+		_hashtable_metadata_t *next_m = _hashtable_metadata(table, next_index, info);
+		// TODO checker whether prev is home->delta_first
+		prev_m->delta_next += i;
+		assert(_hashtable_wrap_index(prev_index + prev_m->delta_next, table->capacity) == index);
+		next_m->delta_prev -= i;
+		assert(_hashtable_wrap_index(next_index - next_m->delta_prev, table->capacity) == index);
+		new_m->delta_prev = old_m->delta_prev + i;
+		assert(_hashtable_wrap_index(empty_index - new_m->delta_prev, table->capacity) == prev_index);
+		new_m->delta_next = old_m->delta_next - i;
+		assert(_hashtable_wrap_index(empty_index + new_m->delta_next, table->capacity) == next_index);
+		old_m->delta_prev = _HASHTABLE_INVALID_DELTA;
+		old_m->delta_next = _HASHTABLE_INVALID_DELTA;
+		memcpy(_hashtable_entry(table, empty_index, info),
+		       _hashtable_entry(table, index, info), info->entry_size);
+		new_m->hash = old_m->hash;
+	}
+
+found:;
+	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+	_hashtable_idx_t cursor = home;
+	unsigned char *indirect = &_hashtable_metadata(table, cursor, info)->delta_first;
+	_hashtable_idx_t d = 0;
+	while (*indirect != _HASHTABLE_INVALID_DELTA) {
+		_hashtable_idx_t next = _hashtable_wrap_index(cursor + *indirect, table->capacity);
+		d += *indirect;
+		if (d > distance) {
+			_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
+			next_m->delta_prev = _hashtable_wrap_index(next - index, table->capacity);
+			assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == index);
+			break;
+		}
+		cursor = next;
+		indirect = &_hashtable_metadata(table, cursor, info)->delta_next;
+	}
+	*indirect = _hashtable_wrap_index(index - cursor, table->capacity);
+	assert(_hashtable_wrap_index(cursor + *indirect, table->capacity) == index);
+
+	m->hash = hash;
+	*pindex = index;
+	return true;
+}
+
+static bool _hashtable_insert_during_resize(struct _hashtable *table, _hashtable_hash_t *phash,
+					    void *entry, const struct _hashtable_info *info)
+{
+	_hashtable_hash_t hash = *phash;
+	void *tmp_entry = alloca(info->entry_size);
+	bool did_replace = false;
+	_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
+	_hashtable_idx_t index = home;
+	_hashtable_uint_t distance;
+	for (distance = 0; distance < _HASHTABLE_NEIGHBORHOOD; distance++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
+			goto found;
+		}
+		if (m->needs_rehash) {
+			memcpy(tmp_entry, entry, info->entry_size);
+			*phash = m->hash;
+			memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
+			entry = tmp_entry;
+			m->needs_rehash = false;
+			did_replace = true;
+			goto found;
+		}
+		index = _hashtable_wrap_index(index + 1, table->capacity);
+	}
+
+	for (;;) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (m->hash == _HASHTABLE_EMPTY_HASH) {
+			break;
+		}
+		if (m->needs_rehash) {
+			memcpy(tmp_entry, entry, info->entry_size);
+			*phash = m->hash;
+			memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
+			entry = tmp_entry;
+			m->needs_rehash = false;
+			did_replace = true;
+			break;
+		}
+		index = _hashtable_wrap_index(index + 1, table->capacity);
+		distance++;
+	}
+
+	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
+		_hashtable_idx_t empty_index = index;
+		_hashtable_uint_t i;
+		for (i = 1;; i++) {
+			if (i == _HASHTABLE_NEIGHBORHOOD) {
+				return false;
+			}
+			index = _hashtable_wrap_index(index - 1, table->capacity);
+			distance--;
+			_hashtable_uint_t d = _hashtable_get_distance(table, index, info) + i;
+			if (d < _HASHTABLE_NEIGHBORHOOD) {
+				break;
+			}
+		}
+		_hashtable_metadata_t *old_m = _hashtable_metadata(table, index, info);
+		_hashtable_metadata_t *new_m = _hashtable_metadata(table, empty_index, info);
+		_hashtable_idx_t prev_index = _hashtable_wrap_index(index - old_m->delta_prev, table->capacity);
+		_hashtable_idx_t next_index = _hashtable_wrap_index(index + old_m->delta_next, table->capacity);
+		_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev_index, info);
+		_hashtable_metadata_t *next_m = _hashtable_metadata(table, next_index, info);
+		// TODO checker whether prev is home->delta_first
+		prev_m->delta_next += i;
+		assert(_hashtable_wrap_index(prev_index + prev_m->delta_next, table->capacity) == index);
+		next_m->delta_prev -= i;
+		assert(_hashtable_wrap_index(next_index - next_m->delta_prev, table->capacity) == index);
+		new_m->delta_prev = old_m->delta_prev + i;
+		assert(_hashtable_wrap_index(empty_index - new_m->delta_prev, table->capacity) == prev_index);
+		new_m->delta_next = old_m->delta_next - i;
+		assert(_hashtable_wrap_index(empty_index + new_m->delta_next, table->capacity) == next_index);
+		old_m->delta_prev = _HASHTABLE_INVALID_DELTA;
+		old_m->delta_next = _HASHTABLE_INVALID_DELTA;
+		memcpy(_hashtable_entry(table, empty_index, info),
+		       _hashtable_entry(table, index, info), info->entry_size);
+		new_m->hash = old_m->hash;
+	}
+
+found:;
+	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+	_hashtable_idx_t cursor = home;
+	unsigned char *indirect = &_hashtable_metadata(table, cursor, info)->delta_first;
+	_hashtable_idx_t d = 0;
+	while (*indirect != _HASHTABLE_INVALID_DELTA) {
+		_hashtable_idx_t next = _hashtable_wrap_index(cursor + *indirect, table->capacity);
+		d += *indirect;
+		if (d > distance) {
+			_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
+			next_m->delta_prev = _hashtable_wrap_index(next - index, table->capacity);
+			assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == index);
+			break;
+		}
+		cursor = next;
+		indirect = &_hashtable_metadata(table, cursor, info)->delta_next;
+	}
+	*indirect = _hashtable_wrap_index(index - cursor, table->capacity);
+	assert(_hashtable_wrap_index(cursor + *indirect, table->capacity) == index);
+
+	m->hash = hash;
+	memcpy(_hashtable_entry(table, index, info), entry, info->entry_size);
+
+	return did_replace;
+}
+
+static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			      const struct _hashtable_info *info)
+{
+	return; // TODO
+	assert(new_capacity < table->capacity && new_capacity > table->num_items);
+	_hashtable_uint_t old_capacity = table->capacity;
+	table->capacity = new_capacity;
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		if (m->hash >= _HASHTABLE_MIN_VALID_HASH) {
+			m->needs_rehash = true;
+		} else {
+			m->hash = _HASHTABLE_EMPTY_HASH;
+		}
+	}
+
+	void *entry = alloca(info->entry_size);
+	_hashtable_uint_t num_rehashed = 0;
+	for (_hashtable_idx_t index = 0; index < old_capacity; index++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (!m->needs_rehash) {
+			continue;
+		}
+		m->needs_rehash = false;
+		_hashtable_hash_t hash = m->hash;
+		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
+		if (optimal_index == index) {
+			num_rehashed++;
+			continue;
+		}
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
+
+		bool need_rehash;
+		do {
+			need_rehash = _hashtable_insert_during_resize(table, &hash, entry, info);
+			num_rehashed++;
+		} while (need_rehash);
+	}
+
+	size_t new_metadata_offset = _hashtable_metadata_offset(table->capacity, info);
+	_hashtable_metadata_t *new_metadata = (_hashtable_metadata_t *)(table->storage + new_metadata_offset);
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		new_metadata[i] = table->metadata[i];
+	}
+	_hashtable_realloc_storage(table, info);
+}
+
+static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			    const struct _hashtable_info *info)
+{
+	assert(new_capacity >= table->capacity && new_capacity > table->num_items);
+
+	_hashtable_uint_t old_capacity = table->capacity;
+	table->capacity = new_capacity;
+	_hashtable_realloc_storage(table, info);
+	size_t old_metadata_offset = _hashtable_metadata_offset(old_capacity, info);
+	_hashtable_metadata_t *old_metadata = (_hashtable_metadata_t *)(table->storage + old_metadata_offset);
+	for (_hashtable_uint_t j = old_capacity; j != 0; j--) {
+		_hashtable_uint_t i = j - 1;
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->delta_first = _HASHTABLE_INVALID_DELTA;
+		m->delta_prev = _HASHTABLE_INVALID_DELTA;
+		m->delta_next = _HASHTABLE_INVALID_DELTA;
+		if (old_metadata[i].hash >= _HASHTABLE_MIN_VALID_HASH) {
+			m->hash = old_metadata[i].hash;
+			m->needs_rehash = true;
+		} else {
+			m->hash = _HASHTABLE_EMPTY_HASH;
+			m->needs_rehash = false;
+		}
+	}
+	for (_hashtable_uint_t i = old_capacity; i < table->capacity; i++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
+		m->delta_first = _HASHTABLE_INVALID_DELTA;
+		m->delta_prev = _HASHTABLE_INVALID_DELTA;
+		m->delta_next = _HASHTABLE_INVALID_DELTA;
+	}
+
+	void *entry = alloca(info->entry_size);
+	_hashtable_uint_t num_rehashed = 0;
+	for (_hashtable_idx_t index = 0; index < old_capacity; index++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+		if (!m->needs_rehash) {
+			continue;
+		}
+		m->needs_rehash = false;
+		_hashtable_hash_t hash = m->hash;
+		// _hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
+		// if (optimal_index == index) {
+		// 	num_rehashed++;
+		// 	continue;
+		// }
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
+
+		bool need_rehash;
+		do {
+			need_rehash = _hashtable_insert_during_resize(table, &hash, entry, info);
+			num_rehashed++;
+		} while (need_rehash);
+		_hashtable_idx_t dummy;
+		assert(_hashtable_lookup(table, entry, hash, &dummy, info));
+	}
+}
+
+static void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
+			      const struct _hashtable_info *info)
+{
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
+	if (new_capacity < min_capacity) {
+		new_capacity = min_capacity;
+	}
+	new_capacity = _hashtable_round_capacity(new_capacity);
+	if (new_capacity < table->capacity) {
+		_hashtable_shrink(table, new_capacity, info);
+	} else {
+		_hashtable_grow(table, new_capacity, info);
+	}
+}
+
+static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
+					  const struct _hashtable_info *info)
+{
+	hash = _hashtable_sanitize_hash(hash);
+	table->num_items++;
+	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_items, info);
+	if (min_capacity > table->capacity) {
+		_hashtable_grow(table, 2 * table->capacity, info);
+	}
+	_hashtable_idx_t index;
+	while (!_hashtable_do_insert(table, hash, &index, info)) {
+		// TODO can this happen more than once?
+		_hashtable_grow(table, 2 * table->capacity, info);
+	}
+	return index;
+}
+
+static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
+			      const struct _hashtable_info *info)
+{
+	// TODO backward shift deletion?
+	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+	_hashtable_idx_t prev = _hashtable_wrap_index(index - m->delta_prev, table->capacity);
+	_hashtable_idx_t next = _hashtable_wrap_index(index + m->delta_next, table->capacity);
+	_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev, info);
+	_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
+	// TODO checker whether prev is home->delta_first
+	prev_m->delta_next = _hashtable_wrap_index(next - prev, table->capacity);
+	assert(_hashtable_wrap_index(prev + prev_m->delta_next, table->capacity) == next);
+	next_m->delta_prev = _hashtable_wrap_index(next - prev, table->capacity);
+	assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == prev);
+
+	m->hash = _HASHTABLE_EMPTY_HASH;
+	m->delta_prev = _HASHTABLE_INVALID_DELTA;
+	m->delta_next = _HASHTABLE_INVALID_DELTA;
+	table->num_items--;
+	if (table->num_items < table->capacity / 8) {
+		_hashtable_shrink(table, table->capacity / 4, info);
+	}
+}
+
+static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_info *info)
+{
+	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
+		_hashtable_metadata(table, i, info)->hash = _HASHTABLE_EMPTY_HASH;
+		_hashtable_metadata(table, i, info)->delta_first = _HASHTABLE_INVALID_DELTA;
+		_hashtable_metadata(table, i, info)->delta_prev = _HASHTABLE_INVALID_DELTA;
+		_hashtable_metadata(table, i, info)->delta_next = _HASHTABLE_INVALID_DELTA;
+	}
+	table->num_items = 0;
+}
+
+#undef _HASHTABLE_META_EMPTY
+#undef _HASHTABLE_META_NEEDS_REHASH
+#undef _HASHTABLE_META_ENTRY
+
+#elif defined(_HASHTABLE_ROBIN_HOOD)
 
 #define _HASHTABLE_EMPTY_HASH 0
 #define _HASHTABLE_MIN_VALID_HASH 1
@@ -466,7 +978,7 @@ static _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _has
 }
 
 static _hashtable_uint_t _hashtable_get_distance(struct _hashtable *table, _hashtable_idx_t index,
-					     const struct _hashtable_info *info)
+						 const struct _hashtable_info *info)
 {
 	_hashtable_hash_t hash = _hashtable_get_hash(table, index, info);
 	return (index - _hashtable_hash_to_index(hash, table->capacity)) & (table->capacity - 1);
