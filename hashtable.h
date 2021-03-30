@@ -2,11 +2,13 @@
 #define __HASH_TABLE_INCLUDE__
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
+// TODO set needs_rehash to false in _hashtable_clear for better performance
 // TODO add generation and check it during iteration?
 // TODO test the case where the metadata is bigger than the entries
 
@@ -21,7 +23,7 @@
  *  But we don't want to copy any keys or values since those tend to be bigger.)
  */
 
-typedef unsigned int _hashtable_hash_t;
+typedef uint32_t _hashtable_hash_t;
 typedef size_t _hashtable_uint_t;
 typedef _hashtable_uint_t _hashtable_idx_t;
 
@@ -400,27 +402,28 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 	table->num_tombstones = 0;
 }
 
-#undef _HASHTABLE_META_EMPTY
-#undef _HASHTABLE_META_TOMBSTONE
-#undef _HASHTABLE_META_NEEDS_REHASH
-#undef _HASHTABLE_META_ENTRY
+#undef _HASHTABLE_EMPTY_HASH
+#undef _HASHTABLE_TOMBSTONE_HASH
+#undef _HASHTABLE_MIN_VALID_HASH
 
 #elif defined(_HASHTABLE_HOPSCOTCH)
 
-#define _HASHTABLE_NEIGHBORHOOD 32 // TODO put this in the info?
+// setting this too small (<~8) may cause issues with shrink failing in remove among other problems
+#define _HASHTABLE_NEIGHBORHOOD 32
 
 #define _HASHTABLE_EMPTY_HASH 0
 #define _HASHTABLE_MIN_VALID_HASH 1
 
-#define _HASHTABLE_INVALID_DELTA ((unsigned char)-1)
+typedef _hashtable_hash_t _hashtable_bitmap_t;
 
 typedef struct {
-	_hashtable_hash_t hash;
-	unsigned char delta_first;
-	unsigned char delta_next;
-	unsigned char delta_prev;
-	bool needs_rehash;
+	_hashtable_hash_t needs_rehash : 1;
+	_hashtable_hash_t hash : 8 * sizeof(_hashtable_hash_t) - 1;
+	_hashtable_bitmap_t bitmap;
 } _hashtable_metadata_t;
+
+_Static_assert(8 * sizeof(_hashtable_bitmap_t) >= _HASHTABLE_NEIGHBORHOOD,
+	       "neighborhood size too big for bitmap");
 
 struct _hashtable {
 	_hashtable_uint_t num_items;
@@ -458,13 +461,6 @@ static _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _has
 	return &table->metadata[index];
 }
 
-static _hashtable_uint_t _hashtable_get_distance(struct _hashtable *table, _hashtable_idx_t index,
-						 const struct _hashtable_info *info)
-{
-	_hashtable_hash_t hash = _hashtable_metadata(table, index, info)->hash;
-	return (index - _hashtable_hash_to_index(hash, table->capacity)) & (table->capacity - 1);
-}
-
 static void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	assert((table->capacity & (table->capacity - 1)) == 0);
@@ -490,9 +486,7 @@ static void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = _HASHTABLE_EMPTY_HASH;
 		m->needs_rehash = false;
-		m->delta_first = _HASHTABLE_INVALID_DELTA;
-		m->delta_prev = _HASHTABLE_INVALID_DELTA;
-		m->delta_next = _HASHTABLE_INVALID_DELTA;
+		m->bitmap = 0;
 	}
 }
 
@@ -514,24 +508,22 @@ static bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_ha
 			      _hashtable_idx_t *ret_index, const struct _hashtable_info *info)
 {
 	hash = _hashtable_sanitize_hash(hash);
-	_hashtable_idx_t index = _hashtable_hash_to_index(hash, table->capacity);
-	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-	if (m->delta_first == _HASHTABLE_INVALID_DELTA) {
+	_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
+	_hashtable_bitmap_t bitmap = _hashtable_metadata(table, home, info)->bitmap;
+	if (bitmap == 0) {
 		return false;
 	}
-	index = _hashtable_wrap_index(index + m->delta_first, table->capacity);
-	for (_hashtable_uint_t i = 0;; i++) {
+	for (_hashtable_uint_t i = 0; i < _HASHTABLE_NEIGHBORHOOD; i++) {
+		if (!(bitmap & ((_hashtable_bitmap_t)1 << i))) {
+			continue;
+		}
+		_hashtable_idx_t index = _hashtable_wrap_index(home + i, table->capacity);
 		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-		assert(m->hash != _HASHTABLE_EMPTY_HASH);
 		if (hash == m->hash &&
 		    info->keys_match(key, _hashtable_entry(table, index, info))) {
 			*ret_index = index;
 			return true;
 		}
-		if (m->delta_next == _HASHTABLE_INVALID_DELTA) {
-			break;
-		}
-		index = _hashtable_wrap_index(index + m->delta_next, table->capacity);
 	}
 	return false;
 }
@@ -548,117 +540,81 @@ static _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t sta
 	return table->capacity;
 }
 
+static bool _hashtable_move_into_neighborhood(struct _hashtable *table, _hashtable_idx_t *pindex,
+					      _hashtable_uint_t *pdistance, const struct _hashtable_info *info)
+{
+	_hashtable_idx_t index = *pindex;
+	_hashtable_uint_t distance = *pdistance;
+	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
+		_hashtable_idx_t empty_index = index;
+		// TODO try to go as far as possible in one step to avoid some copies?
+		for (_hashtable_uint_t i = 1;; i++) {
+			if (i == _HASHTABLE_NEIGHBORHOOD) {
+				return false;
+			}
+			index = _hashtable_wrap_index(index - 1, table->capacity);
+			distance--;
+			_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
+			_hashtable_hash_t hash = m->hash;
+			_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
+			_hashtable_uint_t old_distance = _hashtable_wrap_index(index - home, table->capacity);
+			_hashtable_uint_t new_distance = old_distance + i;
+			if (new_distance >= _HASHTABLE_NEIGHBORHOOD) {
+				continue;
+			}
+			m->hash = _HASHTABLE_EMPTY_HASH;
+			_hashtable_bitmap_t *bitmap = &_hashtable_metadata(table, home, info)->bitmap;
+			*bitmap &= ~((_hashtable_bitmap_t)1 << old_distance);
+			*bitmap |= (_hashtable_bitmap_t)1 << new_distance;
+			memcpy(_hashtable_entry(table, empty_index, info),
+			       _hashtable_entry(table, index, info), info->entry_size);
+			_hashtable_metadata(table, empty_index, info)->hash = hash;
+			*pindex = index;
+			*pdistance = distance;
+			break;
+		}
+	}
+	return true;
+}
+
 static bool _hashtable_do_insert(struct _hashtable *table, _hashtable_hash_t hash,
 				 _hashtable_idx_t *pindex, const struct _hashtable_info *info)
 {
 	_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
 	_hashtable_idx_t index = home;
 	_hashtable_uint_t distance;
-	for (distance = 0; distance < _HASHTABLE_NEIGHBORHOOD; distance++) {
-		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-		if (m->hash == _HASHTABLE_EMPTY_HASH) {
-			goto found;
-		}
-		index = _hashtable_wrap_index(index + 1, table->capacity);
-	}
-
-	for (;;) {
+	for (distance = 0;; distance++) {
+		index = _hashtable_wrap_index(home + distance, table->capacity);
 		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
 		if (m->hash == _HASHTABLE_EMPTY_HASH) {
 			break;
 		}
-		index = _hashtable_wrap_index(index + 1, table->capacity);
-		distance++;
 	}
 
-	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
-		_hashtable_idx_t empty_index = index;
-		_hashtable_uint_t i;
-		for (i = 1;; i++) {
-			if (i == _HASHTABLE_NEIGHBORHOOD) {
-				return false;
-			}
-			index = _hashtable_wrap_index(index - 1, table->capacity);
-			distance--;
-			_hashtable_uint_t d = _hashtable_get_distance(table, index, info) + i;
-			if (d < _HASHTABLE_NEIGHBORHOOD) {
-				break;
-			}
-		}
-		_hashtable_metadata_t *old_m = _hashtable_metadata(table, index, info);
-		_hashtable_metadata_t *new_m = _hashtable_metadata(table, empty_index, info);
-		_hashtable_idx_t prev_index = _hashtable_wrap_index(index - old_m->delta_prev, table->capacity);
-		_hashtable_idx_t next_index = _hashtable_wrap_index(index + old_m->delta_next, table->capacity);
-		_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev_index, info);
-		_hashtable_metadata_t *next_m = _hashtable_metadata(table, next_index, info);
-		// TODO checker whether prev is home->delta_first
-		prev_m->delta_next += i;
-		assert(_hashtable_wrap_index(prev_index + prev_m->delta_next, table->capacity) == index);
-		next_m->delta_prev -= i;
-		assert(_hashtable_wrap_index(next_index - next_m->delta_prev, table->capacity) == index);
-		new_m->delta_prev = old_m->delta_prev + i;
-		assert(_hashtable_wrap_index(empty_index - new_m->delta_prev, table->capacity) == prev_index);
-		new_m->delta_next = old_m->delta_next - i;
-		assert(_hashtable_wrap_index(empty_index + new_m->delta_next, table->capacity) == next_index);
-		old_m->delta_prev = _HASHTABLE_INVALID_DELTA;
-		old_m->delta_next = _HASHTABLE_INVALID_DELTA;
-		memcpy(_hashtable_entry(table, empty_index, info),
-		       _hashtable_entry(table, index, info), info->entry_size);
-		new_m->hash = old_m->hash;
+	if (distance >= _HASHTABLE_NEIGHBORHOOD &&
+	    !_hashtable_move_into_neighborhood(table, &index, &distance, info)) {
+		return false;
 	}
 
-found:;
-	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-	_hashtable_idx_t cursor = home;
-	unsigned char *indirect = &_hashtable_metadata(table, cursor, info)->delta_first;
-	_hashtable_idx_t d = 0;
-	while (*indirect != _HASHTABLE_INVALID_DELTA) {
-		_hashtable_idx_t next = _hashtable_wrap_index(cursor + *indirect, table->capacity);
-		d += *indirect;
-		if (d > distance) {
-			_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
-			next_m->delta_prev = _hashtable_wrap_index(next - index, table->capacity);
-			assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == index);
-			break;
-		}
-		cursor = next;
-		indirect = &_hashtable_metadata(table, cursor, info)->delta_next;
-	}
-	*indirect = _hashtable_wrap_index(index - cursor, table->capacity);
-	assert(_hashtable_wrap_index(cursor + *indirect, table->capacity) == index);
-
-	m->hash = hash;
+	_hashtable_bitmap_t *bitmap = &_hashtable_metadata(table, home, info)->bitmap;
+	*bitmap |= (_hashtable_bitmap_t)1 << distance;
+	_hashtable_metadata(table, index, info)->hash = hash;
 	*pindex = index;
 	return true;
 }
 
+// if an entry was replaced *phash will be != _HASHTABLE_EMPTY_HASH
 static bool _hashtable_insert_during_resize(struct _hashtable *table, _hashtable_hash_t *phash,
 					    void *entry, const struct _hashtable_info *info)
 {
 	_hashtable_hash_t hash = *phash;
+	*phash = _HASHTABLE_EMPTY_HASH;
 	void *tmp_entry = alloca(info->entry_size);
-	bool did_replace = false;
 	_hashtable_idx_t home = _hashtable_hash_to_index(hash, table->capacity);
 	_hashtable_idx_t index = home;
 	_hashtable_uint_t distance;
-	for (distance = 0; distance < _HASHTABLE_NEIGHBORHOOD; distance++) {
-		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-		if (m->hash == _HASHTABLE_EMPTY_HASH) {
-			goto found;
-		}
-		if (m->needs_rehash) {
-			memcpy(tmp_entry, entry, info->entry_size);
-			*phash = m->hash;
-			memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
-			entry = tmp_entry;
-			m->needs_rehash = false;
-			did_replace = true;
-			goto found;
-		}
-		index = _hashtable_wrap_index(index + 1, table->capacity);
-	}
-
-	for (;;) {
+	for (distance = 0;; distance++) {
+		index = _hashtable_wrap_index(home + distance, table->capacity);
 		_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
 		if (m->hash == _HASHTABLE_EMPTY_HASH) {
 			break;
@@ -669,84 +625,35 @@ static bool _hashtable_insert_during_resize(struct _hashtable *table, _hashtable
 			memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
 			entry = tmp_entry;
 			m->needs_rehash = false;
-			did_replace = true;
+			m->hash = _HASHTABLE_EMPTY_HASH;
 			break;
 		}
-		index = _hashtable_wrap_index(index + 1, table->capacity);
-		distance++;
 	}
 
-	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
-		_hashtable_idx_t empty_index = index;
-		_hashtable_uint_t i;
-		for (i = 1;; i++) {
-			if (i == _HASHTABLE_NEIGHBORHOOD) {
-				return false;
-			}
-			index = _hashtable_wrap_index(index - 1, table->capacity);
-			distance--;
-			_hashtable_uint_t d = _hashtable_get_distance(table, index, info) + i;
-			if (d < _HASHTABLE_NEIGHBORHOOD) {
-				break;
-			}
-		}
-		_hashtable_metadata_t *old_m = _hashtable_metadata(table, index, info);
-		_hashtable_metadata_t *new_m = _hashtable_metadata(table, empty_index, info);
-		_hashtable_idx_t prev_index = _hashtable_wrap_index(index - old_m->delta_prev, table->capacity);
-		_hashtable_idx_t next_index = _hashtable_wrap_index(index + old_m->delta_next, table->capacity);
-		_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev_index, info);
-		_hashtable_metadata_t *next_m = _hashtable_metadata(table, next_index, info);
-		// TODO checker whether prev is home->delta_first
-		prev_m->delta_next += i;
-		assert(_hashtable_wrap_index(prev_index + prev_m->delta_next, table->capacity) == index);
-		next_m->delta_prev -= i;
-		assert(_hashtable_wrap_index(next_index - next_m->delta_prev, table->capacity) == index);
-		new_m->delta_prev = old_m->delta_prev + i;
-		assert(_hashtable_wrap_index(empty_index - new_m->delta_prev, table->capacity) == prev_index);
-		new_m->delta_next = old_m->delta_next - i;
-		assert(_hashtable_wrap_index(empty_index + new_m->delta_next, table->capacity) == next_index);
-		old_m->delta_prev = _HASHTABLE_INVALID_DELTA;
-		old_m->delta_next = _HASHTABLE_INVALID_DELTA;
-		memcpy(_hashtable_entry(table, empty_index, info),
-		       _hashtable_entry(table, index, info), info->entry_size);
-		new_m->hash = old_m->hash;
+	bool success = true;
+	if (distance >= _HASHTABLE_NEIGHBORHOOD &&
+	    !_hashtable_move_into_neighborhood(table, &index, &distance, info)) {
+		success = false;
+		// if we didn't succeed, we insert the entry anyway so it doesn't get lost
 	}
 
-found:;
-	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-	_hashtable_idx_t cursor = home;
-	unsigned char *indirect = &_hashtable_metadata(table, cursor, info)->delta_first;
-	_hashtable_idx_t d = 0;
-	while (*indirect != _HASHTABLE_INVALID_DELTA) {
-		_hashtable_idx_t next = _hashtable_wrap_index(cursor + *indirect, table->capacity);
-		d += *indirect;
-		if (d > distance) {
-			_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
-			next_m->delta_prev = _hashtable_wrap_index(next - index, table->capacity);
-			assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == index);
-			break;
-		}
-		cursor = next;
-		indirect = &_hashtable_metadata(table, cursor, info)->delta_next;
-	}
-	*indirect = _hashtable_wrap_index(index - cursor, table->capacity);
-	assert(_hashtable_wrap_index(cursor + *indirect, table->capacity) == index);
-
-	m->hash = hash;
+	_hashtable_bitmap_t *bitmap = &_hashtable_metadata(table, home, info)->bitmap;
+	*bitmap |= (_hashtable_bitmap_t)1 << distance;
+	_hashtable_metadata(table, index, info)->hash = hash;
 	memcpy(_hashtable_entry(table, index, info), entry, info->entry_size);
-
-	return did_replace;
+	return success;
 }
 
 static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_capacity,
 			      const struct _hashtable_info *info)
 {
-	return; // TODO
 	assert(new_capacity < table->capacity && new_capacity > table->num_items);
+retry:;
 	_hashtable_uint_t old_capacity = table->capacity;
 	table->capacity = new_capacity;
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->bitmap = 0;
 		if (m->hash >= _HASHTABLE_MIN_VALID_HASH) {
 			m->needs_rehash = true;
 		} else {
@@ -765,17 +672,31 @@ static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_ca
 		_hashtable_hash_t hash = m->hash;
 		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
 		if (optimal_index == index) {
+			m->bitmap |= 1;
 			num_rehashed++;
 			continue;
 		}
 		m->hash = _HASHTABLE_EMPTY_HASH;
 		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
 
-		bool need_rehash;
 		do {
-			need_rehash = _hashtable_insert_during_resize(table, &hash, entry, info);
+			if (!_hashtable_insert_during_resize(table, &hash, entry, info)) {
+				table->capacity = old_capacity;
+				new_capacity *= 2;
+				// insert the currently displaced entry somewhere, so it doesn't get lost
+				for (_hashtable_uint_t i = 0; hash != _HASHTABLE_EMPTY_HASH; i++) {
+					_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+					if (m->hash != _HASHTABLE_EMPTY_HASH) {
+						continue;
+					}
+					m->hash = hash;
+					memcpy(_hashtable_entry(table, i, info), entry, info->entry_size);
+					break;
+				}
+				goto retry;
+			}
 			num_rehashed++;
-		} while (need_rehash);
+		} while (hash != _HASHTABLE_EMPTY_HASH);
 	}
 
 	size_t new_metadata_offset = _hashtable_metadata_offset(table->capacity, info);
@@ -799,9 +720,7 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 	for (_hashtable_uint_t j = old_capacity; j != 0; j--) {
 		_hashtable_uint_t i = j - 1;
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
-		m->delta_first = _HASHTABLE_INVALID_DELTA;
-		m->delta_prev = _HASHTABLE_INVALID_DELTA;
-		m->delta_next = _HASHTABLE_INVALID_DELTA;
+		m->bitmap = 0;
 		if (old_metadata[i].hash >= _HASHTABLE_MIN_VALID_HASH) {
 			m->hash = old_metadata[i].hash;
 			m->needs_rehash = true;
@@ -814,9 +733,7 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = _HASHTABLE_EMPTY_HASH;
 		m->needs_rehash = false;
-		m->delta_first = _HASHTABLE_INVALID_DELTA;
-		m->delta_prev = _HASHTABLE_INVALID_DELTA;
-		m->delta_next = _HASHTABLE_INVALID_DELTA;
+		m->bitmap = 0;
 	}
 
 	void *entry = alloca(info->entry_size);
@@ -828,21 +745,20 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 		}
 		m->needs_rehash = false;
 		_hashtable_hash_t hash = m->hash;
-		// _hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
-		// if (optimal_index == index) {
-		// 	num_rehashed++;
-		// 	continue;
-		// }
+		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(hash, table->capacity);
+		if (optimal_index == index) {
+			m->bitmap |= 1;
+			num_rehashed++;
+			continue;
+		}
 		m->hash = _HASHTABLE_EMPTY_HASH;
 		memcpy(entry, _hashtable_entry(table, index, info), info->entry_size);
 
-		bool need_rehash;
 		do {
-			need_rehash = _hashtable_insert_during_resize(table, &hash, entry, info);
+			// can't fail here
+			_hashtable_insert_during_resize(table, &hash, entry, info);
 			num_rehashed++;
-		} while (need_rehash);
-		_hashtable_idx_t dummy;
-		assert(_hashtable_lookup(table, entry, hash, &dummy, info));
+		} while (hash != _HASHTABLE_EMPTY_HASH);
 	}
 }
 
@@ -872,7 +788,6 @@ static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_h
 	}
 	_hashtable_idx_t index;
 	while (!_hashtable_do_insert(table, hash, &index, info)) {
-		// TODO can this happen more than once?
 		_hashtable_grow(table, 2 * table->capacity, info);
 	}
 	return index;
@@ -881,21 +796,13 @@ static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_h
 static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 			      const struct _hashtable_info *info)
 {
-	// TODO backward shift deletion?
+	// TODO move up last entry in neighborhood?
 	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
-	_hashtable_idx_t prev = _hashtable_wrap_index(index - m->delta_prev, table->capacity);
-	_hashtable_idx_t next = _hashtable_wrap_index(index + m->delta_next, table->capacity);
-	_hashtable_metadata_t *prev_m = _hashtable_metadata(table, prev, info);
-	_hashtable_metadata_t *next_m = _hashtable_metadata(table, next, info);
-	// TODO checker whether prev is home->delta_first
-	prev_m->delta_next = _hashtable_wrap_index(next - prev, table->capacity);
-	assert(_hashtable_wrap_index(prev + prev_m->delta_next, table->capacity) == next);
-	next_m->delta_prev = _hashtable_wrap_index(next - prev, table->capacity);
-	assert(_hashtable_wrap_index(next - next_m->delta_prev, table->capacity) == prev);
-
+	_hashtable_idx_t home = _hashtable_hash_to_index(m->hash, table->capacity);
+	_hashtable_metadata_t *home_m = _hashtable_metadata(table, home, info);
+	_hashtable_uint_t distance = _hashtable_wrap_index(index - home, table->capacity);
+	home_m->bitmap &= ~((_hashtable_bitmap_t)1 << distance);
 	m->hash = _HASHTABLE_EMPTY_HASH;
-	m->delta_prev = _HASHTABLE_INVALID_DELTA;
-	m->delta_next = _HASHTABLE_INVALID_DELTA;
 	table->num_items--;
 	if (table->num_items < table->capacity / 8) {
 		_hashtable_shrink(table, table->capacity / 4, info);
@@ -906,16 +813,17 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 {
 	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
 		_hashtable_metadata(table, i, info)->hash = _HASHTABLE_EMPTY_HASH;
-		_hashtable_metadata(table, i, info)->delta_first = _HASHTABLE_INVALID_DELTA;
-		_hashtable_metadata(table, i, info)->delta_prev = _HASHTABLE_INVALID_DELTA;
-		_hashtable_metadata(table, i, info)->delta_next = _HASHTABLE_INVALID_DELTA;
+		_hashtable_metadata(table, i, info)->needs_rehash = false;
+		_hashtable_metadata(table, i, info)->bitmap = 0;
 	}
 	table->num_items = 0;
 }
 
-#undef _HASHTABLE_META_EMPTY
-#undef _HASHTABLE_META_NEEDS_REHASH
-#undef _HASHTABLE_META_ENTRY
+
+
+#undef _HASHTABLE_NEIGHBORHOOD
+#undef _HASHTABLE_EMPTY_HASH
+#undef _HASHTABLE_MIN_VALID_HASH
 
 #elif defined(_HASHTABLE_ROBIN_HOOD)
 
@@ -1303,15 +1211,12 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 	table->num_items = 0;
 }
 
-#undef __METADATA_OVERFLOW
-#undef __METADATA_REHASH
-#undef __METADATA_FREE
+#undef _HASHTABLE_EMPTY_HASH
+#undef _HASHTABLE_MIN_VALID_HASH
 
 #endif
 
-#define __HASHTABLE_PAD(offset, alignment) (((alignment) - ((offset) % (alignment))) % (alignment))
-
-#define DEFINE_HASHTABLE_COMMON(name, entry_size_, THRESHOLD)		\
+#define _HASHTABLE_DEFINE_COMMON(name, entry_size_, THRESHOLD)		\
 									\
 	_Static_assert(5 <= THRESHOLD && THRESHOLD <= 9,		\
 		       "resize threshold (load factor)  must be an integer in the range of 5 to 9 (50%-90%)"); \
@@ -1392,7 +1297,7 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 		return (__VA_ARGS__);					\
 	}								\
 									\
-	DEFINE_HASHTABLE_COMMON(name, sizeof(struct _##name##_entry), (THRESHOLD)) \
+	_HASHTABLE_DEFINE_COMMON(name, sizeof(struct _##name##_entry), (THRESHOLD)) \
 									\
 		typedef struct name##_iterator {			\
 		key_type *key;						\
@@ -1483,7 +1388,7 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 		return (__VA_ARGS__);					\
 	}								\
 									\
-	DEFINE_HASHTABLE_COMMON(name, sizeof(key_type), (THRESHOLD))	\
+	_HASHTABLE_DEFINE_COMMON(name, sizeof(key_type), (THRESHOLD))	\
 									\
 		typedef struct name##_iterator {			\
 		key_type *key;						\

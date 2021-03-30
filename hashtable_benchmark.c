@@ -183,11 +183,6 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
 		lookup2[n] = ns_elapsed(&start_tp, &end_tp);		\
 									\
-		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_insert(&name, keys3[i], (hash)(keys3[i])); \
-			*item = values3[i];				\
-		}							\
-									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
 		for (i = 0; i < num_items; i++) {			\
 			key_type key;					\
