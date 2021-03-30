@@ -8,7 +8,6 @@
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
-// TODO set needs_rehash to false in _hashtable_clear for better performance
 // TODO add generation and check it during iteration?
 // TODO test the case where the metadata is bigger than the entries
 
@@ -69,7 +68,7 @@ static _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_items,
 }
 
 // #define _HASHTABLE_ROBIN_HOOD 1
-#define _HASHTABLE_HOPSCOTCH 1
+// #define _HASHTABLE_HOPSCOTCH 1
 
 #if !defined(_HASHTABLE_ROBIN_HOOD) && !defined(_HASHTABLE_HOPSCOTCH)
 
@@ -396,7 +395,9 @@ static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
-		_hashtable_metadata(table, i, info)->hash = _HASHTABLE_EMPTY_HASH;
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
 	}
 	table->num_items = 0;
 	table->num_tombstones = 0;
@@ -717,6 +718,10 @@ static void _hashtable_grow(struct _hashtable *table, _hashtable_uint_t new_capa
 	_hashtable_realloc_storage(table, info);
 	size_t old_metadata_offset = _hashtable_metadata_offset(old_capacity, info);
 	_hashtable_metadata_t *old_metadata = (_hashtable_metadata_t *)(table->storage + old_metadata_offset);
+	/* Need to iterate backwards in case the metadata is bigger than the entries:
+	 * eeeeemmmmmmmmmm
+	 * eeeeeeeeeemmmmmmmmmmmmmmmmmmmm
+	 */
 	for (_hashtable_uint_t j = old_capacity; j != 0; j--) {
 		_hashtable_uint_t i = j - 1;
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
@@ -832,7 +837,7 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 
 typedef struct {
 	// Instead of using one bit of the hash for this flag we could allocate a bitmap in grow/shrink,
-	// but that would require some bitmap code...
+	// but that would require pulling in some bitmap code...
 	_hashtable_hash_t needs_rehash : 1;
 	_hashtable_hash_t hash : 8 * sizeof(_hashtable_hash_t) - 1;
 } _hashtable_metadata_t;
@@ -1039,11 +1044,6 @@ static void _hashtable_shrink(struct _hashtable *table, _hashtable_uint_t new_ca
 {
 	assert(new_capacity < table->capacity && new_capacity > table->num_items);
 
-	/*
-	 * eeeeeeeeeehhhhhhhhhhdddddddddd
-	 * eeeeehhhhhddddd
-	 */
-
 	_hashtable_uint_t old_capacity = table->capacity;
 	table->capacity = new_capacity;
 	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
@@ -1207,6 +1207,7 @@ static void _hashtable_clear(struct _hashtable *table, const struct _hashtable_i
 	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = _HASHTABLE_EMPTY_HASH;
+		m->needs_rehash = false;
 	}
 	table->num_items = 0;
 }
