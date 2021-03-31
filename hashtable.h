@@ -9,6 +9,7 @@
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
 // TODO add generation and check it during iteration?
+// TODO maybe make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)
 
 /* Memory layout:
  * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
@@ -437,7 +438,6 @@ struct _hashtable {
 
 static _hashtable_idx_t _hashtable_wrap_index(_hashtable_idx_t index, _hashtable_uint_t capacity)
 {
-	// http://www.chilton-computing.org.uk/acl/literature/reports/p012.htm
 	return index & (capacity - 1);
 }
 
