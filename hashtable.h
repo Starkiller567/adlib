@@ -9,7 +9,6 @@
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
 // TODO add generation and check it during iteration?
-// TODO test the case where the metadata is bigger than the entries
 
 /* Memory layout:
  * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
@@ -548,7 +547,6 @@ static bool _hashtable_move_into_neighborhood(struct _hashtable *table, _hashtab
 	_hashtable_uint_t distance = *pdistance;
 	while (distance >= _HASHTABLE_NEIGHBORHOOD) {
 		_hashtable_idx_t empty_index = index;
-		// TODO try to go as far as possible in one step to avoid some copies?
 		for (_hashtable_uint_t i = 1;; i++) {
 			if (i == _HASHTABLE_NEIGHBORHOOD) {
 				return false;
@@ -801,7 +799,6 @@ static _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_h
 static void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 			      const struct _hashtable_info *info)
 {
-	// TODO move up last entry in neighborhood?
 	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
 	_hashtable_idx_t home = _hashtable_hash_to_index(m->hash, table->capacity);
 	_hashtable_metadata_t *home_m = _hashtable_metadata(table, home, info);
