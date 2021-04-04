@@ -1,22 +1,21 @@
-// SPDX-License-Identifier: MIT
 /*
-Copyright (C) 2020 Fabian Hügel
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
+ * Copyright (C) 2020 Fabian Hügel
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 // inspired by https://github.com/nothings/stb/blob/master/stb.h
 
@@ -67,7 +66,7 @@ SOFTWARE.
 #endif
 
 // this macro provides a more explicit way of declaring a dynamic array
-// (array(int) arr vs int *arr; the second could be a simple pointer or static array or dynamic array)
+// (array_t(int) arr vs int *arr; the second could be a simple pointer or static array or dynamic array)
 #define array_t(T) T *
 
 // get number of elements in array (as size_t)
@@ -173,6 +172,11 @@ SOFTWARE.
 
 // sort array with qsort using compare function (see qsort documentation)
 #define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), compare)
+
+// search array for key with bsearch using compare function (see bsearch documentation)
+// (the array needs to be sorted in ascending order according to the compare function)
+#define array_bsearch(a, key, compare)  ((__ARRAY_TYPEOF(a))_arr_bsearch((a), sizeof((a)[0]), \
+									 1 ? (key) : (a), compare))
 
 // are arrays a and b equal in content? (byte-wise equality)
 #define array_equal(a, b)               _arr_equal(1 ? (a) : (b), sizeof((a)[0]), (b))
@@ -479,7 +483,20 @@ static _arr_maybe_unused void _arr_add_arrayn(void **arrp, size_t elem_size, con
 static _arr_nonnull(3) _arr_maybe_unused
 void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
 {
-	qsort(arr, _arr_len(arr), elem_size, compare);
+	size_t len = _arr_len(arr);
+	if (len != 0) {
+		qsort(arr, len, elem_size, compare);
+	}
+}
+
+static _arr_nonnull(3, 4) _arr_maybe_unused  _arr_warn_unused_result
+void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *))
+{
+	size_t len = _arr_len(arr);
+	if (len == 0) {
+		return NULL;
+	}
+	return bsearch(key, arr, len, elem_size, compare);
 }
 
 static _arr_maybe_unused void _arr_add_array(void **arrp, size_t elem_size, const void *arr2)

@@ -267,7 +267,7 @@ int main(int argc, char **argv)
 	unsigned int i, seed = 12345, num_items;
 	struct timespec start_tp, end_tp;
 	bool bad_hash = false;
-	bool shuffle = true;
+	bool shuffle = true; // TODO do partial sorts/shuffles
 
 	unsigned long long insert[N];
 	unsigned long long lookup1[N];

@@ -68,7 +68,7 @@ int main(void)
 #endif
 	int *arr1 = NULL;
 
-#if 0
+#if 1
 	add_a_one(&arr1);
 	// array_push(arr1, 1);
 	array_push(arr1, 2);
@@ -246,6 +246,17 @@ int main(void)
 		}
 	}
 	array_free(arr2);
+	array_free(arr1);
+
+	for (int i = 0; i < 1000; i++) {
+		array_add(arr1, i);
+	}
+	for (int i = 0; i < 1000; i++) {
+		int *x = array_bsearch(arr1, &i, cmp);
+		assert(x);
+		assert(*x == i);
+	}
+
 	array_free(arr1);
 
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));

@@ -10,6 +10,7 @@
 //      how to implement resize cleanly?
 // TODO add generation and check it during iteration?
 // TODO maybe make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)
+// TODO in hash_to_idx xor the hash with a random seed that changes whenever the hashtable gets resized
 
 /* Memory layout:
  * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
