@@ -19,11 +19,11 @@
 
 // inspired by https://github.com/nothings/stb/blob/master/stb.h
 
-// declare an (empty) array like so: array(int) my_array = NULL;
+// declare an (empty) array like so: array_t(int) my_array = NULL;
 // (or so: int *my_array = NULL;)
 // and use it like so: array_add(my_array, 1)
 // or so:
-//         void add_a_one(array(int) *some_array)
+//         void add_a_one(array_t(int) *some_array)
 //         {
 //             array_add(*some_array, 1);
 //         }
@@ -185,6 +185,7 @@
 #define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), compare)
 
 // search array for key with bsearch using compare function (see bsearch documentation)
+// (the type of key should be pointer to array element)
 // (the array needs to be sorted in ascending order according to the compare function)
 #define array_bsearch(a, key, compare)  ((__ARRAY_TYPEOF(a))_arr_bsearch((a), sizeof((a)[0]), \
 									 1 ? (key) : (a), compare))
