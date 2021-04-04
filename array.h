@@ -28,14 +28,16 @@
 //             array_add(*some_array, 1);
 //         }
 //         ...
-//             add_a_one(&my_array);
-//             add_a_one(&my_array);
-//             add_a_one(&my_array);
-//             array_fori(my_array, current_index) {
-//                 int current_element = my_array[current_index];
-//                 ...
-//             }
-//             array_free(my_array);
+//         add_a_one(&my_array);
+//         add_a_one(&my_array);
+//         add_a_one(&my_array);
+//         int sum = 0;
+//         array_fori(my_array, current_index) {
+//             int current_element = my_array[current_index];
+//             sum += current_element;
+//         }
+//         assert(sum == 3);
+//         array_free(my_array);
 //
 
 #ifndef __array_include__
@@ -44,11 +46,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 # ifdef NDEBUG
-#  define ARRAY_SAFETY_CHECKS 0
-# else
-#  define ARRAY_SAFETY_CHECKS 1
+#  define ARRAY_NO_SAFETY_CHECKS
 # endif
 #endif
 
@@ -56,13 +56,8 @@
 # define ARRAY_INITIAL_SIZE 8
 #endif
 
-#ifndef ARRAY_NO_TYPEOF
-# ifndef __ARRAY_TYPEOF
-#  define __ARRAY_TYPEOF(x) __typeof__(x)
-# endif
-#else
-# undef __ARRAY_TYPEOF
-# define __ARRAY_TYPEOF(x) void *
+#ifndef __ARRAY_TYPEOF
+# define __ARRAY_TYPEOF(x) __typeof__(x)
 #endif
 
 // this macro provides a more explicit way of declaring a dynamic array
@@ -78,7 +73,6 @@
 #define array_lasti(a)                  _arr_lasti(a)
 
 // get last element
-// (Warning: may evaluate 'a' multiple times! TODO is that necessary?)
 #define array_last(a)                   _arr_last(a)
 
 // get allocated capacity in elements (as size_t)
@@ -90,28 +84,46 @@
 // make an exact copy of the array
 #define array_copy(a)	                ((__ARRAY_TYPEOF(a))_arr_copy((a), sizeof((a)[0])))
 
-// TODO array_move
+// b = array_move(a) is equivalent to b = a, a = NULL
+#define array_move(a)	                ((__ARRAY_TYPEOF(a))_arr_move((void **)&(a)))
 
-// add n unitialized elements to the end of the array and return a (void) pointer to the first of those
+// add n unitialized elements to the end of the array and return a pointer to the first of those
+// (returns NULL if n is zero)
 #define array_addn(a, n)                ((__ARRAY_TYPEOF(a))_arr_addn((void **)&(a), sizeof((a)[0]), (n)))
 
-// TODO array_addn_zero ?
-// TODO array_add1 ?
+// add one unitialized element to the end of the array and return a pointer to it
+#define array_add1(a)                   array_addn((a), 1)
+
+// add n zeroed elements to the end of the array and return a pointer to the first of those
+// (returns NULL if n is zero)
+#define array_addn_zero(a, n)           ((__ARRAY_TYPEOF(a))_arr_addn_zero((void **)&(a), sizeof((a)[0]), (n)))
+
+// add one zeroed element to the end of the array and return a pointer to it
+#define array_add1_zero(a)              array_addn_zero((a), 1)
 
 // add value v to the end of the array (v must be an r-value of array element type)
-// (Warning: evaluates 'a' multiple times! TODO is that necessary?)
 #define array_add(a, v)                 _arr_add(a, v)
 
-// insert n unitialized elements at index i and return a pointer to the first of those
+// insert n unitialized elements at index i and return a pointer to the first of them
 // (i must be less than or equal to array_len(a))
+// (returns NULL if n is zero)
 #define array_insertn(a, i, n)          (__ARRAY_TYPEOF(a))_arr_insertn((void **)&(a), sizeof((a)[0]), (i), (n))
 
-// TODO array_insertn_zero ?
-// TODO array_insert1 ?
+// insert one unitialized element at index i and return a pointer to it
+// (i must be less than or equal to array_len(a))
+#define array_insert1(a, i)             array_insertn((a), (i), 1)
+
+// insert n zeroed elements at index i and return a pointer to the first of them
+// (i must be less than or equal to array_len(a))
+// (returns NULL if n is zero)
+#define array_insertn_zero(a, i, n)     (__ARRAY_TYPEOF(a))_arr_insertn_zero((void **)&(a), sizeof((a)[0]), (i), (n))
+
+// insert one zeroed element at index i and return a pointer to it
+// (i must be less than or equal to array_len(a))
+#define array_insert1_zero(a, i)        array_insertn_zero((a), (i), 1)
 
 // insert value v at index i
 // (v must be an r-value of array element type and i must be less than or equal to array_len(a))
-// (Warning: evaluates 'a' multiple times! TODO is that necessary?)
 #define array_insert(a, i, v)           _arr_insert(a, i, v)
 
 // set the length of the array to zero (but keep the allocated memory)
@@ -140,7 +152,6 @@
 #define array_push(a, v)                array_add(a, v)
 
 // remove and return the last element
-// (Warning: may evaluate 'a' multiple times! TODO is that necessary?)
 #define array_pop(a)                    _arr_pop(a)
 
 // remove the last n elements
@@ -195,7 +206,7 @@
 #define array_shuffle(a, random)        _arr_shuffle(a, random)
 
 // Iterators:
-// (Warning: do not modify the array inside these loops,
+// (Warning: do not modify the array inside these loops (unless you exit the loop right after),
 //  use a custom fori loop that does the necessary index adjustments for this purpose instead)
 
 // iterate over all array indices
@@ -206,29 +217,20 @@
 // (a variable named 'itername' of type size_t will contain the current index)
 #define array_fori_reverse(a, itername) _arr_fori_reverse(a, itername)
 
-// iterate over all array elements
-// #ifndef ARRAY_NO_TYPEOF: a variable named 'itername' will contain a pointer to the current element
-// #else: 'itername' must be a variable of type 'pointer to array element' (same as the array type)
-//        and will contain the current element
-// (Warning: evaluates 'a' multiple times! TODO is that necessary?)
+// iterate over all array elements,
+// (a variable named 'itername' will contain a pointer to the current element)
 #define array_foreach(a, itername)               _arr_foreach(a, itername)
 
 // iterate over all array elements in reverse
-// #ifndef ARRAY_NO_TYPEOF (a variable named 'itername' will contain a pointer to the current element)
-// #else: 'itername' must be a variable of type 'pointer to array element' (same as the array type)
-//        and will contain the current element
+// (a variable named 'itername' will contain a pointer to the current element)
 #define array_foreach_reverse(a, itername)       _arr_foreach_reverse(a, itername)
 
 // iterate over all array elements
-// #ifndef ARRAY_NO_TYPEOF: a variable named 'itername' will contain the current element _by value_
-// #else: 'itername' must be a variable of the same type as an array element
-//        and will contain the current element _by value_
+// (a variable named 'itername' will contain the _value_ of the current element)
 #define array_foreach_value(a, itername)         _arr_foreach_value(a, itername)
 
 // iterate over all array elements in reverse
-// #ifndef ARRAY_NO_TYPEOF (a variable named 'itername' will contain the current element _by value_)
-// #else: 'itername' must be a variable of the same type as an array element
-//        and will contain the current element _by value_
+// (a variable named 'itername' will contain the _value_ of the current element)
 #define array_foreach_value_reverse(a, itername) _arr_foreach_value_reverse(a, itername)
 
 #if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)
@@ -242,31 +244,33 @@
 #endif
 
 #ifndef ARRAY_MAGIC1
-#define ARRAY_MAGIC1 0xdeadbabe
-#define ARRAY_MAGIC2 0xbeefcafe
+# define ARRAY_MAGIC1 ((size_t)0xcccccccccccccccc)
+#endif
+#ifndef ARRAY_MAGIC2
+# define ARRAY_MAGIC2 ((size_t)0xdeadbabebeefcafe)
 #endif
 
 typedef struct {
 	size_t len;
 	size_t capacity;
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	size_t magic1;
 	size_t magic2;
 #endif
 } _arr;
 
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 # include <assert.h>
-# define _arrhead_unchecked(a) ((const _arr *)(a) - 1)
-# define _arrhead_const(a) (assert((a) &&				\
-				   _arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1 && \
-				   _arrhead_unchecked(a)->magic2 == ARRAY_MAGIC2), \
-			    _arrhead_unchecked(a))
+# define _arrhead_unchecked(a) ((_arr *)(a) - 1)
+# define _arrhead(a) (assert((a) &&					\
+			     _arrhead_unchecked(a)->magic1 == ARRAY_MAGIC1 && \
+			     _arrhead_unchecked(a)->magic2 == ARRAY_MAGIC2), \
+		      _arrhead_unchecked(a))
 #else
-# define _arrhead_const(a) ((const _arr *)(a) - 1)
+# define _arrhead(a) ((_arr *)(a) - 1)
 #endif
 
-#define _arrhead(a) ((_arr *)_arrhead_const(a))
+#define _arrhead_const(a) ((const _arr *)_arrhead(a))
 
 static _arr_maybe_unused size_t _arr_len(const void *arr)
 {
@@ -276,7 +280,7 @@ static _arr_maybe_unused size_t _arr_len(const void *arr)
 static _arr_nonnull(1) _arr_maybe_unused size_t _arr_lasti(const void *arr)
 {
 	size_t len = _arr_len(arr);
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(len != 0);
 #endif
 	return len - 1;
@@ -311,14 +315,14 @@ void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 		return NULL;
 	}
 	size_t new_size = sizeof(_arr) + (capacity * elem_size);
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(((capacity * elem_size) / elem_size == capacity) && new_size > sizeof(_arr));
 #endif
 	_arr *head;
 	if (!arr) {
 		head = malloc(new_size);
 		head->len = 0;
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 		head->magic1 = ARRAY_MAGIC1;
 		head->magic2 = ARRAY_MAGIC2;
 #endif
@@ -351,6 +355,13 @@ static _arr_maybe_unused _arr_warn_unused_result void *_arr_copy(const void *arr
 	_arrhead(new_arr)->len = _arr_len(arr);
 	memcpy(new_arr, arr, elem_size * _arr_len(arr));
 	return new_arr;
+}
+
+static _arr_maybe_unused void *_arr_move(void **arrp)
+{
+	void *arr = *arrp;
+	*arrp = NULL;
+	return arr;
 }
 
 static _arr_maybe_unused void _arr_grow(void **arrp, size_t elem_size, size_t n)
@@ -405,15 +416,27 @@ static _arr_maybe_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n
 	return (char *)(*arrp) + (old_len * elem_size);
 }
 
+static _arr_maybe_unused void *_arr_addn_zero(void **arrp, size_t elem_size, size_t n)
+{
+	void *p = _arr_addn(arrp, elem_size, n);
+	if (p) {
+		memset(p, 0, elem_size * n);
+	}
+	return p;
+}
+
 static _arr_maybe_unused void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n)
 {
 	void *arr = *arrp;
 	size_t len = _arr_len(arr);
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(i <= len);
 #endif
-	if (len == 0) {
+	if (i == len) {
 		return _arr_addn(arrp, elem_size, n);
+	}
+	if (n == 0) {
+		return NULL;
 	}
 	_arr_addn(&arr, elem_size, n);
 	char *src = (char *)arr + i * elem_size;
@@ -423,10 +446,19 @@ static _arr_maybe_unused void *_arr_insertn(void **arrp, size_t elem_size, size_
 	return src;
 }
 
+static _arr_maybe_unused void *_arr_insertn_zero(void **arrp, size_t elem_size, size_t i, size_t n)
+{
+	void *p = _arr_insertn(arrp, elem_size, i, n);
+	if (p) {
+		memset(p, 0, elem_size * n);
+	}
+	return p;
+}
+
 static _arr_maybe_unused void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
 	char *src = (char *)arr + (i + n) * elem_size;
@@ -438,7 +470,7 @@ static _arr_maybe_unused void _arr_ordered_deleten(void *arr, size_t elem_size, 
 static _arr_maybe_unused void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
 	size_t k = len - (i + n);
@@ -461,7 +493,7 @@ size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 {
 	size_t diff = (char *)ptr - (char *)arr;
 	size_t index = diff / elem_size;
-#if ARRAY_SAFETY_CHECKS
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(diff % elem_size == 0);
 	assert(index < _arr_len(arr));
 #endif
@@ -519,11 +551,8 @@ _Bool _arr_equal(const void *arr1, size_t elem_size, const void *arr2)
 }
 
 static _arr_nonnull(1, 3) _arr_maybe_unused
-void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t i, size_t j)
+void _arr_swap_elements_unchecked(void *arr, size_t elem_size, unsigned char *buf, size_t i, size_t j)
 {
-	if (i == j) {
-		return;
-	}
 	size_t n = elem_size;
 	unsigned char *a = arr;
 	memcpy(buf,       &a[n * i], n);
@@ -531,82 +560,97 @@ void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t 
 	memcpy(&a[n * j], buf,       n);
 }
 
+static _arr_nonnull(1, 3) _arr_maybe_unused
+void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t i, size_t j)
+{
+	assert(i < array_len(arr));
+	assert(j < array_len(arr));
+	if (i != j) {
+		_arr_swap_elements_unchecked(arr, elem_size, buf, i, j);
+	}
+}
+
 static _arr_nonnull(3) _arr_maybe_unused void _arr_reverse(void *arr, size_t elem_size, unsigned char *buf)
 {
 	for (size_t i = 0; i < _arr_len(arr) / 2; i++) {
-		_arr_swap_elements(arr, elem_size, buf, i, _arr_lasti(arr) - i);
+		_arr_swap_elements_unchecked(arr, elem_size, buf, i, _arr_lasti(arr) - i);
 	}
 }
 
 static _arr_nonnull(3, 4) _arr_maybe_unused
-void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size_t (*rand_sizet)(void))
+void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size_t (*random_index)(void))
 {
+	if (array_empty(arr)) {
+		return;
+	}
 	for (size_t i = _arr_lasti(arr); i > 0; i--) {
-		_arr_swap_elements(arr, elem_size, buf, i, rand_sizet() % (i + 1));
+		_arr_swap_elements_unchecked(arr, elem_size, buf, i, random_index() % (i + 1));
 	}
 }
 
-// TODO align the buffers?
-
 #define _arr_swap(a, idx1, idx2)					\
 	do {								\
-		unsigned char buf[sizeof((a)[0])];			\
+		unsigned char _Alignas(16) buf[sizeof((a)[0])];		\
 		_arr_swap_elements((a), sizeof((a)[0]), buf, (idx1), (idx2)); \
 	} while (0)
 
-#define _arr_reverse(a)					\
-	do {						\
-		unsigned char buf[sizeof((a)[0])];	\
-		_arr_reverse((a), sizeof((a)[0]), buf);	\
+#define _arr_reverse(a)						\
+	do {							\
+		unsigned char _Alignas(16) buf[sizeof((a)[0])];	\
+		_arr_reverse((a), sizeof((a)[0]), buf);		\
 	} while (0)
 
 #define _arr_shuffle(a, random)						\
 	do {								\
-		unsigned char buf[sizeof((a)[0])];			\
+		unsigned char _Alignas(16) buf[sizeof((a)[0])];		\
 		_arr_shuffle_elements((a), sizeof((a)[0]), buf, (random)); \
 	} while (0)
 
-#ifdef ARRAY_NO_TYPEOF
-# define _arr_last(a) ((a)[array_lasti(a)])
-#else
-# define _arr_last(a) (*(__ARRAY_TYPEOF(a))_arr_last_pointer((a), sizeof((a)[0])))
+#define _arr_last(a) (*(__ARRAY_TYPEOF(a))_arr_last_pointer((a), sizeof((a)[0])))
 static _arr_nonnull(1) _arr_maybe_unused void *_arr_last_pointer(void *arr, size_t elem_size)
 {
 	return (char *)arr + _arr_lasti(arr) * elem_size;
 }
-#endif
 
-#define _arr_add(a, v) ((void)(array_addn(a, 1), ((a)[array_lasti(a)] = (v))))
+#define _arr_add(a, v) ((void)(*array_addn(a, 1) = (v)))
 
-#define _arr_insert(a, i, v) ((void)(array_insertn(a, i, 1), ((a)[(i)] = (v)), &((a)[(i)])))
+#define _arr_insert(a, i, v) ((void)(*array_insertn(a, i, 1) = (v)))
 
-#ifdef ARRAY_NO_TYPEOF
-# if ARRAY_SAFETY_CHECKS
-#  define _arr_pop(a) (assert(!array_empty(a)), (a)[--_arrhead(a)->len])
-# else
-#  define _arr_pop(a) ((a)[--_arrhead(a)->len])
-# endif
-#else
-# define _arr_pop(a) (*(__ARRAY_TYPEOF(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
+#define _arr_pop(a) (*(__ARRAY_TYPEOF(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
 static _arr_nonnull(1) _arr_maybe_unused void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)
 {
+#ifndef ARRAY_NO_SAFETY_CHECKS
+	assert(!array_empty(arr));
+#endif
 	_arrhead(arr)->len--;
 	return (char *)arr + _arr_len(arr) * elem_size;
 }
-#endif
 
-#define _arr_fori(a, itername) for (size_t (itername) = 0, _arr_iter_end_##__LINE__ = array_len(a); (itername) < _arr_iter_end_##__LINE__; (itername)++)
+#define _arr_fori(a, itername) for (size_t (itername) = 0, _arr_iter_end_##__LINE__ = array_len(a); \
+				    (itername) < _arr_iter_end_##__LINE__; \
+				    (itername)++)
+
 #define _arr_fori_reverse(a, itername) for (size_t (itername) = array_len(a); (itername)-- > 0;)
-#ifndef ARRAY_NO_TYPEOF
-# define _arr_foreach(a, itername) for (__ARRAY_TYPEOF((a)[0]) *(itername) = (a), *_arr_iter_end_##__LINE__ = (itername) + array_len(a); (itername) < (_arr_iter_end_##__LINE__); (itername)++)
-# define _arr_foreach_reverse(a, itername) for (__ARRAY_TYPEOF((a)[0]) *_arr_iter_end_##__LINE__ = (a), *(itername) = (_arr_iter_end_##__LINE__) + array_len(a); (itername)-- > (a);)
-# define _arr_foreach_value(a, itername) for (__ARRAY_TYPEOF((a)[0]) (itername), *iter = (a), *_arr_iter_end_##__LINE__ = (a) + array_len(a); (iter) < (_arr_iter_end_##__LINE__) && ((itername) = *iter, 1); (iter)++)
-# define _arr_foreach_value_reverse(a, itername) for (__ARRAY_TYPEOF((a)[0]) (itername), *iter = (a) + array_len(a); iter-- > (a) && ((itername) = *iter, 1);)
-#else
-# define _arr_foreach(a, v) for (size_t _arr_loop_counter_##__LINE__ = 0, _arr_iter_end_##__LINE__ = array_len(a); _arr_loop_counter_##__LINE__ < _arr_iter_end_##__LINE__ && ((v) = &(a)[_arr_loop_counter_##__LINE__], 1); _arr_loop_counter_##__LINE__++)
-# define _arr_foreach_reverse(a, v) for (size_t _arr_loop_counter_##__LINE__ = array_len(a); _arr_loop_counter_##__LINE__-- > 0 && ((v) = &(a)[_arr_loop_counter_##__LINE__], 1);)
-# define _arr_foreach_value(a, v) for (size_t _arr_loop_counter_##__LINE__ = 0, _arr_iter_end_##__LINE__ = array_len(a); _arr_loop_counter_##__LINE__ < _arr_iter_end_##__LINE__ && ((v) = (a)[_arr_loop_counter_##__LINE__], 1); _arr_loop_counter_##__LINE__++)
-# define _arr_foreach_value_reverse(a, v) for (size_t _arr_loop_counter_##__LINE__ = array_len(a); _arr_loop_counter_##__LINE__-- > 0 && ((v) = (a)[_arr_loop_counter_##__LINE__], 1);)
-#endif
+
+#define _arr_foreach(a, itername)					\
+	for (__ARRAY_TYPEOF((a)[0]) *(itername) = (a), *_arr_end_##__LINE__ = (itername) + array_len(itername); \
+	     (itername) < (_arr_end_##__LINE__);			\
+	     (itername)++)
+
+#define _arr_foreach_reverse(a, itername)				\
+	for (__ARRAY_TYPEOF((a)[0]) *_arr_base_##__LINE__ = (a),	\
+		     *(itername) = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
+	     (itername)-- > _arr_base_##__LINE__;)
+
+#define _arr_foreach_value(a, itername)					\
+	for (__ARRAY_TYPEOF((a)[0]) (itername), *_arr_iter_##__LINE__ = (a), \
+		     *_arr_iter_end_##__LINE__ = (_arr_iter_##__LINE__) + array_len(_arr_iter_##__LINE__); \
+	     (_arr_iter_##__LINE__) < (_arr_iter_end_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1); \
+	     (_arr_iter_##__LINE__)++)
+
+#define _arr_foreach_value_reverse(a, itername)				\
+	for (__ARRAY_TYPEOF((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
+		     *_arr_iter_##__LINE__ = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
+	     (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
 
 #endif
