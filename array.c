@@ -3,8 +3,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <assert.h>
-// #define ARRAY_SAFETY_CHECKS 0
-// #define ARRAY_NO_TYPEOF
+// #define ARRAY_NO_SAFETY_CHECKS
 #include "array.h"
 
 static void print_array(int *arr, bool print_reverse)
@@ -65,6 +64,56 @@ int main(void)
 	array_add(x, 1);
 #endif
 	int *arr1 = NULL;
+
+#if 1
+	for (int i = 0; i < 200000; i++) {
+		array_add(arr1, i);
+		for (int j = 0; j <= i; j++) {
+			int x = ((volatile int *)arr1)[j];
+		}
+	}
+	array_free(arr1);
+	return 0;
+#endif
+
+#if 0
+	int K = 10000;
+	double o[3] = {0};
+	for (int k = 0; k < K; k++) {
+		int N = 10 * (k + 1);
+		ARRAY_GROWTH_FACTOR_NUMERATOR = 2;
+		ARRAY_GROWTH_FACTOR_DENOMINATOR = 1;
+		for (int i = 0; i < N; i++) {
+			array_add(arr1, i);
+		}
+		o[0] += (double)array_capacity(arr1) / array_len(arr1);
+		array_free(arr1);
+
+		ARRAY_GROWTH_FACTOR_NUMERATOR = 3;
+		ARRAY_GROWTH_FACTOR_DENOMINATOR = 2;
+		for (int i = 0; i < N; i++) {
+			array_add(arr1, i);
+		}
+		o[1] += (double)array_capacity(arr1) / array_len(arr1);
+		array_free(arr1);
+
+		ARRAY_GROWTH_FACTOR_NUMERATOR = 8;
+		ARRAY_GROWTH_FACTOR_DENOMINATOR = 5;
+		for (int i = 0; i < N; i++) {
+			array_add(arr1, i);
+		}
+		o[2] += (double)array_capacity(arr1) / array_len(arr1);
+		array_free(arr1);
+	}
+	o[0] /= K;
+	o[1] /= K;
+	o[2] /= K;
+	printf("%g\n", o[0]);
+	printf("%g\n", o[1]);
+	printf("%g\n", o[2]);
+
+	return 0;
+#endif
 
 #if 1
 	add_a_one(&arr1);
@@ -376,6 +425,7 @@ int main(void)
 	}
 
 	printf("%zu primes between 0 and %d\n", array_len(arr1), n);
+	// printf("array capacity: %zu\n", array_capacity(arr1));
 	array_free(arr1);
 #endif
 }

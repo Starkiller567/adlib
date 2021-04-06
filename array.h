@@ -43,6 +43,7 @@
 #ifndef __array_include__
 #define __array_include__
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -55,6 +56,23 @@
 #ifndef ARRAY_INITIAL_SIZE
 # define ARRAY_INITIAL_SIZE 8
 #endif
+
+#ifndef ARRAY_GROWTH_FACTOR_NUMERATOR
+// ARRAY_GROWTH_FACTOR=2
+// # define ARRAY_GROWTH_FACTOR_NUMERATOR 2
+// # define ARRAY_GROWTH_FACTOR_DENOMINATOR 1
+
+// ARRAY_GROWTH_FACTOR=1.5
+// # define ARRAY_GROWTH_FACTOR_NUMERATOR 3
+// # define ARRAY_GROWTH_FACTOR_DENOMINATOR 2
+
+// ARRAY_GROWTH_FACTOR=1.6 (~ golden ratio)
+# define ARRAY_GROWTH_FACTOR_NUMERATOR 8
+# define ARRAY_GROWTH_FACTOR_DENOMINATOR 5
+#endif
+
+_Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
+	       "array growth factor must be greater than one");
 
 #ifndef __ARRAY_TYPEOF
 # define __ARRAY_TYPEOF(x) __typeof__(x)
@@ -238,10 +256,14 @@
 # define _arr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
 # define _arr_maybe_unused                  __attribute__((unused))
 # define _arr_warn_unused_result            __attribute__((warn_unused_result))
+# define _arr_likely(expr)                  __builtin_expect(!!(expr), 1)
+# define _arr_unlikely(expr)                __builtin_expect(!!(expr), 0)
 #else
 # define _arr_nonnull(...)
 # define _arr_maybe_unused
 # define _arr_warn_unused_result
+# define _arr_likely(expr)                  (expr)
+# define _arr_unlikely(expr)                (expr)
 #endif
 
 #ifndef ARRAY_MAGIC1
@@ -309,7 +331,7 @@ static _arr_maybe_unused void _arr_truncate(void *arr, size_t newlen)
 static _arr_maybe_unused _arr_warn_unused_result
 void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 {
-	if (capacity == 0) {
+	if (_arr_unlikely(capacity == 0)) {
 		if (arr) {
 			free(_arrhead(arr));
 		}
@@ -320,7 +342,7 @@ void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 	assert(((capacity * elem_size) / elem_size == capacity) && new_size > sizeof(_arr));
 #endif
 	_arr *head;
-	if (!arr) {
+	if (_arr_unlikely(!arr)) {
 		head = malloc(new_size);
 		head->len = 0;
 #ifndef ARRAY_NO_SAFETY_CHECKS
@@ -328,8 +350,12 @@ void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 		head->magic2 = ARRAY_MAGIC2;
 #endif
 	} else {
-		head = realloc(_arrhead(arr), new_size);
-		if (head->len > capacity) {
+		head = _arrhead(arr);
+		if (_arr_unlikely(capacity == head->capacity)) {
+			return arr;
+		}
+		head = realloc(head, new_size);
+		if (_arr_unlikely(head->len > capacity)) {
 			head->len = capacity;
 		}
 	}
@@ -358,7 +384,7 @@ static _arr_maybe_unused _arr_warn_unused_result void *_arr_copy(const void *arr
 	return new_arr;
 }
 
-static _arr_maybe_unused void *_arr_move(void **arrp)
+static _arr_maybe_unused _arr_warn_unused_result void *_arr_move(void **arrp)
 {
 	void *arr = *arrp;
 	*arrp = NULL;
@@ -367,12 +393,20 @@ static _arr_maybe_unused void *_arr_move(void **arrp)
 
 static _arr_maybe_unused void _arr_grow(void **arrp, size_t elem_size, size_t n)
 {
-	if (n == 0) {
+	if (_arr_unlikely(n == 0)) {
 		return;
 	}
 	size_t capacity = _arr_capacity(*arrp);
-	size_t new_capacity = n < capacity ? 2 * capacity : capacity + n;
-	if (new_capacity < ARRAY_INITIAL_SIZE) {
+#ifndef ARRAY_NO_SAFETY_CHECKS
+	assert(SIZE_MAX - n >= capacity);
+#endif
+	const size_t numerator = ARRAY_GROWTH_FACTOR_NUMERATOR;
+	const size_t denominator = ARRAY_GROWTH_FACTOR_DENOMINATOR;
+	size_t new_capacity = (capacity + denominator - 1) / denominator * numerator;
+	if (_arr_unlikely(new_capacity < capacity + n)) {
+		new_capacity = capacity + n;
+	}
+	if (_arr_unlikely(new_capacity < ARRAY_INITIAL_SIZE)) {
 		new_capacity = ARRAY_INITIAL_SIZE;
 	}
 	*arrp = _arr_resize_internal(*arrp, elem_size, new_capacity);
@@ -400,10 +434,10 @@ static _arr_maybe_unused void _arr_make_valid(void **arrp, size_t elem_size, siz
 
 static _arr_maybe_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n)
 {
-	if (n == 0) {
+	if (_arr_unlikely(n == 0)) {
 		return NULL;
 	}
-	if (!(*arrp)) {
+	if (_arr_unlikely(!(*arrp))) {
 		_arr_grow(arrp, elem_size, n);
 		_arrhead(*arrp)->len = n;
 		return *arrp;
@@ -411,7 +445,7 @@ static _arr_maybe_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n
 	_arr *head = _arrhead(*arrp);
 	size_t old_len = head->len;
 	head->len += n;
-	if (head->len > head->capacity) {
+	if (_arr_unlikely(head->len > head->capacity)) {
 		_arr_grow(arrp, elem_size, head->len - head->capacity);
 	}
 	return (char *)(*arrp) + (old_len * elem_size);
@@ -420,7 +454,7 @@ static _arr_maybe_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n
 static _arr_maybe_unused void *_arr_addn_zero(void **arrp, size_t elem_size, size_t n)
 {
 	void *p = _arr_addn(arrp, elem_size, n);
-	if (p) {
+	if (_arr_likely(p)) {
 		memset(p, 0, elem_size * n);
 	}
 	return p;
@@ -433,11 +467,11 @@ static _arr_maybe_unused void *_arr_insertn(void **arrp, size_t elem_size, size_
 #ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(i <= len);
 #endif
+	if (_arr_unlikely(n == 0)) {
+		return NULL;
+	}
 	if (i == len) {
 		return _arr_addn(arrp, elem_size, n);
-	}
-	if (n == 0) {
-		return NULL;
 	}
 	_arr_addn(&arr, elem_size, n);
 	char *src = (char *)arr + i * elem_size;
@@ -450,7 +484,7 @@ static _arr_maybe_unused void *_arr_insertn(void **arrp, size_t elem_size, size_
 static _arr_maybe_unused void *_arr_insertn_zero(void **arrp, size_t elem_size, size_t i, size_t n)
 {
 	void *p = _arr_insertn(arrp, elem_size, i, n);
-	if (p) {
+	if (_arr_likely(p)) {
 		memset(p, 0, elem_size * n);
 	}
 	return p;
@@ -484,6 +518,14 @@ static _arr_maybe_unused void _arr_fast_deleten(void *arr, size_t elem_size, siz
 	_arrhead(arr)->len -= n;
 }
 
+static _arr_maybe_unused void _arr_popn(void *arr, size_t n)
+{
+#ifndef ARRAY_NO_SAFETY_CHECKS
+	assert(n <= _arr_len(arr));
+#endif
+	_arrhead(arr)->len -= n;
+}
+
 static _arr_maybe_unused void _arr_shrink_to_fit(void **arrp, size_t elem_size)
 {
 	*arrp = _arr_resize_internal(*arrp, elem_size, _arr_len(*arrp));
@@ -501,12 +543,6 @@ size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 	return index;
 }
 
-static _arr_nonnull(1) _arr_maybe_unused void _arr_popn(void *arr, size_t n)
-{
-	assert(n <= _arr_len(arr));
-	_arrhead(arr)->len -= n;
-}
-
 static _arr_maybe_unused void _arr_add_arrayn(void **arrp, size_t elem_size, const void *arr2, size_t n)
 {
 	void *dst = _arr_addn(arrp, elem_size, n);
@@ -517,7 +553,7 @@ static _arr_nonnull(3) _arr_maybe_unused
 void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
 {
 	size_t len = _arr_len(arr);
-	if (len != 0) {
+	if (_arr_likely(len != 0)) {
 		qsort(arr, len, elem_size, compare);
 	}
 }
@@ -526,7 +562,7 @@ static _arr_nonnull(3, 4) _arr_maybe_unused  _arr_warn_unused_result
 void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *))
 {
 	size_t len = _arr_len(arr);
-	if (len == 0) {
+	if (_arr_unlikely(len == 0)) {
 		return NULL;
 	}
 	return bsearch(key, arr, len, elem_size, compare);
@@ -564,9 +600,11 @@ void _arr_swap_elements_unchecked(void *arr, size_t elem_size, unsigned char *bu
 static _arr_nonnull(1, 3) _arr_maybe_unused
 void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t i, size_t j)
 {
+#ifndef ARRAY_NO_SAFETY_CHECKS
 	assert(i < array_len(arr));
 	assert(j < array_len(arr));
-	if (i != j) {
+#endif
+	if (_arr_likely(i != j)) {
 		_arr_swap_elements_unchecked(arr, elem_size, buf, i, j);
 	}
 }
@@ -581,7 +619,7 @@ static _arr_nonnull(3) _arr_maybe_unused void _arr_reverse(void *arr, size_t ele
 static _arr_nonnull(3, 4) _arr_maybe_unused
 void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size_t (*random_index)(void))
 {
-	if (array_empty(arr)) {
+	if (_arr_unlikely(array_empty(arr))) {
 		return;
 	}
 	for (size_t i = _arr_lasti(arr); i > 0; i--) {
@@ -653,5 +691,11 @@ static _arr_nonnull(1) _arr_maybe_unused void *_arr_pop_and_return_pointer(void 
 	for (__ARRAY_TYPEOF((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
 		     *_arr_iter_##__LINE__ = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
 	     (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
+
+#undef _arr_nonnull
+#undef _arr_maybe_unused
+#undef _arr_warn_unused_result
+#undef _arr_likely
+#undef _arr_unlikely
 
 #endif
