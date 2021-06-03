@@ -42,7 +42,7 @@ static bool avl_insert_key(struct avl_root *root, int key)
 {
 	struct avl_node *parent = NULL;
 	struct avl_node *cur = root->node;
-	int dir;
+	int dir = AVL_LEFT;
 	while (cur) {
 		if (key == to_thing(cur)->key) {
 			return false;

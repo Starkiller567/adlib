@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 #define N (1024 * 1024 * 1024)
-	static double numbers[N];
+	double *numbers = calloc(N, sizeof(numbers[0]));
 	for (size_t i = 0; i < N; i++) {
 		// numbers[i] = random_u64();
 		numbers[i] = random_u64_in_range(0, 100);

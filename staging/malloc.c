@@ -6,6 +6,16 @@
 #include <sys/mman.h>
 #include "malloc.h"
 
+/*
+ * TODO: Try an approach similar to partition_alloc in chrome:
+ * -tiers of slot sizes, e.g. range(start=0, stop=128, step=16), range(128, 512, 32), range(512, 4096, 64)
+ * -one bucket per slot size according to the size tiers
+ * -bucket = list of spans with the same size
+ * -span = memory area that contains n slots of the same size + one metadata header with freelist-pointer and allocation-bitmap
+ * -allocate separate range of pages for metadata
+ * -maybe use the old implementation for sizes greater than e.g. 512
+ */
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define DIV_ROUND_UP(a, b) (((a) + (b) - 1) / (b))
@@ -20,17 +30,14 @@ static const size_t FLAG_LAST   = 0x2;
 static const size_t FLAG_ZEROED = 0x4;
 static const size_t FLAG_BITS   = HEAP_ALIGNMENT - 1;
 
-#define PADDING_BYTES (HEAP_ALIGNMENT > 2 * sizeof(size_t) ? HEAP_ALIGNMENT - 2 * sizeof(size_t) : 0)
-
 struct memblock {
 	size_t prev_size;
 	size_t size;
-	unsigned char __padding[PADDING_BYTES];
-	unsigned char mem[0];
+	_Alignas(HEAP_ALIGNMENT) unsigned char mem[];
 };
 
 struct freeblock {
-	struct memblock memblock;
+	unsigned char memblock_bytes[sizeof(struct memblock)];
 	struct list_head list_head;
 };
 
@@ -270,7 +277,7 @@ static struct memblock *find_free_block(struct heap *heap, size_t size)
 	for (size_t i = size_to_bucket_index(size); i < HEAP_NBUCKETS; i++) {
 		// first fit
 		list_foreach_elem(&heap->free_list[i], cur, struct freeblock, list_head) {
-			struct memblock *block = &cur->memblock;
+			struct memblock *block = (struct memblock *)cur;
 			if (get_size(block) >= size) {
 				return block;
 			}

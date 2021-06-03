@@ -1,8 +1,9 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdarg.h>
-#include <unistd.h>
 #include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 // #define ARRAY_NO_SAFETY_CHECKS
 #include "array.h"
 
