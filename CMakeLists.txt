@@ -82,13 +82,15 @@ endif()
 option(BUILD_SINGLE_HEADER_LIBRARY "build single header library" ON)
 if(${BUILD_SINGLE_HEADER_LIBRARY})
   set(SINGLE_HEADER_GENERATOR ${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_single_header.py)
-  set(SINGLE_HEADERS_DIR single_headers)
+  set(SINGLE_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/single_headers)
   file(MAKE_DIRECTORY ${SINGLE_HEADERS_DIR})
   # set(DEPDIR ${CMAKE_CURRENT_BINARY_DIR}/depfiles/)
   # file(MAKE_DIRECTORY ${DEPDIR})
+  set(SINGLE_HEADER_FILES)
   foreach(SOURCE IN LISTS SOURCES)
     get_filename_component(BASENAME ${SOURCE} NAME_WLE)
-    set(DEST ${CMAKE_CURRENT_SOURCE_DIR}/${SINGLE_HEADERS_DIR}/${BASENAME}.h)
+    set(DEST ${SINGLE_HEADERS_DIR}/${BASENAME}.h)
+    list(APPEND SINGLE_HEADER_FILES ${DEST})
     # set(DEPFILE ${DEPDIR}/${BASENAME}.d)
     # add_custom_command(
     #   OUTPUT ${DEPFILE}
@@ -105,12 +107,12 @@ if(${BUILD_SINGLE_HEADER_LIBRARY})
       # DEPFILE ${DEPFILE}
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
-    add_custom_target(single_header_${BASENAME} ALL
-      SOURCES ${SINGLE_HEADER_GENERATOR}
-      DEPENDS ${DEST}
-    )
-    set_property(TARGET single_header_${BASENAME} PROPERTY INCLUDE_DIRECTORIES ${SOURCE_INCLUDE_DIRECTORY})
   endforeach()
+  add_custom_target(single_header_library ALL
+    SOURCES ${SINGLE_HEADER_GENERATOR}
+    DEPENDS ${SINGLE_HEADER_FILES}
+  )
+  set_property(TARGET single_header_library PROPERTY INCLUDE_DIRECTORIES ${SOURCE_INCLUDE_DIRECTORY})
 endif()
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
@@ -118,7 +120,7 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 if(${BUILD_SINGLE_HEADER_LIBRARY})
-  install(DIRECTORY ${CMAKE_SOURCE_DIR}/${SINGLE_HEADERS_DIR}
+  install(DIRECTORY ${SINGLE_HEADERS_DIR}
           DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
           FILES_MATCHING PATTERN "*.h")
 endif()
@@ -134,9 +136,19 @@ if(${BUILD_SHARED_LIBRARY})
   install(TARGETS ad-shared LIBRARY)
 endif()
 
-if(${BUILD_STATIC_LIBRARY})
+if(${BUILD_STATIC_LIBRARY} OR ${BUILD_SINGLE_HEADER_LIBRARY})
+  if(${BUILD_SINGLE_HEADER_LIBRARY})
+    if(${BUILD_STATIC_LIBRARY})
+      option(TESTS_USE_SINGLE_HEADERS "Use the single header library for the tests" OFF)
+    else()
+      set(TESTS_USE_SINGLE_HEADERS ON)
+    endif()
+  endif()
+
   enable_testing()
   add_subdirectory(tests)
 endif()
 
-add_subdirectory(staging)
+if(${BUILD_STATIC_LIBRARY})
+  add_subdirectory(staging)
+endif()

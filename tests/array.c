@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-// #define ARRAY_NO_SAFETY_CHECKS
 #include "array.h"
 
 static void print_array(int *arr, bool print_reverse)
@@ -59,64 +58,7 @@ static void add_a_one(array_t(int) *some_array)
 
 int main(void)
 {
-#if 0
-	int _x;
-	int *x = &_x;
-	array_add(x, 1);
-#endif
 	int *arr1 = NULL;
-
-#if 1
-	for (int i = 0; i < 200000; i++) {
-		array_add(arr1, i);
-		for (int j = 0; j <= i; j++) {
-			int x = ((volatile int *)arr1)[j];
-		}
-	}
-	array_free(arr1);
-	return 0;
-#endif
-
-#if 0
-	int K = 10000;
-	double o[3] = {0};
-	for (int k = 0; k < K; k++) {
-		int N = 10 * (k + 1);
-		ARRAY_GROWTH_FACTOR_NUMERATOR = 2;
-		ARRAY_GROWTH_FACTOR_DENOMINATOR = 1;
-		for (int i = 0; i < N; i++) {
-			array_add(arr1, i);
-		}
-		o[0] += (double)array_capacity(arr1) / array_len(arr1);
-		array_free(arr1);
-
-		ARRAY_GROWTH_FACTOR_NUMERATOR = 3;
-		ARRAY_GROWTH_FACTOR_DENOMINATOR = 2;
-		for (int i = 0; i < N; i++) {
-			array_add(arr1, i);
-		}
-		o[1] += (double)array_capacity(arr1) / array_len(arr1);
-		array_free(arr1);
-
-		ARRAY_GROWTH_FACTOR_NUMERATOR = 8;
-		ARRAY_GROWTH_FACTOR_DENOMINATOR = 5;
-		for (int i = 0; i < N; i++) {
-			array_add(arr1, i);
-		}
-		o[2] += (double)array_capacity(arr1) / array_len(arr1);
-		array_free(arr1);
-	}
-	o[0] /= K;
-	o[1] /= K;
-	o[2] /= K;
-	printf("%g\n", o[0]);
-	printf("%g\n", o[1]);
-	printf("%g\n", o[2]);
-
-	return 0;
-#endif
-
-#if 1
 	add_a_one(&arr1);
 	// array_push(arr1, 1);
 	array_push(arr1, 2);
@@ -219,6 +161,17 @@ int main(void)
 	print_array(arr2, true);
 	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_free(arr2);
+
+	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
+	array_fori(arr1, i) {
+		assert(array_index_of(arr1, &arr1[i]) == i);
+		assert(arr1[i] == i);
+	}
+	array_fori_reverse(arr1, i) {
+		assert(array_index_of(arr1, &arr1[i]) == i);
+		assert(arr1[i] == i);
+	}
+	array_free(arr1);
 
 	array_add_arrayn(arr1, digits, 10);
 	int *dest = array_addn(arr2, 10);
@@ -395,38 +348,4 @@ int main(void)
 	}
 	putchar('\n');
 	array_free(arr1);
-
-#else
-
-	int n = 300000;
-	for (int i = 0; i < n; i++) {
-		array_add(arr1, i);
-	}
-
-	array_fori(arr1, i) {
-		assert(array_index_of(arr1, &arr1[i]) == i);
-		assert(arr1[i] == i);
-	}
-
-	array_fori_reverse(arr1, i) {
-		assert(array_index_of(arr1, &arr1[i]) == i);
-		assert(arr1[i] == i);
-	}
-
-	array_ordered_deleten(arr1, 0, 2);
-
-	for (size_t i = 0; i < array_len(arr1); i++) {
-		for (size_t k = 0; k < (i + 1) / 2; k++) {
-			if (arr1[i] % arr1[k] == 0) {
-				array_ordered_delete(arr1, i);
-				i--;
-				break;
-			}
-		}
-	}
-
-	printf("%zu primes between 0 and %d\n", array_len(arr1), n);
-	// printf("array capacity: %zu\n", array_capacity(arr1));
-	array_free(arr1);
-#endif
 }
