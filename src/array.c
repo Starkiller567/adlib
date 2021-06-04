@@ -31,14 +31,14 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 		return NULL;
 	}
 	size_t new_size = sizeof(_arr) + (capacity * elem_size);
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 	assert(((capacity * elem_size) / elem_size == capacity) && new_size > sizeof(_arr));
 #endif
 	_arr *head;
 	if (unlikely(!arr)) {
 		head = malloc(new_size);
 		head->len = 0;
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 		head->magic1 = ARRAY_MAGIC1;
 		head->magic2 = ARRAY_MAGIC2;
 #endif
@@ -73,7 +73,7 @@ __AD_LINKAGE void _arr_grow(void **arrp, size_t elem_size, size_t n)
 		return;
 	}
 	size_t capacity = _arr_capacity(*arrp);
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 	assert(SIZE_MAX - n >= capacity);
 #endif
 	const size_t numerator = ARRAY_GROWTH_FACTOR_NUMERATOR;
@@ -123,7 +123,7 @@ __AD_LINKAGE void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t 
 {
 	void *arr = *arrp;
 	size_t len = _arr_len(arr);
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 	assert(i <= len);
 #endif
 	if (unlikely(n == 0)) {
@@ -143,7 +143,7 @@ __AD_LINKAGE void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t 
 __AD_LINKAGE void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
 	char *src = (char *)arr + (i + n) * elem_size;
@@ -155,7 +155,7 @@ __AD_LINKAGE void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, si
 __AD_LINKAGE void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
 	size_t len = _arr_len(arr);
-#ifndef ARRAY_NO_SAFETY_CHECKS
+#ifdef ARRAY_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
 	size_t k = len - (i + n);

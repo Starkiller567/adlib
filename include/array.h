@@ -55,7 +55,9 @@
 # include <assert.h>
 #endif
 
-_Static_assert(HAVE_TYPEOF, "the array implementation requires typeof");
+#ifndef HAVE_TYPEOF
+_Static_assert(0, "the array implementation requires typeof");
+#endif
 
 _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 	       "array growth factor must be greater than one");
