@@ -336,6 +336,7 @@ int main(void)
 	assert_array_content(arr1, 8, 3, 6, 1, 4, 9, 2, 7, 0, 5);
 	array_free(arr1);
 
+#if 0
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	for (size_t i = 0; i < 5; i++) {
 		array_shuffle(arr1, (size_t(*)(void))random);
@@ -348,4 +349,5 @@ int main(void)
 	}
 	putchar('\n');
 	array_free(arr1);
+#endif
 }
