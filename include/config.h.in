@@ -4,6 +4,7 @@
 #cmakedefine HAVE_TYPEOF 1
 #cmakedefine HAVE_ATTR_NONNULL 1
 #cmakedefine HAVE_ATTR_WARN_UNUSED_RESULT 1
+#cmakedefine HAVE_ATTR_FORMAT_PRINTF 1
 #cmakedefine HAVE_ATTR_UNUSED 1
 #cmakedefine HAVE_BUILTIN_EXPECT 1
 #cmakedefine HAVE_MALLOC_USABLE_SIZE 1
@@ -22,6 +23,12 @@
 # define _attr_warn_unused_result            __attribute__((warn_unused_result))
 #else
 # define _attr_warn_unused_result
+#endif
+
+#ifdef HAVE_ATTR_FORMAT_PRINTF
+# define _attr_format_printf(f, a)           __attribute__((format (printf, (f), (a))))
+#else
+# define _attr_format_printf(f, a)
 #endif
 
 #ifdef HAVE_ATTR_UNUSED
@@ -48,5 +55,9 @@
 
 #cmakedefine ARRAY_GROWTH_FACTOR_NUMERATOR   @ARRAY_GROWTH_FACTOR_NUMERATOR@
 #cmakedefine ARRAY_GROWTH_FACTOR_DENOMINATOR @ARRAY_GROWTH_FACTOR_DENOMINATOR@
+
+// dbuf
+
+#cmakedefine DBUF_INITIAL_SIZE               @DBUF_INITIAL_SIZE@
 
 #endif

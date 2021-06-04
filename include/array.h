@@ -67,7 +67,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // get number of elements in array (as size_t)
 #define array_len(a)                    _arr_len(a)
 
-// is array empty? (empty arrays are not always NULL due to array_reserve and array_reset)
+// is array empty? (empty arrays are not always NULL due to array_reserve and array_clear)
 #define array_empty(a)                  (_arr_len(a) == 0)
 
 #define array_lasti(a)                  _arr_lasti(a)
@@ -127,8 +127,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 #define array_insert(a, i, v)           _arr_insert(a, i, v)
 
 // set the length of the array to zero (but keep the allocated memory)
-#define array_reset(a)	                _arr_reset(a)
-#define array_clear(a)	                array_reset(a)
+#define array_clear(a)	                _arr_clear(a)
 
 // set the capacity of the array (truncates the array length if necessary)
 #define array_resize(a, capacity)       _arr_resize((void **)&(a), sizeof((a)[0]), (capacity))
@@ -263,16 +262,16 @@ typedef struct {
 
 #define _arrhead_const(a) ((const _arr *)_arrhead(a))
 
-__AD_LINKAGE _attr_warn_unused_result void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity);
-__AD_LINKAGE _attr_warn_unused_result void *_arr_copy(const void *arr, size_t elem_size);
-__AD_LINKAGE void _arr_grow(void **arrp, size_t elem_size, size_t n);
-__AD_LINKAGE void _arr_make_valid(void **arrp, size_t elem_size, size_t i);
-__AD_LINKAGE void *_arr_addn(void **arrp, size_t elem_size, size_t n);
-__AD_LINKAGE void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n);
-__AD_LINKAGE void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n);
-__AD_LINKAGE void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n);
-__AD_LINKAGE _attr_nonnull(3) void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *));
-__AD_LINKAGE void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_warn_unused_result _attr_unused void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity);
+__AD_LINKAGE _attr_warn_unused_result _attr_unused void *_arr_copy(const void *arr, size_t elem_size);
+__AD_LINKAGE _attr_unused void _arr_grow(void **arrp, size_t elem_size, size_t n);
+__AD_LINKAGE _attr_unused void _arr_make_valid(void **arrp, size_t elem_size, size_t i);
+__AD_LINKAGE _attr_unused void *_arr_addn(void **arrp, size_t elem_size, size_t n);
+__AD_LINKAGE _attr_unused void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n);
+__AD_LINKAGE _attr_unused void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n);
+__AD_LINKAGE _attr_unused void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n);
+__AD_LINKAGE _attr_nonnull(3) _attr_unused void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_unused void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *));
 
 static inline _attr_unused size_t _arr_len(const void *arr)
 {
@@ -293,7 +292,7 @@ static inline _attr_unused size_t _arr_capacity(const void *arr)
 	return arr ? _arrhead_const(arr)->capacity : 0;
 }
 
-static inline _attr_unused void _arr_reset(void *arr)
+static inline _attr_unused void _arr_clear(void *arr)
 {
 	if (arr) {
 		_arrhead(arr)->len = 0;

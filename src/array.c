@@ -22,7 +22,7 @@
 #include <string.h>
 #include "array.h"
 
-__AD_LINKAGE _attr_warn_unused_result void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
+__AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 {
 	if (unlikely(capacity == 0)) {
 		if (arr) {
@@ -56,7 +56,7 @@ __AD_LINKAGE _attr_warn_unused_result void *_arr_resize_internal(void *arr, size
 	return head + 1;
 }
 
-__AD_LINKAGE _attr_warn_unused_result void *_arr_copy(const void *arr, size_t elem_size)
+__AD_LINKAGE void *_arr_copy(const void *arr, size_t elem_size)
 {
 	void *new_arr = _arr_resize_internal(NULL, elem_size, _arr_capacity(arr));
 	if (!new_arr) {
@@ -168,7 +168,7 @@ __AD_LINKAGE void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_
 	_arrhead(arr)->len -= n;
 }
 
-__AD_LINKAGE _attr_nonnull(3) void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
+__AD_LINKAGE void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
 {
 	size_t len = _arr_len(arr);
 	if (likely(len != 0)) {
@@ -176,8 +176,8 @@ __AD_LINKAGE _attr_nonnull(3) void _arr_sort(void *arr, size_t elem_size, int (*
 	}
 }
 
-__AD_LINKAGE _attr_nonnull(3, 4) _attr_warn_unused_result
-void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *))
+__AD_LINKAGE void *_arr_bsearch(void *arr, size_t elem_size, const void *key,
+				int (*compare)(const void *, const void *))
 {
 	size_t len = _arr_len(arr);
 	if (unlikely(len == 0)) {

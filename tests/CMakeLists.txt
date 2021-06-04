@@ -3,6 +3,7 @@ project(adlib-tests)
 set(TESTS
   array
   array_perf
+  dbuf
 )
 
 foreach(TEST IN LISTS TESTS)
@@ -15,4 +16,3 @@ foreach(TEST IN LISTS TESTS)
   endif()
   add_test(${TEST} ${TEST})
 endforeach()
-

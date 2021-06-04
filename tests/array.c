@@ -103,7 +103,7 @@ int main(void)
 	array_popn(arr2, 10);
 	assert(array_len(arr2) == len - 10);
 
-	array_reset(arr2);
+	array_clear(arr2);
 	array_shrink_to_fit(arr2);
 
 	print_array(arr1, true);
@@ -200,7 +200,7 @@ int main(void)
 	array_fori(arr2, i) {
 		assert(arr2[i] == (int)i);
 	}
-	array_reset(arr2);
+	array_clear(arr2);
 
 	{
 		array_foreach_reverse(arr1, it) {
@@ -218,14 +218,14 @@ int main(void)
 			i++;
 		}
 	}
-	array_reset(arr2);
+	array_clear(arr2);
 
 	{
 		array_foreach_value(arr1, it) {
 			array_add(arr2, it);
 		}
 		assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		array_reset(arr2);
+		array_clear(arr2);
 		array_foreach_value_reverse(arr1, it) {
 			array_add(arr2, it);
 		}
@@ -233,7 +233,7 @@ int main(void)
 		assert(array_equal(arr1, arr2));
 		assert_array_content(arr1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 		assert_array_content(arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-		array_reset(arr1);
+		array_clear(arr1);
 		array_foreach_value_reverse(arr2, it) {
 			array_add(arr1, it);
 		}
@@ -270,7 +270,7 @@ int main(void)
 	array_add(arr1, 1);
 	array_addn_zero(arr1, 2);
 	assert_array_content(arr1, 0, 0, 1, 0, 0, 1, 0, 0);
-	array_reset(arr1);
+	array_clear(arr1);
 	array_addn_zero(arr1, 8);
 	assert(array_len(arr1) == 8);
 	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -299,7 +299,7 @@ int main(void)
 	array_insertn_zero(arr1, 3, 2);
 	array_insertn_zero(arr1, 6, 2);
 	assert_array_content(arr1, 0, 0, 1, 0, 0, 1, 0, 0);
-	array_reset(arr1);
+	array_clear(arr1);
 	array_insertn_zero(arr1, 0, 8);
 	assert(array_len(arr1) == 8);
 	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0);

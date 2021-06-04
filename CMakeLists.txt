@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -Wno-unused-function -Wno-unused-variable")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic")
 set(CMAKE_C_FLAGS_DEBUG "-Og -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -flto -march=native -mtune=native")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} -g")
@@ -25,6 +25,7 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} -g")
 check_c_source_compiles("int main() { __typeof__(int) x = 0; return x; }" HAVE_TYPEOF)
 check_c_source_compiles("void __attribute__((nonnull (1))) f(void *a) {} int main() { return 0; }" HAVE_ATTR_NONNULL)
 check_c_source_compiles("void __attribute__((warn_unused_result)) f(void *a) {} int main() { return 0; }" HAVE_ATTR_WARN_UNUSED_RESULT)
+check_c_source_compiles("void __attribute__((format (printf, 1, 2))) f(const char *fmt, ...) {} int main() { return 0; }" HAVE_ATTR_FORMAT_PRINTF)
 check_c_source_compiles("int main() { int x __attribute__((unused)) = 0; return x; }" HAVE_ATTR_UNUSED)
 check_c_source_compiles("int main() { if (__builtin_expect(0, 0)); return 0; }" HAVE_BUILTIN_EXPECT)
 check_symbol_exists(malloc_usable_size "malloc.h" HAVE_MALLOC_USABLE_SIZE)
@@ -35,12 +36,15 @@ set(ARRAY_INITIAL_SIZE 8 CACHE STRING "Initial size of an array")
 set(ARRAY_GROWTH_FACTOR_NUMERATOR 8 CACHE STRING "Numerator of the array growth factor")
 set(ARRAY_GROWTH_FACTOR_DENOMINATOR 5 CACHE STRING "Denominator of the array growth factor")
 
+set(DBUF_INITIAL_SIZE 16 CACHE STRING "Initial size of a dynamic byte buffer (dbuf)")
+
 configure_file(include/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h)
 
 add_compile_definitions(__AD_LINKAGE=)
 
 set(SOURCES
   array.c
+  dbuf.c
 )
 
 foreach(SOURCE IN LISTS SOURCES)

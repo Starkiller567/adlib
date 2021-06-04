@@ -1,10 +1,11 @@
 project(adlib-staging)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-function -Wno-unused-variable")
+
 set(EXECUTABLES
   avl_tree
   bitmap
   cbuf
-  dbuf
   endian
   error
   hashmap_test
