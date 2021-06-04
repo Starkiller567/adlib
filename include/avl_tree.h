@@ -23,6 +23,7 @@
 // TODO documentation, high-level API (see tests/avl_tree.c)
 
 #include <stdint.h>
+#include "macros.h"
 
 enum avl_direction {
 // don't change these without changing avl_d2b and avl_b2d and possibly other code
@@ -44,11 +45,11 @@ struct avl_root {
 #define avl_foreach(root, itername)					\
 	for (struct avl_node *(itername) = avl_first(root); (itername); (itername) = avl_next(cur))
 
-__AD_LINKAGE void avl_insert_node(struct avl_root *root, struct avl_node *node, struct avl_node *parent, enum avl_direction dir);
-__AD_LINKAGE void avl_remove_node(struct avl_root *root, struct avl_node *node);
-__AD_LINKAGE struct avl_node *avl_parent(const struct avl_node *node);
-__AD_LINKAGE struct avl_node *avl_first(const struct avl_root *root);
-__AD_LINKAGE struct avl_node *avl_next(const struct avl_node *node);
+__AD_LINKAGE _attr_unused void avl_insert_node(struct avl_root *root, struct avl_node *node, struct avl_node *parent, enum avl_direction dir);
+__AD_LINKAGE _attr_unused void avl_remove_node(struct avl_root *root, struct avl_node *node);
+__AD_LINKAGE _attr_unused struct avl_node *avl_parent(const struct avl_node *node);
+__AD_LINKAGE _attr_unused struct avl_node *avl_first(const struct avl_root *root);
+__AD_LINKAGE _attr_unused struct avl_node *avl_next(const struct avl_node *node);
 
 
 #endif
