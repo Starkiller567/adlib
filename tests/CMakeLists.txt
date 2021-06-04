@@ -3,7 +3,9 @@ project(adlib-tests)
 set(TESTS
   array
   array_perf
+  avl_tree
   dbuf
+  rb_tree
 )
 
 foreach(TEST IN LISTS TESTS)

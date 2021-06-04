@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <time.h>
 #include "rb_tree.h"
+#include "macros.h"
 
 struct thing {
 	int key;
@@ -134,6 +135,7 @@ static void debug_check_tree(struct rb_root *root)
 
 int main(void)
 {
+	unsigned int seed = 123456789;
 	struct rb_root root = RB_EMPTY_ROOT;
 #if 0
 	char buf[128];
@@ -161,49 +163,53 @@ int main(void)
 	}
 #endif
 
-#if 0
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+#if 1
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		rb_insert_key(&root, key);
 	}
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+	debug_check_tree(&root);
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct rb_node *node = rb_find(&root, key);
 		assert(node && to_thing(node)->key == key);
 	}
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct rb_node *node = rb_remove_key(&root, key);
 		assert(!node || to_thing(node)->key == key);
+		if (i % 1024 == 0) {
+			debug_check_tree(&root);
+		}
 	}
 	assert(root.node == NULL);
-	return 0;
 #endif
 
-#if 0
-	srand(0);
-	for (unsigned int i = 0; i < 5000000; i++) {
+#if 1
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		rb_insert_key(&root, key);
 	}
+	debug_check_tree(&root);
 	struct thing *prev = NULL;
-	rb_foreach(root) {
+	rb_foreach(&root, cur) {
 		struct thing *thing = to_thing(cur);
 		if (prev) {
 			assert(prev->key < thing->key);
 		}
 		prev = thing;
 	}
-	return 0;
+	rb_destroy_tree(&root);
 #endif
 
 #if 1
-	srand(time(NULL));
-	const int max_key = 10000;
-	for (unsigned int i = 0;; i++) {
+	srand(seed);
+	const int max_key = 1024;
+	for (unsigned int i = 0; i < 200000; i++) {
 		{
 			int key = rand() % max_key;
 			bool success = rb_insert_key(&root, key);
@@ -225,11 +231,11 @@ int main(void)
 			}
 		}
 
-		if (i % (1 << 20) == 0) {
+		if (i % 1024 == 0) {
 			debug_check_tree(&root);
-			printf("black depth: %d\n", black_depth);
-			printf("max depth: %d\n", max_depth);
-			printf("num nodes: %d\n", num_nodes);
+			// printf("black depth: %d\n", black_depth);
+			// printf("max depth: %d\n", max_depth);
+			// printf("num nodes: %d\n", num_nodes);
 		}
 	}
 	rb_destroy_tree(&root);

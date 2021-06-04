@@ -41,15 +41,15 @@
 //
 
 // TODO array_memset, array_set_all, array_push_repeat
-// TODO shrink array if capacity >> len?
 // TODO clearly define when reallocation happens
 // TODO handle non-standard alignments?
 
-#ifndef __array_include__
-#define __array_include__
+#ifndef __ARRAY_INCLUDE__
+#define __ARRAY_INCLUDE__
 
 #include <string.h>
 #include "config.h"
+#include "macros.h"
 
 #ifdef ARRAY_SAFETY_CHECKS
 # include <assert.h>
@@ -82,21 +82,21 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 #define array_free(a)                   _arr_free((void **)&(a))
 
 // make an exact copy of the array
-#define array_copy(a)	                ((ad_typeof(a))_arr_copy((a), sizeof((a)[0])))
+#define array_copy(a)	                ((typeof(a))_arr_copy((a), sizeof((a)[0])))
 
 // b = array_move(a) is equivalent to b = a, a = NULL
-#define array_move(a)	                ((ad_typeof(a))_arr_move((void **)&(a)))
+#define array_move(a)	                ((typeof(a))_arr_move((void **)&(a)))
 
 // add n unitialized elements to the end of the array and return a pointer to the first of those
 // (returns NULL if n is zero)
-#define array_addn(a, n)                ((ad_typeof(a))_arr_addn((void **)&(a), sizeof((a)[0]), (n)))
+#define array_addn(a, n)                ((typeof(a))_arr_addn((void **)&(a), sizeof((a)[0]), (n)))
 
 // add one unitialized element to the end of the array and return a pointer to it
 #define array_add1(a)                   array_addn((a), 1)
 
 // add n zeroed elements to the end of the array and return a pointer to the first of those
 // (returns NULL if n is zero)
-#define array_addn_zero(a, n)           ((ad_typeof(a))_arr_addn_zero((void **)&(a), sizeof((a)[0]), (n)))
+#define array_addn_zero(a, n)           ((typeof(a))_arr_addn_zero((void **)&(a), sizeof((a)[0]), (n)))
 
 // add one zeroed element to the end of the array and return a pointer to it
 #define array_add1_zero(a)              array_addn_zero((a), 1)
@@ -107,7 +107,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // insert n unitialized elements at index i and return a pointer to the first of them
 // (i must be less than or equal to array_len(a))
 // (returns NULL if n is zero)
-#define array_insertn(a, i, n)          (ad_typeof(a))_arr_insertn((void **)&(a), sizeof((a)[0]), (i), (n))
+#define array_insertn(a, i, n)          (typeof(a))_arr_insertn((void **)&(a), sizeof((a)[0]), (i), (n))
 
 // insert one unitialized element at index i and return a pointer to it
 // (i must be less than or equal to array_len(a))
@@ -116,7 +116,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // insert n zeroed elements at index i and return a pointer to the first of them
 // (i must be less than or equal to array_len(a))
 // (returns NULL if n is zero)
-#define array_insertn_zero(a, i, n)     (ad_typeof(a))_arr_insertn_zero((void **)&(a), sizeof((a)[0]), (i), (n))
+#define array_insertn_zero(a, i, n)     (typeof(a))_arr_insertn_zero((void **)&(a), sizeof((a)[0]), (i), (n))
 
 // insert one zeroed element at index i and return a pointer to it
 // (i must be less than or equal to array_len(a))
@@ -187,7 +187,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // search array for key with bsearch using compare function (see bsearch documentation)
 // (the type of key should be pointer to array element)
 // (the array needs to be sorted in ascending order according to the compare function)
-#define array_bsearch(a, key, compare)  ((ad_typeof(a))_arr_bsearch((a), sizeof((a)[0]), \
+#define array_bsearch(a, key, compare)  ((typeof(a))_arr_bsearch((a), sizeof((a)[0]), \
 									 1 ? (key) : (a), compare))
 
 // are arrays a and b equal in content? (byte-wise equality)
@@ -458,7 +458,7 @@ void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size
 		_arr_shuffle_elements((a), sizeof((a)[0]), buf, (random)); \
 	} while (0)
 
-#define _arr_last(a) (*(ad_typeof(a))_arr_last_pointer((a), sizeof((a)[0])))
+#define _arr_last(a) (*(typeof(a))_arr_last_pointer((a), sizeof((a)[0])))
 static inline _attr_nonnull(1) _attr_unused void *_arr_last_pointer(void *arr, size_t elem_size)
 {
 	return (char *)arr + _arr_lasti(arr) * elem_size;
@@ -468,7 +468,7 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_last_pointer(void *arr, s
 
 #define _arr_insert(a, i, v) ((void)(*array_insertn(a, i, 1) = (v)))
 
-#define _arr_pop(a) (*(ad_typeof(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
+#define _arr_pop(a) (*(typeof(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
 static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)
 {
 #ifdef ARRAY_SAFETY_CHECKS
@@ -485,23 +485,23 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(vo
 #define _arr_fori_reverse(a, itername) for (size_t (itername) = array_len(a); (itername)-- > 0;)
 
 #define _arr_foreach(a, itername)					\
-	for (ad_typeof((a)[0]) *(itername) = (a), *_arr_end_##__LINE__ = (itername) + array_len(itername); \
+	for (typeof((a)[0]) *(itername) = (a), *_arr_end_##__LINE__ = (itername) + array_len(itername); \
 	     (itername) < (_arr_end_##__LINE__);			\
 	     (itername)++)
 
 #define _arr_foreach_reverse(a, itername)				\
-	for (ad_typeof((a)[0]) *_arr_base_##__LINE__ = (a),	\
+	for (typeof((a)[0]) *_arr_base_##__LINE__ = (a),	\
 		     *(itername) = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
 	     (itername)-- > _arr_base_##__LINE__;)
 
 #define _arr_foreach_value(a, itername)					\
-	for (ad_typeof((a)[0]) (itername), *_arr_iter_##__LINE__ = (a), \
+	for (typeof((a)[0]) (itername), *_arr_iter_##__LINE__ = (a), \
 		     *_arr_iter_end_##__LINE__ = (_arr_iter_##__LINE__) + array_len(_arr_iter_##__LINE__); \
 	     (_arr_iter_##__LINE__) < (_arr_iter_end_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1); \
 	     (_arr_iter_##__LINE__)++)
 
 #define _arr_foreach_value_reverse(a, itername)				\
-	for (ad_typeof((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
+	for (typeof((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
 		     *_arr_iter_##__LINE__ = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
 	     (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
 

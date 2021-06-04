@@ -44,7 +44,10 @@ add_compile_definitions(__AD_LINKAGE=)
 
 set(SOURCES
   array.c
+  avl_tree.c
   dbuf.c
+  macros.c
+  rb_tree.c
 )
 
 foreach(SOURCE IN LISTS SOURCES)

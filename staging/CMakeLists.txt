@@ -3,7 +3,6 @@ project(adlib-staging)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-function -Wno-unused-variable")
 
 set(EXECUTABLES
-  avl_tree
   bitmap
   cbuf
   endian
@@ -17,7 +16,6 @@ set(EXECUTABLES
   mem_arena
   mprintf
   random
-  rb_tree
   sort
 )
 

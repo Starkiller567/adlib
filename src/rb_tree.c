@@ -1,41 +1,26 @@
-#ifndef __RB_TREE_INCLUDE__
-#define __RB_TREE_INCLUDE__
+/*
+ * Copyright (C) 2020-2021 Fabian Hügel
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
-#include <stdint.h>
-#ifndef container_of
-#include <stddef.h>
-// from wikipedia, the ternary operator forces matching types on pointer and member
-#define container_of(ptr, type, member)				\
-((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
-#endif
-
-#define RB_LEFT 0
-#define RB_RIGHT 1
-
-struct rb_node {
-	uintptr_t __parent_color;
-	struct rb_node *children[2];
-};
-
-struct rb_root {
-	struct rb_node *node;
-};
-
-#define RB_EMPTY_ROOT ((struct rb_root){NULL})
-
-#define rb_foreach(root) for (struct rb_node *cur = rb_first(root); cur; cur = rb_next(cur))
-
-static struct rb_node *rb_first(struct rb_root *root);
-static struct rb_node *rb_next(struct rb_node *node);
-static void rb_remove_node(struct rb_root *root, struct rb_node *node);
-static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, int dir);
-static inline struct rb_node *rb_parent(struct rb_node *node);
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                           IMPLEMENTATION                                             //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include <assert.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include "rb_tree.h"
 
 /* From Wikipedia:
  * 1) Each node is either red or black.
@@ -49,63 +34,63 @@ static inline struct rb_node *rb_parent(struct rb_node *node);
 #define RB_RED 0
 #define RB_BLACK 1
 
-static inline struct rb_node *__rb_parent(uintptr_t pc)
+static inline struct rb_node *_rb_parent(uintptr_t pc)
 {
 	return (struct rb_node *)(pc & ~1);
 }
 
-static inline uintptr_t __rb_color(uintptr_t pc)
+static inline uintptr_t _rb_color(uintptr_t pc)
 {
 	return (pc & 1);
 }
 
-static inline struct rb_node *rb_parent(struct rb_node *node)
+__AD_LINKAGE inline struct rb_node *rb_parent(const struct rb_node *node)
 {
-	return __rb_parent(node->__parent_color);
+	return _rb_parent(node->_parent_color);
 }
 
-static inline uintptr_t rb_color(struct rb_node *node)
+static inline uintptr_t rb_color(const struct rb_node *node)
 {
-	return __rb_color(node->__parent_color);
+	return _rb_color(node->_parent_color);
 }
 
-static inline void rb_set_parent(struct rb_node *node, struct rb_node *parent)
+static inline void rb_set_parent(struct rb_node *node, const struct rb_node *parent)
 {
 	/* assert(((uintptr_t)parent & 1) == 0); */
-	node->__parent_color = rb_color(node) | (uintptr_t)parent;
+	node->_parent_color = rb_color(node) | (uintptr_t)parent;
 }
 
 static inline void rb_set_color(struct rb_node *node, uintptr_t color)
 {
 	/* assert(color == RB_RED || color == RB_BLACK); */
-	node->__parent_color = (uintptr_t)rb_parent(node) | color;
+	node->_parent_color = (uintptr_t)rb_parent(node) | color;
 }
 
-static inline bool rb_is_red(struct rb_node *node)
+static inline bool rb_is_red(const struct rb_node *node)
 {
 	return rb_color(node) == RB_RED;
 }
 
-static inline bool rb_is_black(struct rb_node *node)
+static inline bool rb_is_black(const struct rb_node *node)
 {
 	return rb_color(node) == RB_BLACK;
 }
 
-static inline bool rb_is_null_or_black(struct rb_node *node)
+static inline bool rb_is_null_or_black(const struct rb_node *node)
 {
 	// technically null nodes are leaves and therefore black
 	return !node || rb_is_black(node);
 }
 
-static inline struct rb_node *rb_red_parent(struct rb_node *node)
+static inline struct rb_node *rb_red_parent(const struct rb_node *node)
 {
 	// somehow neither gcc nor clang can optimize the additional 'and' away
 	// even if it knows the bottom bit is zero (red)
 	/* assert(rb_is_red(node)); */
-	return (struct rb_node *)node->__parent_color;
+	return (struct rb_node *)node->_parent_color;
 }
 
-static inline void rb_change_child(struct rb_node *old_child, struct rb_node *new_child,
+static inline void rb_change_child(const struct rb_node *old_child, struct rb_node *new_child,
 				   struct rb_node *parent, struct rb_root *root)
 {
 	if (parent) {
@@ -119,7 +104,7 @@ static inline void rb_change_child(struct rb_node *old_child, struct rb_node *ne
 	}
 }
 
-static struct rb_node *rb_first(struct rb_root *root)
+__AD_LINKAGE struct rb_node *rb_first(const struct rb_root *root)
 {
 	struct rb_node *node = NULL;
 	struct rb_node *cur = root->node;
@@ -130,14 +115,14 @@ static struct rb_node *rb_first(struct rb_root *root)
 	return node;
 }
 
-static struct rb_node *rb_next(struct rb_node *node)
+__AD_LINKAGE struct rb_node *rb_next(const struct rb_node *node)
 {
 	if (node->children[RB_RIGHT]) {
 		node = node->children[RB_RIGHT];
 		while (node->children[RB_LEFT]) {
 			node = node->children[RB_LEFT];
 		}
-		return node;
+		return (struct rb_node *)node;
 	}
 
 	struct rb_node *parent = rb_parent(node);
@@ -155,15 +140,15 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 	// since we are always the left child on the first iteration this is fine
 	struct rb_node *node = NULL;
 	for (;;) {
-		int dir = RB_LEFT;
+		enum rb_direction dir = RB_LEFT;
 		struct rb_node *sibling = parent->children[RB_RIGHT];
 		if (node == sibling) {
 			dir = RB_RIGHT;
 			sibling = parent->children[RB_LEFT];
 		}
 
-		int left_dir = dir;
-		int right_dir = 1 - dir;
+		enum rb_direction left_dir = dir;
+		enum rb_direction right_dir = 1 - dir;
 
 		if (rb_is_red(sibling)) {
 			// rotate left(/right) at parent
@@ -173,7 +158,7 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 			rb_set_parent(parent->children[right_dir], parent);
 			sibling->children[left_dir] = parent;
 			rb_change_child(parent, sibling, rb_parent(parent), root);
-			sibling->__parent_color = parent->__parent_color;
+			sibling->_parent_color = parent->_parent_color;
 			rb_set_parent(parent, sibling);
 			rb_set_color(parent, RB_RED);
 			sibling = tmp;
@@ -216,7 +201,7 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 		}
 		sibling->children[left_dir] = parent;
 		rb_change_child(parent, sibling, rb_parent(parent), root);
-		sibling->__parent_color = parent->__parent_color;
+		sibling->_parent_color = parent->_parent_color;
 		rb_set_parent(parent, sibling);
 		rb_set_color(sibling->children[right_dir], RB_BLACK);
 		/* assert(rb_parent(sibling->children[right_dir]) == sibling); */
@@ -226,7 +211,7 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 	}
 }
 
-static void rb_remove_node(struct rb_root *root, struct rb_node *node)
+__AD_LINKAGE void rb_remove_node(struct rb_root *root, struct rb_node *node)
 {
 	struct rb_node *child = node->children[RB_RIGHT];
 	struct rb_node *tmp = node->children[RB_LEFT];
@@ -235,19 +220,19 @@ static void rb_remove_node(struct rb_root *root, struct rb_node *node)
 
 	// removal + trivial repairs
 	if (!tmp) {
-		pc = node->__parent_color;
-		struct rb_node *parent = __rb_parent(pc);
+		pc = node->_parent_color;
+		struct rb_node *parent = _rb_parent(pc);
 		rb_change_child(node, child, parent, root);
 		if (child) {
-			child->__parent_color = pc;
+			child->_parent_color = pc;
 			rebalance = NULL;
 		} else {
-			rebalance = (__rb_color(pc) == RB_BLACK) ? parent : NULL;
+			rebalance = (_rb_color(pc) == RB_BLACK) ? parent : NULL;
 		}
 	} else if (!child) {
-		pc = node->__parent_color;
-		tmp->__parent_color = pc;
-		struct rb_node *parent = __rb_parent(pc);
+		pc = node->_parent_color;
+		tmp->_parent_color = pc;
+		struct rb_node *parent = _rb_parent(pc);
 		rb_change_child(node, tmp, parent, root);
 		rebalance = NULL;
 	} else {
@@ -273,8 +258,8 @@ static void rb_remove_node(struct rb_root *root, struct rb_node *node)
 		successor->children[RB_LEFT] = tmp;
 		rb_set_parent(tmp, successor);
 
-		pc = node->__parent_color;
-		tmp = __rb_parent(pc);
+		pc = node->_parent_color;
+		tmp = _rb_parent(pc);
 		rb_change_child(node, successor, tmp, root);
 
 		if (child2) {
@@ -284,7 +269,7 @@ static void rb_remove_node(struct rb_root *root, struct rb_node *node)
 		} else {
 			rebalance = rb_is_black(successor) ? parent : NULL;
 		}
-		successor->__parent_color = pc;
+		successor->_parent_color = pc;
 	}
 
 	if (rebalance) {
@@ -292,7 +277,7 @@ static void rb_remove_node(struct rb_root *root, struct rb_node *node)
 	}
 }
 
-static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, int dir)
+__AD_LINKAGE void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, enum rb_direction dir)
 {
 	assert(((uintptr_t)node & 1) == 0);
 	node->children[RB_LEFT] = NULL;
@@ -321,8 +306,8 @@ static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb
 		}
 
 		if (rb_is_null_or_black(uncle)) {
-			int left_dir = dir;
-			int right_dir = 1 - dir;
+			enum rb_direction left_dir = dir;
+			enum rb_direction right_dir = 1 - dir;
 			if (node == parent->children[right_dir]) {
 				// rotate left(/right) at parent
 				parent->children[right_dir] = node->children[left_dir];
@@ -367,5 +352,3 @@ static void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb
 		}
 	}
 }
-
-#endif

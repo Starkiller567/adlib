@@ -17,10 +17,11 @@
  * SOFTWARE.
  */
 
-#ifndef __dbuf_include__
-#define __dbuf_include__
+#ifndef __DBUF_INCLUDE__
+#define __DBUF_INCLUDE__
 
 #include "config.h"
+#include "macros.h"
 
 struct dbuf {
 	// do not access these fields directly

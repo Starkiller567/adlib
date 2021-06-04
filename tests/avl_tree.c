@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <time.h>
 #include "avl_tree.h"
+#include "macros.h"
 
 struct thing {
 	int key;
@@ -111,6 +112,7 @@ static int debug_check_tree(struct avl_root *root)
 
 int main(void)
 {
+	unsigned int seed = 123456789;
 	struct avl_root root = AVL_EMPTY_ROOT;
 #if 0
 	char buf[128];
@@ -138,49 +140,53 @@ int main(void)
 	}
 #endif
 
-#if 0
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+#if 1
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		avl_insert_key(&root, key);
 	}
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+	debug_check_tree(&root);
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct avl_node *node = avl_find(&root, key);
 		assert(node && to_thing(node)->key == key);
 	}
-	srand(0);
-	for (unsigned int i = 0; i < 3000000; i++) {
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct avl_node *node = avl_remove_key(&root, key);
 		assert(!node || to_thing(node)->key == key);
+		if (i % 1024 == 0) {
+			debug_check_tree(&root);
+		}
 	}
 	assert(root.node == NULL);
-	return 0;
 #endif
 
-#if 0
-	srand(0);
-	for (unsigned int i = 0; i < 5000000; i++) {
+#if 1
+	srand(seed);
+	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		avl_insert_key(&root, key);
 	}
+	debug_check_tree(&root);
 	struct thing *prev = NULL;
-	avl_foreach(root) {
+	avl_foreach(&root, cur) {
 		struct thing *thing = to_thing(cur);
 		if (prev) {
 			assert(prev->key < thing->key);
 		}
 		prev = thing;
 	}
-	return 0;
+	avl_destroy_tree(&root);
 #endif
 
 #if 1
-	srand(time(NULL));
-	const int max_key = 1000000;
-	for (unsigned int i = 0;; i++) {
+	srand(seed);
+	const int max_key = 1024;
+	for (unsigned int i = 0; i < 200000; i++) {
 		{
 			int key = rand() % max_key;
 			bool success = avl_insert_key(&root, key);
@@ -192,7 +198,6 @@ int main(void)
 			}
 			assert(to_thing(avl_find(&root, key))->key == key);
 		}
-
 		{
 			int key = rand() % max_key;
 			struct avl_node *node = avl_find(&root, key);
@@ -203,10 +208,10 @@ int main(void)
 			}
 		}
 
-		if (i % (1 << 20) == 0) {
-			int depth = debug_check_tree(&root);
-			printf("max depth: %d\n", depth);
-			printf("num nodes: %d\n", num_nodes);
+		if (i % 1024 == 0) {
+			debug_check_tree(&root);
+			// printf("max depth: %d\n", depth);
+			// printf("num nodes: %d\n", num_nodes);
 		}
 	}
 	avl_destroy_tree(&root);
