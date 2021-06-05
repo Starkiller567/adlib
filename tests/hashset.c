@@ -5,10 +5,6 @@
 #include <stdbool.h>
 #include <time.h>
 #include "array.h"
-// #include "hashtable_linked.h"
-// #include "hashtable_chunked.h"
-// #include "hashtable_maxdist.h"
-// #include "hashtable_robinhood.h"
 #include "hashtable.h"
 
 static inline uint32_t integer_hash(uint32_t x)
@@ -26,7 +22,7 @@ static int cmp_int(const void *a, const void *b)
 	return *(const int *)a - *(const int *)b;
 }
 
-DEFINE_HASHMAP(itable, int, int, 8, (*a == *b))
+DEFINE_HASHSET(itable, int, 8, (*a == *b))
 
 int main(int argc, char **argv)
 {
@@ -37,7 +33,7 @@ int main(int argc, char **argv)
 	printf("seed: %u\n", seed);
 	srand(seed);
 
-	for (unsigned long counter = 0; counter < 500000; counter++) {
+	for (unsigned long counter = 0; counter < 100000; counter++) {
 		int r = rand() % 128;
 		if (r < 100) {
 			int x = rand() % (1 << 20);
@@ -56,29 +52,27 @@ int main(int argc, char **argv)
 			} else {
 				assert(!found);
 				item = itable_insert(&itable, x, integer_hash(x));
-				*item = x;
+				assert(*item == x);
 				array_add(arr, x);
 			}
 		} else if (array_len(arr) != 0) {
-			int key, item;
+			int key;
 			int idx = rand() % array_len(arr);
 			int x = arr[idx];
-			bool removed = itable_remove(&itable, x, integer_hash(x), &key, &item);
+			bool removed = itable_remove(&itable, x, integer_hash(x), &key);
 			assert(removed);
 			array_fast_delete(arr, idx);
 		}
 
 		if (counter % 4096 == 0) {
-			int *i;
-			array_foreach(arr, i) {
-				assert(itable_lookup(&itable, *i, integer_hash(*i)));
+			array_foreach_value(arr, i) {
+				assert(itable_lookup(&itable, i, integer_hash(i)));
 			}
 			int *arr2 = NULL;
 			array_reserve(arr2, array_len(arr));
 			for (itable_iter_t iter = itable_iter_start(&itable);
 			     !itable_iter_finished(&iter);
 			     itable_iter_advance(&iter)) {
-				assert(*iter.key == *iter.value);
 				array_add(arr2, *iter.key);
 			}
 			array_sort(arr, cmp_int);

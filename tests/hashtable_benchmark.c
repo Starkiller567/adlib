@@ -5,15 +5,41 @@
 #include <stdbool.h>
 #include <time.h>
 #include "array.h"
-#include "mprintf.h"
+#include "config.h"
+#include "macros.h"
 #include "random.h"
-// #include "hashtable_linked.h"
-// #include "hashtable_chunked.h"
-// #include "hashtable_maxdist.h"
-// #include "hashtable_robinhood.h"
 #include "hashtable.h"
 
 #define N 2
+
+// TODO remove this eventually
+#include <stdarg.h>
+static char * _attr_format_printf(1, 2)
+mprintf(const char *fmt, ...)
+{
+	char buf[256];
+
+	va_list args;
+	va_start(args, fmt);
+	size_t n = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	char *str = malloc(n + 1);
+	if (!str) {
+		return NULL;
+	}
+
+	if (n < sizeof(buf)) {
+		memcpy(str, buf, n + 1);
+		return str;
+	}
+
+	va_start(args, fmt);
+	vsnprintf(str, n + 1, fmt, args);
+	va_end(args);
+
+	return str;
+}
 
 static struct random_state g_random_state;
 
@@ -37,6 +63,7 @@ static inline uint32_t bad_integer_hash(uint32_t x)
 	return x;
 }
 
+// https://github.com/PeterScott/murmur3
 static uint32_t string_hash(const void *string)
 {
 	const void *data = string;
@@ -122,10 +149,10 @@ static unsigned long bad_short_string_hash(const struct short_string s)
 	return bad_string_hash(s.s);
 }
 
-static unsigned long long tp_to_ns(struct timespec *tp)
-{
-	return tp->tv_nsec + 1000000000 * tp->tv_sec;
-}
+// static unsigned long long tp_to_ns(struct timespec *tp)
+// {
+// 	return tp->tv_nsec + 1000000000 * tp->tv_sec;
+// }
 
 static unsigned long long ns_elapsed(struct timespec *start, struct timespec *end)
 {
@@ -348,12 +375,11 @@ int main(int argc, char **argv)
 
 		BENCHMARK(stable, bad_hash ? bad_string_hash : string_hash, char *, char *, arr1, arr1, arr2, arr2, arr3, arr3, arr4, arr4, strcmp(*k, *v) == 0);
 
-		char **iter;
-		array_foreach(arr1, iter) {
-			free(*iter);
+		array_foreach_value(arr1, iter) {
+			free(iter);
 		}
-		array_foreach(arr3, iter) {
-			free(*iter);
+		array_foreach_value(arr3, iter) {
+			free(iter);
 		}
 		array_free(arr1);
 		array_free(arr2);
@@ -395,7 +421,6 @@ int main(int argc, char **argv)
 		struct short_string *values4 = array_copy(values1);
 		array_shuffle(values4, random_size_t);
 
-		struct short_string *iter;
 		char **keys1 = NULL;
 		array_reserve(keys1, num_items);
 		array_foreach(values1, iter) {
@@ -419,18 +444,17 @@ int main(int argc, char **argv)
 
 		BENCHMARK(sstable, bad_hash ? bad_string_hash : string_hash, char *, struct short_string, keys1, values1, keys2, values2, keys3, values3, keys4, values4, strcmp(*k, v->s) == 0);
 
-		char **s;
-		array_foreach(keys1, s) {
-			free(*s);
+		array_foreach_value(keys1, s) {
+			free(s);
 		}
-		array_foreach(keys2, s) {
-			free(*s);
+		array_foreach_value(keys2, s) {
+			free(s);
 		}
-		array_foreach(keys3, s) {
-			free(*s);
+		array_foreach_value(keys3, s) {
+			free(s);
 		}
-		array_foreach(keys4, s) {
-			free(*s);
+		array_foreach_value(keys4, s) {
+			free(s);
 		}
 		array_free(keys1);
 		array_free(keys2);

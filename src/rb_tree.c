@@ -34,55 +34,55 @@
 #define RB_RED 0
 #define RB_BLACK 1
 
-static inline struct rb_node *_rb_parent(uintptr_t pc)
+static inline struct rb_node *_rb__parent(uintptr_t pc)
 {
 	return (struct rb_node *)(pc & ~1);
 }
 
-static inline uintptr_t _rb_color(uintptr_t pc)
+static inline uintptr_t _rb__color(uintptr_t pc)
 {
 	return (pc & 1);
 }
 
 __AD_LINKAGE inline struct rb_node *rb_parent(const struct rb_node *node)
 {
-	return _rb_parent(node->_parent_color);
+	return _rb__parent(node->_parent_color);
 }
 
-static inline uintptr_t rb_color(const struct rb_node *node)
+static inline uintptr_t _rb_color(const struct rb_node *node)
 {
-	return _rb_color(node->_parent_color);
+	return _rb__color(node->_parent_color);
 }
 
-static inline void rb_set_parent(struct rb_node *node, const struct rb_node *parent)
+static inline void _rb_set_parent(struct rb_node *node, const struct rb_node *parent)
 {
 	/* assert(((uintptr_t)parent & 1) == 0); */
-	node->_parent_color = rb_color(node) | (uintptr_t)parent;
+	node->_parent_color = _rb_color(node) | (uintptr_t)parent;
 }
 
-static inline void rb_set_color(struct rb_node *node, uintptr_t color)
+static inline void _rb_set_color(struct rb_node *node, uintptr_t color)
 {
 	/* assert(color == RB_RED || color == RB_BLACK); */
 	node->_parent_color = (uintptr_t)rb_parent(node) | color;
 }
 
-static inline bool rb_is_red(const struct rb_node *node)
+static inline bool _rb_is_red(const struct rb_node *node)
 {
-	return rb_color(node) == RB_RED;
+	return _rb_color(node) == RB_RED;
 }
 
-static inline bool rb_is_black(const struct rb_node *node)
+static inline bool _rb_is_black(const struct rb_node *node)
 {
-	return rb_color(node) == RB_BLACK;
+	return _rb_color(node) == RB_BLACK;
 }
 
-static inline bool rb_is_null_or_black(const struct rb_node *node)
+static inline bool _rb_is_null_or_black(const struct rb_node *node)
 {
 	// technically null nodes are leaves and therefore black
-	return !node || rb_is_black(node);
+	return !node || _rb_is_black(node);
 }
 
-static inline struct rb_node *rb_red_parent(const struct rb_node *node)
+static inline struct rb_node *_rb_red_parent(const struct rb_node *node)
 {
 	// somehow neither gcc nor clang can optimize the additional 'and' away
 	// even if it knows the bottom bit is zero (red)
@@ -90,8 +90,8 @@ static inline struct rb_node *rb_red_parent(const struct rb_node *node)
 	return (struct rb_node *)node->_parent_color;
 }
 
-static inline void rb_change_child(const struct rb_node *old_child, struct rb_node *new_child,
-				   struct rb_node *parent, struct rb_root *root)
+static inline void _rb_change_child(const struct rb_node *old_child, struct rb_node *new_child,
+				    struct rb_node *parent, struct rb_root *root)
 {
 	if (parent) {
 		if (old_child == parent->children[RB_LEFT]) {
@@ -134,7 +134,7 @@ __AD_LINKAGE struct rb_node *rb_next(const struct rb_node *node)
 	return parent;
 }
 
-static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
+static void _rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 {
 	// we only use node at the start to figure out which child node is,
 	// since we are always the left child on the first iteration this is fine
@@ -150,27 +150,27 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 		enum rb_direction left_dir = dir;
 		enum rb_direction right_dir = 1 - dir;
 
-		if (rb_is_red(sibling)) {
+		if (_rb_is_red(sibling)) {
 			// rotate left(/right) at parent
 			struct rb_node *tmp = sibling->children[left_dir];
 			parent->children[right_dir] = tmp;
 			/* assert(rb_color(parent->children[right_dir]) == RB_BLACK); */
-			rb_set_parent(parent->children[right_dir], parent);
+			_rb_set_parent(parent->children[right_dir], parent);
 			sibling->children[left_dir] = parent;
-			rb_change_child(parent, sibling, rb_parent(parent), root);
+			_rb_change_child(parent, sibling, rb_parent(parent), root);
 			sibling->_parent_color = parent->_parent_color;
-			rb_set_parent(parent, sibling);
-			rb_set_color(parent, RB_RED);
+			_rb_set_parent(parent, sibling);
+			_rb_set_color(parent, RB_RED);
 			sibling = tmp;
-			rb_set_color(parent, RB_RED);
+			_rb_set_color(parent, RB_RED);
 		}
 
-		if (rb_is_null_or_black(sibling->children[RB_RIGHT]) &&
-		    rb_is_null_or_black(sibling->children[RB_LEFT])) {
+		if (_rb_is_null_or_black(sibling->children[RB_RIGHT]) &&
+		    _rb_is_null_or_black(sibling->children[RB_LEFT])) {
 			/* assert(rb_parent(sibling) == parent); */
-			rb_set_color(sibling, RB_RED);
-			if (rb_is_red(parent)) {
-				rb_set_color(parent, RB_BLACK);
+			_rb_set_color(sibling, RB_RED);
+			if (_rb_is_red(parent)) {
+				_rb_set_color(parent, RB_BLACK);
 			} else {
 				node = parent;
 				parent = rb_parent(node);
@@ -181,31 +181,31 @@ static void rb_remove_repair(struct rb_root *root, struct rb_node *parent)
 			break;
 		}
 
-		if (rb_is_null_or_black(sibling->children[right_dir])) {
+		if (_rb_is_null_or_black(sibling->children[right_dir])) {
 			// rotate right at sibling
 			struct rb_node *tmp = sibling->children[left_dir];
 			sibling->children[left_dir] = tmp->children[right_dir];
 			if (sibling->children[left_dir]) {
 				/* assert(rb_is_black(sibling->children[left_dir])); */
-				rb_set_parent(sibling->children[left_dir], sibling);
+				_rb_set_parent(sibling->children[left_dir], sibling);
 			}
 			tmp->children[right_dir] = sibling;
 			parent->children[right_dir] = tmp;
-			rb_set_parent(sibling, tmp);
+			_rb_set_parent(sibling, tmp);
 			sibling = tmp;
 		}
 		// rotate left at parent
 		parent->children[right_dir] = sibling->children[left_dir];
 		if (parent->children[right_dir]) {
-			rb_set_parent(parent->children[right_dir], parent);
+			_rb_set_parent(parent->children[right_dir], parent);
 		}
 		sibling->children[left_dir] = parent;
-		rb_change_child(parent, sibling, rb_parent(parent), root);
+		_rb_change_child(parent, sibling, rb_parent(parent), root);
 		sibling->_parent_color = parent->_parent_color;
-		rb_set_parent(parent, sibling);
-		rb_set_color(sibling->children[right_dir], RB_BLACK);
+		_rb_set_parent(parent, sibling);
+		_rb_set_color(sibling->children[right_dir], RB_BLACK);
 		/* assert(rb_parent(sibling->children[right_dir]) == sibling); */
-		rb_set_color(parent, RB_BLACK);
+		_rb_set_color(parent, RB_BLACK);
 
 		break;
 	}
@@ -221,19 +221,19 @@ __AD_LINKAGE void rb_remove_node(struct rb_root *root, struct rb_node *node)
 	// removal + trivial repairs
 	if (!tmp) {
 		pc = node->_parent_color;
-		struct rb_node *parent = _rb_parent(pc);
-		rb_change_child(node, child, parent, root);
+		struct rb_node *parent = _rb__parent(pc);
+		_rb_change_child(node, child, parent, root);
 		if (child) {
 			child->_parent_color = pc;
 			rebalance = NULL;
 		} else {
-			rebalance = (_rb_color(pc) == RB_BLACK) ? parent : NULL;
+			rebalance = (_rb__color(pc) == RB_BLACK) ? parent : NULL;
 		}
 	} else if (!child) {
 		pc = node->_parent_color;
 		tmp->_parent_color = pc;
-		struct rb_node *parent = _rb_parent(pc);
-		rb_change_child(node, tmp, parent, root);
+		struct rb_node *parent = _rb__parent(pc);
+		_rb_change_child(node, tmp, parent, root);
 		rebalance = NULL;
 	} else {
 		struct rb_node *successor = child, *child2, *parent;
@@ -251,29 +251,29 @@ __AD_LINKAGE void rb_remove_node(struct rb_root *root, struct rb_node *node)
 			child2 = successor->children[RB_RIGHT];
 			parent->children[RB_LEFT] = child2;
 			successor->children[RB_RIGHT] = child;
-			rb_set_parent(child, successor);
+			_rb_set_parent(child, successor);
 		}
 
 		tmp = node->children[RB_LEFT];
 		successor->children[RB_LEFT] = tmp;
-		rb_set_parent(tmp, successor);
+		_rb_set_parent(tmp, successor);
 
 		pc = node->_parent_color;
-		tmp = _rb_parent(pc);
-		rb_change_child(node, successor, tmp, root);
+		tmp = _rb__parent(pc);
+		_rb_change_child(node, successor, tmp, root);
 
 		if (child2) {
-			rb_set_color(child2, RB_BLACK);
-			rb_set_parent(child2, parent);
+			_rb_set_color(child2, RB_BLACK);
+			_rb_set_parent(child2, parent);
 			rebalance = NULL;
 		} else {
-			rebalance = rb_is_black(successor) ? parent : NULL;
+			rebalance = _rb_is_black(successor) ? parent : NULL;
 		}
 		successor->_parent_color = pc;
 	}
 
 	if (rebalance) {
-		rb_remove_repair(root, rebalance);
+		_rb_remove_repair(root, rebalance);
 	}
 }
 
@@ -282,22 +282,22 @@ __AD_LINKAGE void rb_insert_node(struct rb_root *root, struct rb_node *node, str
 	assert(((uintptr_t)node & 1) == 0);
 	node->children[RB_LEFT] = NULL;
 	node->children[RB_RIGHT] = NULL;
-	rb_set_parent(node, parent);
+	_rb_set_parent(node, parent);
 	if (!parent) {
-		rb_set_color(node, RB_BLACK);
+		_rb_set_color(node, RB_BLACK);
 		root->node = node;
 		return;
 	}
-	rb_set_color(node, RB_RED);
+	_rb_set_color(node, RB_RED);
 	parent->children[dir] = node;
 
 	// repair (generic)
 	for (;;) {
-		if (rb_is_black(parent)) {
+		if (_rb_is_black(parent)) {
 			break;
 		}
 
-		struct rb_node *grandparent = rb_red_parent(parent);
+		struct rb_node *grandparent = _rb_red_parent(parent);
 		dir = RB_RIGHT;
 		struct rb_node *uncle = grandparent->children[RB_LEFT];
 		if (parent == uncle) {
@@ -305,49 +305,49 @@ __AD_LINKAGE void rb_insert_node(struct rb_root *root, struct rb_node *node, str
 			uncle = grandparent->children[RB_RIGHT];
 		}
 
-		if (rb_is_null_or_black(uncle)) {
+		if (_rb_is_null_or_black(uncle)) {
 			enum rb_direction left_dir = dir;
 			enum rb_direction right_dir = 1 - dir;
 			if (node == parent->children[right_dir]) {
 				// rotate left(/right) at parent
 				parent->children[right_dir] = node->children[left_dir];
 				if (parent->children[right_dir]) {
-					rb_set_parent(parent->children[right_dir], parent);
+					_rb_set_parent(parent->children[right_dir], parent);
 				}
 				node->children[left_dir] = parent;
 				grandparent->children[left_dir] = node;
 				// rb_set_parent(node, grandparent); we overwrite this later anyway
-				rb_set_parent(parent, node);
+				_rb_set_parent(parent, node);
 				parent = node;
 			}
 
 			// rotate right(/left) at grandparent
 			grandparent->children[left_dir] = parent->children[right_dir];
 			if (grandparent->children[left_dir]) {
-				rb_set_parent(grandparent->children[left_dir], grandparent);
+				_rb_set_parent(grandparent->children[left_dir], grandparent);
 			}
 			parent->children[right_dir] = grandparent;
 
 			struct rb_node *greatgrandparent = rb_parent(grandparent);
-			rb_change_child(grandparent, parent, greatgrandparent, root);
+			_rb_change_child(grandparent, parent, greatgrandparent, root);
 
-			rb_set_parent(parent, greatgrandparent);
-			rb_set_color(parent, RB_BLACK);
+			_rb_set_parent(parent, greatgrandparent);
+			_rb_set_color(parent, RB_BLACK);
 
-			rb_set_parent(grandparent, parent);
-			rb_set_color(grandparent, RB_RED);
+			_rb_set_parent(grandparent, parent);
+			_rb_set_color(grandparent, RB_RED);
 
 			break;
 		}
 
-		rb_set_color(parent, RB_BLACK);
-		rb_set_color(uncle, RB_BLACK);
-		rb_set_color(grandparent, RB_RED);
+		_rb_set_color(parent, RB_BLACK);
+		_rb_set_color(uncle, RB_BLACK);
+		_rb_set_color(grandparent, RB_RED);
 		node = grandparent;
-		parent = rb_red_parent(node);
+		parent = _rb_red_parent(node);
 
 		if (!parent) {
-			rb_set_color(node, RB_BLACK);
+			_rb_set_color(node, RB_BLACK);
 			break;
 		}
 	}

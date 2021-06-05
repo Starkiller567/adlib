@@ -21,13 +21,13 @@
 #include <stdlib.h>
 #include "avl_tree.h"
 
-static inline int avl_d2b(enum avl_direction dir)
+static inline int _avl_d2b(enum avl_direction dir)
 {
 	/* assert(dir == AVL_LEFT || dir == AVL_RIGHT); */
 	return 2 * dir - 1;
 }
 
-static inline enum avl_direction avl_b2d(int balance)
+static inline enum avl_direction _avl_b2d(int balance)
 {
 	/* assert(balance == -1 || balance == 1); */
 	return (balance + 1) / 2;
@@ -38,25 +38,25 @@ __AD_LINKAGE inline struct avl_node *avl_parent(const struct avl_node *node)
 	return (struct avl_node *)(node->_parent_balance & ~0x3);
 }
 
-static inline int avl_balance(const struct avl_node *node)
+static inline int _avl_balance(const struct avl_node *node)
 {
 	return (int)(node->_parent_balance & 0x3) - 1;
 }
 
-static inline void avl_set_parent(struct avl_node *node, const struct avl_node *parent)
+static inline void _avl_set_parent(struct avl_node *node, const struct avl_node *parent)
 {
 	/* assert(((uintptr_t)parent & 0x3) == 0); */
 	node->_parent_balance = (node->_parent_balance & 0x3) | (uintptr_t)parent;
 }
 
-static inline void avl_set_balance(struct avl_node *node, int balance)
+static inline void _avl_set_balance(struct avl_node *node, int balance)
 {
 	/* assert(-1 <= balance && balance <= 1); */
 	node->_parent_balance = (node->_parent_balance & ~0x3) | (balance + 1);
 }
 
-static inline void avl_change_child(const struct avl_node *old_child, struct avl_node *new_child,
-                                    struct avl_node *parent, struct avl_root *root)
+static inline void _avl_change_child(const struct avl_node *old_child, struct avl_node *new_child,
+				     struct avl_node *parent, struct avl_root *root)
 {
 	if (parent) {
 		if (old_child == parent->children[AVL_LEFT]) {
@@ -70,7 +70,7 @@ static inline void avl_change_child(const struct avl_node *old_child, struct avl
 	}
 }
 
-static inline enum avl_direction avl_dir_of_child(const struct avl_node *child, const struct avl_node *parent)
+static inline enum avl_direction _avl_dir_of_child(const struct avl_node *child, const struct avl_node *parent)
 {
 	if (child == parent->children[AVL_LEFT]) {
 		return AVL_LEFT;
@@ -80,17 +80,17 @@ static inline enum avl_direction avl_dir_of_child(const struct avl_node *child, 
 	}
 }
 
-static struct avl_node *avl_single_rotate(struct avl_node *node, enum avl_direction dir)
+static struct avl_node *_avl_single_rotate(struct avl_node *node, enum avl_direction dir)
 {
 	enum avl_direction left_dir = dir;
 	enum avl_direction right_dir = 1 - dir;
 	struct avl_node *child = node->children[right_dir];
 	node->children[right_dir] = child->children[left_dir];
 	if (node->children[right_dir]) {
-		avl_set_parent(node->children[right_dir], node);
+		_avl_set_parent(node->children[right_dir], node);
 	}
 	child->children[left_dir] = node;
-	avl_set_parent(node, child);
+	_avl_set_parent(node, child);
 
 #if 0
 	if (avl_balance(child) == 0) {
@@ -101,14 +101,14 @@ static struct avl_node *avl_single_rotate(struct avl_node *node, enum avl_direct
 		avl_set_balance(child, 0);
 	}
 #else
-	int balance = (~avl_balance(child) & 1) * avl_d2b(right_dir);
-	avl_set_balance(node, balance);
-	avl_set_balance(child, -balance);
+	int balance = (~_avl_balance(child) & 1) * _avl_d2b(right_dir);
+	_avl_set_balance(node, balance);
+	_avl_set_balance(child, -balance);
 #endif
 	return child;
 }
 
-static struct avl_node *avl_double_rotate(struct avl_node *node, enum avl_direction dir)
+static struct avl_node *_avl_double_rotate(struct avl_node *node, enum avl_direction dir)
 {
 	enum avl_direction left_dir = dir;
 	enum avl_direction right_dir = 1 - dir;
@@ -116,26 +116,26 @@ static struct avl_node *avl_double_rotate(struct avl_node *node, enum avl_direct
 	struct avl_node *left = child->children[left_dir];
 	node->children[right_dir] = left->children[left_dir];
 	if (node->children[right_dir]) {
-		avl_set_parent(node->children[right_dir], node);
+		_avl_set_parent(node->children[right_dir], node);
 	}
 	child->children[left_dir] = left->children[right_dir];
 	if (child->children[left_dir]) {
-		avl_set_parent(child->children[left_dir], child);
+		_avl_set_parent(child->children[left_dir], child);
 	}
 	left->children[left_dir] = node;
-	avl_set_parent(node, left);
+	_avl_set_parent(node, left);
 	left->children[right_dir] = child;
-	avl_set_parent(child, left);
+	_avl_set_parent(child, left);
 
 #if 1
-	int d = avl_balance(left) - avl_d2b(right_dir);
+	int d = _avl_balance(left) - _avl_d2b(right_dir);
 	d = (d | (d >> 1)) & 1;
-	int x = avl_d2b(d * right_dir + (1 - d) * left_dir);
-	int b = avl_balance(left) & 1;
+	int x = _avl_d2b(d * right_dir + (1 - d) * left_dir);
+	int b = _avl_balance(left) & 1;
 	int node_balance = b * ((1 - d) * x);
 	int child_balance = b * (d * x);
-	avl_set_balance(node, node_balance);
-	avl_set_balance(child, child_balance);
+	_avl_set_balance(node, node_balance);
+	_avl_set_balance(child, child_balance);
 #else
 	if (avl_balance(left) == 0) {
 		avl_set_balance(node, 0);
@@ -149,20 +149,20 @@ static struct avl_node *avl_double_rotate(struct avl_node *node, enum avl_direct
 	}
 #endif
 
-	avl_set_balance(left, 0);
+	_avl_set_balance(left, 0);
 	return left;
 }
 
-static struct avl_node *avl_rotate(struct avl_node *node, enum avl_direction dir)
+static struct avl_node *_avl_rotate(struct avl_node *node, enum avl_direction dir)
 {
 	/* assert(dir == AVL_LEFT || dir == AVL_RIGHT); */
 	enum avl_direction left_dir = dir;
 	enum avl_direction right_dir = 1 - dir;
 	struct avl_node *child = node->children[right_dir];
-	if (avl_balance(child) == avl_d2b(left_dir)) {
-		node = avl_double_rotate(node, left_dir);
+	if (_avl_balance(child) == _avl_d2b(left_dir)) {
+		node = _avl_double_rotate(node, left_dir);
 	} else {
-		node = avl_single_rotate(node, left_dir);
+		node = _avl_single_rotate(node, left_dir);
 	}
 	return node;
 }
@@ -211,8 +211,8 @@ __AD_LINKAGE void avl_remove_node(struct avl_root *root, struct avl_node *node)
 		// replace with the leftmost node in the right subtree
 		// or the rightmost node in the left subtree depending
 		// on which subtree is higher
-		int balance = avl_balance(node);
-		dir = balance == 0 ? AVL_RIGHT : avl_b2d(balance);
+		int balance = _avl_balance(node);
+		dir = balance == 0 ? AVL_RIGHT : _avl_b2d(balance);
 
 		child = node->children[dir];
 		parent = node;
@@ -225,7 +225,7 @@ __AD_LINKAGE void avl_remove_node(struct avl_root *root, struct avl_node *node)
 			}
 		}
 
-		avl_change_child(node, child, avl_parent(node), root);
+		_avl_change_child(node, child, avl_parent(node), root);
 		child->_parent_balance = node->_parent_balance;
 
 		enum avl_direction left_dir = dir;
@@ -234,18 +234,18 @@ __AD_LINKAGE void avl_remove_node(struct avl_root *root, struct avl_node *node)
 		struct avl_node *right = child->children[right_dir];
 
 		child->children[right_dir] = node->children[right_dir];
-		avl_set_parent(child->children[right_dir], child);
+		_avl_set_parent(child->children[right_dir], child);
 
 		if (node == parent) {
 			parent = child;
 		} else {
 			parent->children[left_dir] = right;
 			if (parent->children[left_dir]) {
-				avl_set_parent(parent->children[left_dir], parent);
+				_avl_set_parent(parent->children[left_dir], parent);
 			}
 
 			child->children[left_dir] = node->children[left_dir];
-			avl_set_parent(child->children[left_dir], child);
+			_avl_set_parent(child->children[left_dir], child);
 		}
 		goto rebalance;
 	}
@@ -255,10 +255,10 @@ __AD_LINKAGE void avl_remove_node(struct avl_root *root, struct avl_node *node)
 		root->node = NULL;
 		return;
 	}
-	dir = avl_dir_of_child(node, parent);
+	dir = _avl_dir_of_child(node, parent);
 	parent->children[dir] = child;
 	if (child) {
-		avl_set_parent(child, parent);
+		_avl_set_parent(child, parent);
 	}
 
 rebalance:
@@ -266,22 +266,22 @@ rebalance:
 		struct avl_node *grandparent = avl_parent(parent);
 		enum avl_direction left_dir = dir;
 		enum avl_direction right_dir = 1 - dir;
-		int balance = avl_balance(parent);
+		int balance = _avl_balance(parent);
 		if (balance == 0) {
-			avl_set_balance(parent, avl_d2b(right_dir));
+			_avl_set_balance(parent, _avl_d2b(right_dir));
 			break;
 		}
-		if (balance == avl_d2b(right_dir)) {
-			balance = avl_balance(parent->children[right_dir]);
-			node = avl_rotate(parent, left_dir);
+		if (balance == _avl_d2b(right_dir)) {
+			balance = _avl_balance(parent->children[right_dir]);
+			node = _avl_rotate(parent, left_dir);
 
-			avl_change_child(parent, node, grandparent, root);
-			avl_set_parent(node, grandparent);
+			_avl_change_child(parent, node, grandparent, root);
+			_avl_set_parent(node, grandparent);
 			if (balance == 0) {
 				break;
 			}
 		} else {
-			avl_set_balance(parent, 0);
+			_avl_set_balance(parent, 0);
 			node = parent;
 		}
 
@@ -289,15 +289,15 @@ rebalance:
 		if (!parent) {
 			break;
 		}
-		dir = avl_dir_of_child(node, parent);
+		dir = _avl_dir_of_child(node, parent);
 	}
 }
 
 __AD_LINKAGE void avl_insert_node(struct avl_root *root, struct avl_node *node, struct avl_node *parent, enum avl_direction dir)
 {
 	assert(((uintptr_t)node & 0x3) == 0);
-	avl_set_parent(node, parent);
-	avl_set_balance(node, 0);
+	_avl_set_parent(node, parent);
+	_avl_set_balance(node, 0);
 	node->children[AVL_LEFT] = NULL;
 	node->children[AVL_RIGHT] = NULL;
 
@@ -311,25 +311,25 @@ __AD_LINKAGE void avl_insert_node(struct avl_root *root, struct avl_node *node, 
 		struct avl_node *grandparent = avl_parent(parent);
 		enum avl_direction left_dir = dir;
 		enum avl_direction right_dir = 1 - dir;
-		int balance = avl_balance(parent);
-		if (balance == avl_d2b(right_dir)) {
-			avl_set_balance(parent, 0);
+		int balance = _avl_balance(parent);
+		if (balance == _avl_d2b(right_dir)) {
+			_avl_set_balance(parent, 0);
 			break;
 		}
-		if (balance == avl_d2b(left_dir)) {
-			node = avl_rotate(parent, right_dir);
-			avl_change_child(parent, node, grandparent, root);
-			avl_set_parent(node, grandparent);
+		if (balance == _avl_d2b(left_dir)) {
+			node = _avl_rotate(parent, right_dir);
+			_avl_change_child(parent, node, grandparent, root);
+			_avl_set_parent(node, grandparent);
 			break;
 		}
 
-		avl_set_balance(parent, avl_d2b(left_dir));
+		_avl_set_balance(parent, _avl_d2b(left_dir));
 
 		node = parent;
 		parent = grandparent;
 		if (!parent) {
 			break;
 		}
-		dir = avl_dir_of_child(node, parent);
+		dir = _avl_dir_of_child(node, parent);
 	}
 }

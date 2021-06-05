@@ -7,6 +7,11 @@
 #include "avl_tree.h"
 #include "macros.h"
 
+static inline int avl_balance(const struct avl_node *node)
+{
+	return (int)(node->_parent_balance & 0x3) - 1;
+}
+
 struct thing {
 	int key;
 	struct avl_node avl_node;
@@ -157,7 +162,10 @@ int main(void)
 	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct avl_node *node = avl_remove_key(&root, key);
-		assert(!node || to_thing(node)->key == key);
+		if (node) {
+			assert(to_thing(node)->key == key);
+			free(to_thing(node));
+		}
 		if (i % 1024 == 0) {
 			debug_check_tree(&root);
 		}

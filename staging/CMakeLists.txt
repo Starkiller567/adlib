@@ -7,15 +7,11 @@ set(EXECUTABLES
   cbuf
   endian
   error
-  hashmap_test
-  hashset_test
-  hashtable_benchmark
   list
   malloc
   mbuf
   mem_arena
   mprintf
-  random
   sort
 )
 

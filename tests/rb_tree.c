@@ -7,6 +7,16 @@
 #include "rb_tree.h"
 #include "macros.h"
 
+static inline bool rb_is_red(const struct rb_node *node)
+{
+	return (node->_parent_color & 1) == 0;
+}
+
+static inline bool rb_is_black(const struct rb_node *node)
+{
+	return (node->_parent_color & 1) == 1;
+}
+
 struct thing {
 	int key;
 	struct rb_node rb_node;
@@ -180,7 +190,10 @@ int main(void)
 	for (unsigned int i = 0; i < 200000; i++) {
 		int key = rand();
 		struct rb_node *node = rb_remove_key(&root, key);
-		assert(!node || to_thing(node)->key == key);
+		if (node) {
+			assert(to_thing(node)->key == key);
+			free(to_thing(node));
+		}
 		if (i % 1024 == 0) {
 			debug_check_tree(&root);
 		}

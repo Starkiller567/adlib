@@ -24,4 +24,10 @@
 
 #cmakedefine DBUF_INITIAL_SIZE               @DBUF_INITIAL_SIZE@
 
+// hashtable
+
+#cmakedefine HASHTABLE_QUADRATIC 1
+#cmakedefine HASHTABLE_HOPSCOTCH 1
+#cmakedefine HASHTABLE_ROBINHOOD 1
+
 #endif

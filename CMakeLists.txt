@@ -38,6 +38,17 @@ set(ARRAY_GROWTH_FACTOR_DENOMINATOR 5 CACHE STRING "Denominator of the array gro
 
 set(DBUF_INITIAL_SIZE 16 CACHE STRING "Initial size of a dynamic byte buffer (dbuf)")
 
+set(HASHTABLE_IMPLEMENTATION "QUADRATIC" CACHE STRING "Hashtable implementation (QUADRATIC/HOPSCOTCH/ROBINHOOD)")
+if(HASHTABLE_IMPLEMENTATION STREQUAL "QUADRATIC")
+  set(HASHTABLE_QUADRATIC ON CACHE BOOL "")
+elseif(HASHTABLE_IMPLEMENTATION STREQUAL "HOPSCOTCH")
+  set(HASHTABLE_HOPSCOTCH ON CACHE BOOL "")
+elseif(HASHTABLE_IMPLEMENTATION STREQUAL "ROBINHOOD")
+  set(HASHTABLE_ROBINHOOD ON CACHE BOOL "")
+else()
+  message(FATAL_ERROR "Invalid hashtable implementation.")
+endif()
+
 configure_file(include/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h)
 
 add_compile_definitions(__AD_LINKAGE=)
@@ -46,7 +57,9 @@ set(SOURCES
   array.c
   avl_tree.c
   dbuf.c
+  hashtable.c
   macros.c
+  random.c
   rb_tree.c
 )
 

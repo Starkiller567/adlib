@@ -1,10 +1,19 @@
 project(adlib-tests)
 
+option(TESTS_ENABLE_SANITIZERS "enable sanitizers for the tests" OFF)
+if(${TESTS_ENABLE_SANITIZERS})
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address,undefined")
+endif()
+
 set(TESTS
   array
-  array_perf
+  array_benchmark
   avl_tree
   dbuf
+  hashmap
+  hashset
+  hashtable_benchmark
+  random
   rb_tree
 )
 
