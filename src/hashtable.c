@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "hashtable.h"
+#include "macros.h"
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
@@ -122,6 +123,9 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
+	if (unlikely(!table->storage)) {
+		abort();
+	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
 						    _hashtable_metadata_offset(table->capacity, info));
 }
@@ -459,6 +463,9 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
+	if (unlikely(!table->storage)) {
+		abort();
+	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
 						    _hashtable_metadata_offset(table->capacity, info));
 }
@@ -896,6 +903,9 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
+	if (unlikely(!table->storage)) {
+		abort();
+	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
 						    _hashtable_metadata_offset(table->capacity, info));
 }

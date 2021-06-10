@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "array.h"
+#include "macros.h"
 
 __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity)
 {
@@ -37,6 +38,9 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 	_arr *head;
 	if (unlikely(!arr)) {
 		head = malloc(new_size);
+		if (unlikely(!head)) {
+			abort();
+		}
 		head->len = 0;
 #ifdef ARRAY_SAFETY_CHECKS
 		head->magic1 = ARRAY_MAGIC1;
@@ -44,6 +48,9 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 #endif
 	} else {
 		head = _arrhead(arr);
+		if (unlikely(!head)) {
+			abort();
+		}
 		if (unlikely(capacity == head->capacity)) {
 			return arr;
 		}

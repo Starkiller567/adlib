@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_C_FLAGS_DEBUG "-Og -g")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -flto -march=native -mtune=native")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} -g")
@@ -22,7 +22,7 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} -g")
 # find_package(Threads REQUIRED)
 # target_link_libraries(my_app PRIVATE Threads::Threads)
 
-check_c_source_compiles("int main() { __typeof__(int) x = 0; return x; }" HAVE_TYPEOF)
+check_c_source_compiles("int main() { typeof(int) x = 0; return x; }" HAVE_TYPEOF)
 check_c_source_compiles("void __attribute__((nonnull (1))) f(void *a) {} int main() { return 0; }" HAVE_ATTR_NONNULL)
 check_c_source_compiles("void __attribute__((warn_unused_result)) f(void *a) {} int main() { return 0; }" HAVE_ATTR_WARN_UNUSED_RESULT)
 check_c_source_compiles("void __attribute__((format (printf, 1, 2))) f(const char *fmt, ...) {} int main() { return 0; }" HAVE_ATTR_FORMAT_PRINTF)
@@ -56,7 +56,9 @@ add_compile_definitions(__AD_LINKAGE=)
 set(SOURCES
   array.c
   avl_tree.c
+  config.c
   dbuf.c
+  dstring.c
   hashtable.c
   macros.c
   random.c

@@ -10,6 +10,7 @@ set(TESTS
   array_benchmark
   avl_tree
   dbuf
+  dstring
   hashmap
   hashset
   hashtable_benchmark

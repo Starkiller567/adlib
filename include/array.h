@@ -40,9 +40,11 @@
 //         array_free(my_array);
 //
 
-// TODO array_memset, array_set_all, array_push_repeat
+// TODO array_memset, array_set_all, array_push_repeat, array_at
 // TODO clearly define when reallocation happens
 // TODO handle non-standard alignments?
+// TODO make array_grow private?
+// TODO deprecate array_len and replace it with array_length?
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__

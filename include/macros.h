@@ -23,10 +23,6 @@
 #include <stddef.h>
 #include "config.h"
 
-#ifdef HAVE_TYPEOF
-# define typeof(x)                           __typeof__(x)
-#endif
-
 #ifdef HAVE_ATTR_NONNULL
 # define _attr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
 #else

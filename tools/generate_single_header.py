@@ -9,9 +9,9 @@ outpath = sys.argv[2]
 outfile = open(outpath, "w")
 
 name, _ = os.path.splitext(os.path.basename(outpath))
-name = name.lower()
-outfile.write(f"#ifndef __{name}_single_header_include__\n")
-outfile.write(f"#define __{name}_single_header_include__\n\n")
+name = name.upper()
+outfile.write(f"#ifndef __{name}_SINGLE_HEADER_INCLUDE__\n")
+outfile.write(f"#define __{name}_SINGLE_HEADER_INCLUDE__\n\n")
 
 include_pattern = re.compile(r'\s*#\s*include\s+"(\S*)"\s*')
 def process_file(filepath, visited):

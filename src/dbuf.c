@@ -45,6 +45,9 @@ __AD_LINKAGE struct dbuf dbuf_copy(const struct dbuf *dbuf)
 {
 	struct dbuf copy;
 	copy._buf = malloc(dbuf->_capacity);
+	if (unlikely(!copy._buf)) {
+		abort();
+	}
 	copy._size = dbuf->_size;
 	copy._capacity = dbuf->_capacity;
 	memcpy(copy._buf, dbuf->_buf, dbuf->_size);
@@ -89,6 +92,9 @@ __AD_LINKAGE void dbuf_resize(struct dbuf *dbuf, size_t capacity)
 		return;
 	}
 	dbuf->_buf = realloc(dbuf->_buf, capacity);
+	if (unlikely(!dbuf->_buf)) {
+		abort();
+	}
 	if (unlikely(dbuf->_size > capacity)) {
 		dbuf->_size = capacity;
 	}
