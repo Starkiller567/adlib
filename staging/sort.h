@@ -1,6 +1,13 @@
 #ifndef __SORT_INCLUDE__
 #define __SORT_INCLUDE__
 
+// TODO implement the 3-way optimization?
+// TODO implement introsort?
+// TODO put comparison into its own function, so it only has access to a and b
+// TODO user data pointer for comparison
+// TODO glibc places the smallest element first to speed up insertion sort's inner loop (saves the j>left check)
+// TODO glibc does the insertion sort over the whole array at the end, is that better?
+
 // 'name' is the identifier of the sort function.
 // 'type' is the element type of the array to sort.
 // 'threshold' is the minimum number of elements for which quicksort will be used,
@@ -16,12 +23,17 @@
 //   int array[N] = {1, 3, 2, ...};
 //   integer_sort(array, N);
 // or
-//   char **array[N] = {"abc", "ghi", "def", ...}
-//   string_sort(array, n);
+//   char *array[N] = {"abc", "ghi", "def", ...}
+//   string_sort(array, N);
 
 #define DEFINE_SORTFUNC(name, type, threshold, ...)			\
 									\
-	static inline void __##name##_swap(type *a, type *b)		\
+	static inline int _##name##_cmp(type const *a, type const *b)	\
+	{								\
+		return (__VA_ARGS__);					\
+	}								\
+									\
+	static inline void _##name##_swap(type *a, type *b)		\
 	{								\
 		type tmp = *a;						\
 		*a = *b;						\
@@ -30,91 +42,101 @@
 									\
 	static void name(type *arr, size_t n)				\
 	{								\
-		struct _quicksort_partition {				\
-			size_t left;					\
-			size_t right;					\
-		} stack[128];						\
-		size_t sp = 0;						\
-		size_t left = 0;					\
-		size_t right = n - 1;					\
-		type const *a;						\
-		type const *b;						\
-									\
-		for (;;) {						\
-			while (left < right) {				\
-				if (right - left < threshold) {		\
-					for (size_t i = left + 1; i <= right; i++) { \
-						size_t j = i;		\
-						a = &arr[j - 1];	\
-						b = &arr[j];		\
-						while (j > left && (__VA_ARGS__) > 0) { \
-							__##name##_swap(&arr[j - 1], &arr[j]); \
-							j--;		\
-							a = &arr[j - 1]; \
-							b = &arr[j];	\
-						}			\
+		const size_t T = (threshold) > 2 ? (threshold) : 2;	\
+		if (n >= T) {						\
+			struct {					\
+				size_t left;				\
+				size_t right;				\
+			} stack[64];					\
+			size_t sp = 0;					\
+			size_t left = 0;				\
+			size_t right = n - 1;				\
+			for (;;) {					\
+				size_t mid = left + (right - left) / 2;	\
+				if (_##name##_cmp(&arr[mid], &arr[left]) < 0) { \
+					_##name##_swap(&arr[mid], &arr[left]); \
+				}					\
+				if (_##name##_cmp(&arr[right], &arr[mid]) < 0) { \
+					_##name##_swap(&arr[right], &arr[mid]); \
+					if (_##name##_cmp(&arr[mid], &arr[left]) < 0) { \
+						_##name##_swap(&arr[mid], &arr[left]); \
 					}				\
-					break;				\
 				}					\
-									\
-				size_t mid = (left + right) / 2;	\
-				a = &arr[mid];				\
-				b = &arr[left];				\
-				if ((__VA_ARGS__) < 0) {		\
-					__##name##_swap(&arr[left], &arr[mid]); \
-				}					\
-				a = &arr[right];			\
-				b = &arr[left];				\
-				if ((__VA_ARGS__) < 0) {		\
-					__##name##_swap(&arr[left], &arr[right]); \
-				}					\
-				a = &arr[mid];				\
-				b = &arr[right];			\
-				if ((__VA_ARGS__) < 0) {		\
-					__##name##_swap(&arr[mid], &arr[right]); \
-				}					\
-				type pivot = arr[right];		\
-				b = &pivot;				\
-				size_t i = left - 1;			\
-				size_t j = right + 1;			\
-				for (;;) {				\
-					do {				\
+				size_t i = left + 1;			\
+				size_t j = right - 1;			\
+				do {					\
+					while (_##name##_cmp(&arr[i], &arr[mid]) < 0) { \
 						i++;			\
-						a = &arr[i];		\
-					} while (i <= right && (__VA_ARGS__) < 0); \
+					}				\
 									\
-					do {				\
+					while (_##name##_cmp(&arr[mid], &arr[j]) < 0) { \
 						j--;			\
-						a = &arr[j];		\
-					} while (j >= left && (__VA_ARGS__) > 0); \
+					}				\
 									\
 					if (i >= j) {			\
-						/* assert(sp < 128); */	\
-						if (j - left < right - j) { \
-							stack[sp].left = j + 1;	\
-							stack[sp].right = right; \
-							right = j;	\
-						} else {		\
-							stack[sp].left = left; \
-							stack[sp].right = j; \
-							left = j + 1;	\
+						if (i == j) {		\
+							i++;		\
+							j--;		\
 						}			\
-						sp++;			\
 						break;			\
 					}				\
 									\
-					__##name##_swap(&arr[i], &arr[j]); \
+					_##name##_swap(&arr[i], &arr[j]); \
+					if (mid == i) {			\
+						mid = j;		\
+					} else if (mid == j) {		\
+						mid = i;		\
+					}				\
+				} while (++i <= --j);			\
+				size_t ls = j - left + 1;		\
+				size_t rs = right - i + 1;		\
+				if (ls < T) {				\
+					if (rs < T) {			\
+						if (sp == 0) {		\
+							break;		\
+						}			\
+						sp--;			\
+						left = stack[sp].left;	\
+						right = stack[sp].right; \
+						continue;		\
+					}				\
+					left = i;			\
+					continue;			\
 				}					\
+				if (rs < T) {				\
+					right = j;			\
+					continue;			\
+				}					\
+				if (ls > rs) {				\
+					stack[sp].left = left;		\
+					stack[sp].right = j;		\
+					left = i;			\
+				} else {				\
+					stack[sp].left = i;		\
+					stack[sp].right = right;	\
+					right = j;			\
+				}					\
+				sp++;					\
 			}						\
-									\
-			if (sp == 0) {					\
-				break;					\
+		}							\
+		if (T == 2) {						\
+			return;						\
+		}							\
+		size_t m = 0;						\
+		for (size_t i = 1; i < T && i < n; i++) {		\
+			if (_##name##_cmp(&arr[i], &arr[m]) < 0) {	\
+				m = i;					\
 			}						\
-									\
-			sp--;						\
-			left = stack[sp].left;				\
-			right = stack[sp].right;			\
-									\
+		}							\
+		if (m != 0) {						\
+			_##name##_swap(&arr[0], &arr[m]);		\
+		}							\
+		for (size_t i = 2; i < n; i++) {			\
+			size_t j = i;					\
+			while (_##name##_cmp(&arr[j], &arr[j - 1]) < 0) { \
+				_##name##_swap(&arr[j - 1], &arr[j]);	\
+				j--;					\
+			}						\
 		}							\
 	}
 

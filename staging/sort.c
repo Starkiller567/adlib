@@ -4,14 +4,23 @@
 #include <time.h>
 #include <assert.h>
 #include "sort.h"
+#include "heap.h"
 
-static int int_cmp(const void *a, const void *b)
+static size_t comparisons;
+
+static
+__attribute__((noinline, noipa))
+int int_cmp(const void *a, const void *b)
 {
+	comparisons++;
 	return *(const int *)a - *(const int *)b;
 }
 
-static int string_cmp(const void *a, const void *b)
+static
+__attribute__((noinline, noipa))
+int string_cmp(const void *a, const void *b)
 {
+	comparisons++;
 	return strcmp(*(const char **)a, *(const char **)b);
 }
 
@@ -36,10 +45,36 @@ static int string_is_sorted(char **arr, size_t n)
 	return 1;
 }
 
-DEFINE_SORTFUNC(integer_sort, int, 16, *a - *b)
-DEFINE_SORTFUNC(string_sort, char *, 16, strcmp(*a, *b))
+static int (*int_cmp_ptr)(const void *a, const void *b) = int_cmp;
+static int (*string_cmp_ptr)(const void *a, const void *b) = string_cmp;
 
-static double ns_elapsed(struct timespec *start, struct timespec *end)
+DEFINE_SORTFUNC(integer_sort, int, 16, int_cmp_ptr(a, b));
+DEFINE_SORTFUNC(string_sort, const char *, 16, string_cmp_ptr(a, b));
+
+DEFINE_MINHEAP(intheap, int, int_cmp_ptr(a, b) > 0);
+DEFINE_MINHEAP(stringheap, const char *, string_cmp_ptr(a, b) > 0);
+
+static void fill_int_array(int *arr, size_t n, bool random)
+{
+	if (random) {
+		srand(1234);
+	}
+	for (size_t i = 0; i < n; i++) {
+		int r = (random || (i % 4 == 0)) ? rand() : i;
+		arr[i] = r;
+	}
+}
+
+static void fill_string_array(char **arr, size_t n, bool random)
+{
+	srand(1234);
+	for (size_t i = 0; i < n; i++) {
+		unsigned int r = (random || (i % 4 == 0)) ? rand() : i;
+		sprintf(arr[i], "%u", r);
+	}
+}
+
+static double elapsed(struct timespec *start, struct timespec *end)
 {
 	long s = end->tv_sec - start->tv_sec;
 	long ns = end->tv_nsec - start->tv_nsec;
@@ -48,69 +83,121 @@ static double ns_elapsed(struct timespec *start, struct timespec *end)
 
 int main(int argc, char **argv)
 {
-	size_t n = 32 * 1024 * 1024;
+	struct timespec start, end;
+
+	size_t n = 8 * 1024 * 1024;
 	int *arr1 = malloc(n * sizeof(arr1[0]));
 
-	srand(1234);
-	for (size_t i = 0; i < n; i++) {
-		arr1[i] = rand();
-	}
-
-	struct timespec start, end;
+	fill_int_array(arr1, n, true);
+	comparisons = 0;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
 	integer_sort(arr1, n);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("integer_sort (random) %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
 	assert(int_is_sorted(arr1, n));
 
-	double s = ns_elapsed(&start, &end);
-	printf("%.2f\n", s);
+	fill_int_array(arr1, n, true);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	intheap_heapify(arr1, n);
+	intheap_sort(arr1, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("intheapsort (random)  %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(int_is_sorted(arr1, n));
 
-	srand(1234);
-	for (size_t i = 0; i < n; i++) {
-		arr1[i] = rand();
-	}
-
+	fill_int_array(arr1, n, true);
+	comparisons = 0;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
 	qsort(arr1, n, sizeof(arr1[0]), int_cmp);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("qsort(int) (random)   %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
 	assert(int_is_sorted(arr1, n));
 
-	s = ns_elapsed(&start, &end);
-	printf("%.2f\n", s);
+	fill_int_array(arr1, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	integer_sort(arr1, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("integer_sort (presorted) %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(int_is_sorted(arr1, n));
 
-	free(arr1);
+	fill_int_array(arr1, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	intheap_heapify(arr1, n);
+	intheap_sort(arr1, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("intheapsort (presorted)  %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(int_is_sorted(arr1, n));
 
-	n = 8 * 1024 * 1024;
+	fill_int_array(arr1, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	qsort(arr1, n, sizeof(arr1[0]), int_cmp);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("qsort(int) (presorted)   %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(int_is_sorted(arr1, n));
+
+	n = 2 * 1024 * 1024;
 	char **arr2 = malloc(n * sizeof(arr2[0]));
-
-	srand(1234);
 	for (size_t i = 0; i < n; i++) {
-		unsigned int r = rand();
-		char *s = malloc(16);
-		sprintf(s, "%u", r);
-		arr2[i] = s;
+		arr2[i] = malloc(16);
 	}
 
+	fill_string_array(arr2, n, true);
+	comparisons = 0;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
-	string_sort(arr2, n);
+	string_sort((const char **)arr2, n);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("string_sort (random)    %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
 	assert(string_is_sorted(arr2, n));
 
-	s = ns_elapsed(&start, &end);
-	printf("%.2f\n", s);
+	fill_string_array(arr2, n, true);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	stringheap_heapify((const char **)arr2, n);
+	stringheap_sort((const char **)arr2, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("stringheapsort (random) %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(string_is_sorted(arr2, n));
 
-	srand(1234);
-	for (size_t i = 0; i < n; i++) {
-		unsigned int r = rand();
-		sprintf(arr2[i], "%u", r);
-	}
-
+	fill_string_array(arr2, n, true);
+	comparisons = 0;
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
 	qsort(arr2, n, sizeof(arr2[0]), string_cmp);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("qsort(string) (random)  %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
 	assert(string_is_sorted(arr2, n));
 
-	s = ns_elapsed(&start, &end);
-	printf("%.2f\n", s);
+	fill_string_array(arr2, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	string_sort((const char **)arr2, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("string_sort (presorted)    %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(string_is_sorted(arr2, n));
 
+	fill_string_array(arr2, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	stringheap_heapify((const char **)arr2, n);
+	stringheap_sort((const char **)arr2, n);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("stringheapsort (presorted) %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(string_is_sorted(arr2, n));
+
+	fill_string_array(arr2, n, false);
+	comparisons = 0;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
+	qsort(arr2, n, sizeof(arr2[0]), string_cmp);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	printf("qsort(string) (presorted)  %.3fs (%zu comparisons)\n", elapsed(&start, &end), comparisons);
+	assert(string_is_sorted(arr2, n));
+
+
+	free(arr1);
+	for (size_t i = 0; i < n; i++) {
+		free(arr2[i]);
+	}
+	free(arr2);
 }

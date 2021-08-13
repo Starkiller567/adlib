@@ -26,18 +26,30 @@
 #include "config.h"
 #include "macros.h"
 
-// TODO documentation (see tests)
+// TODO documentation (see tests for now)
+// TODO split off type and function declarations for headers
 
-#define __HASHTABLE_DEFINE_COMMON(name, entry_size_, THRESHOLD)		\
+#define DEFINE_HASHTABLE(name, key_type, entry_type, THRESHOLD, ...)	\
 									\
-	_Static_assert(5 <= THRESHOLD && THRESHOLD <= 9,		\
-		       "resize threshold (load factor) must be an integer in the range of 5 to 9 (50%-90%)"); \
+	struct name {							\
+		struct _hashtable impl;					\
+	};								\
+									\
+	static _attr_unused bool _##name##_keys_match(const void *_key, const void *_entry) \
+	{								\
+		key_type const * const key = _key;			\
+		entry_type const * const entry = _entry;		\
+		return (__VA_ARGS__);					\
+	}								\
+									\
+	_Static_assert(5 <= (THRESHOLD) && (THRESHOLD) <= 9,		\
+		       "resize threshold (max load factor) must be an integer in the range of 5 to 9 (50%-90%)"); \
 									\
 	typedef _hashtable_hash_t name##_hash_t;			\
 	typedef _hashtable_uint_t name##_uint_t;			\
 									\
 	static _Alignas(32) const struct _hashtable_info _##name##_info = { \
-		.entry_size = entry_size_,				\
+		.entry_size = sizeof(entry_type),			\
 		.threshold = (THRESHOLD),				\
 		.keys_match = _##name##_keys_match,			\
 		.f1 = 10 / (THRESHOLD),					\
@@ -86,36 +98,14 @@
 	static _attr_unused name##_uint_t name##_num_entries(struct name *table) \
 	{								\
 		return table->impl.num_entries;				\
-	}
-
-
-#define DEFINE_HASHMAP(name, key_type, value_type, THRESHOLD, ...)	\
-									\
-	struct name {							\
-		struct _hashtable impl;					\
-	};								\
-									\
-	struct _##name##_entry {					\
-		key_type key;						\
-		value_type value;					\
-	};								\
-									\
-	static _attr_unused bool _##name##_keys_match(const void *_key, const void *_entry) \
-	{								\
-		key_type const * const a = _key;			\
-		key_type const * const b = &((const struct _##name##_entry *)_entry)->key; \
-		return (__VA_ARGS__);					\
 	}								\
 									\
-	__HASHTABLE_DEFINE_COMMON(name, sizeof(struct _##name##_entry), (THRESHOLD)) \
-									\
-		typedef struct name##_iterator {			\
-		key_type *key;						\
-		value_type *value;					\
+	typedef struct name##_iterator {				\
+		entry_type *entry;					\
 		_hashtable_idx_t _index;				\
 		struct name *_map;					\
 		bool _finished;						\
-		} name##_iter_t;					\
+	} name##_iter_t;						\
 									\
 	static _attr_unused bool name##_iter_finished(struct name##_iterator *iter) \
 	{								\
@@ -124,8 +114,7 @@
 									\
 	static _attr_unused void name##_iter_advance(struct name##_iterator *iter) \
 	{								\
-		iter->key = NULL;					\
-		iter->value = NULL;					\
+		iter->entry = NULL;					\
 		if (iter->_finished) {					\
 			return;						\
 		}							\
@@ -133,9 +122,7 @@
 		if (iter->_index >= iter->_map->impl.capacity) {	\
 			iter->_finished = true;				\
 		} else {						\
-			struct _##name##_entry *entry = _hashtable_entry(&iter->_map->impl, iter->_index, &_##name##_info); \
-			iter->key = &entry->key;			\
-			iter->value = &entry->value;			\
+			iter->entry = _hashtable_entry(&iter->_map->impl, iter->_index, &_##name##_info); \
 		}							\
 	}								\
 									\
@@ -149,94 +136,7 @@
 		return iter;						\
 	}								\
 									\
-	static _attr_unused value_type *name##_lookup(struct name *table, key_type key, name##_uint_t hash) \
-	{								\
-		_hashtable_idx_t index;					\
-		if (!_hashtable_lookup(&table->impl, &key, hash, &index, &_##name##_info)) { \
-			return NULL;					\
-		}							\
-		return &((struct _##name##_entry *)_hashtable_entry(&table->impl, index, &_##name##_info))->value; \
-	}								\
-									\
-	static _attr_unused value_type *name##_insert(struct name *table, key_type key, name##_hash_t hash) \
-	{								\
-		_hashtable_idx_t index = _hashtable_insert(&table->impl, hash, &_##name##_info); \
-		struct _##name##_entry *entry = _hashtable_entry(&table->impl, index, &_##name##_info); \
-		entry->key = key;					\
-		return &entry->value;					\
-	}								\
-									\
-	static _attr_unused bool name##_remove(struct name *table, key_type key, name##_uint_t hash, \
-					       key_type *ret_key, value_type *ret_value) \
-	{								\
-		_hashtable_idx_t index;					\
-		if (!_hashtable_lookup(&table->impl, &key, hash, &index, &_##name##_info)) { \
-			return NULL;					\
-		}							\
-									\
-		struct _##name##_entry *entry = _hashtable_entry(&table->impl, index, &_##name##_info); \
-		if (ret_key) {						\
-			*ret_key = entry->key;				\
-		}							\
-		if (ret_value) {					\
-			*ret_value = entry->value;			\
-		}							\
-		_hashtable_remove(&table->impl, index, &_##name##_info); \
-		return true;						\
-	}
-
-#define DEFINE_HASHSET(name, key_type, THRESHOLD, ...)			\
-									\
-	struct name {							\
-		struct _hashtable impl;					\
-	};								\
-									\
-	static _attr_unused bool _##name##_keys_match(const void *_a, const void *_b) \
-	{								\
-		key_type const * const a = _a;				\
-		key_type const * const b = _b;				\
-		return (__VA_ARGS__);					\
-	}								\
-									\
-	__HASHTABLE_DEFINE_COMMON(name, sizeof(key_type), (THRESHOLD))	\
-									\
-		typedef struct name##_iterator {			\
-		key_type *key;						\
-		_hashtable_idx_t _index;				\
-		struct name *_map;					\
-		bool _finished;						\
-		} name##_iter_t;					\
-									\
-	static _attr_unused bool name##_iter_finished(struct name##_iterator *iter) \
-	{								\
-		return iter->_finished;					\
-	}								\
-									\
-	static _attr_unused void name##_iter_advance(struct name##_iterator *iter) \
-	{								\
-		iter->key = NULL;					\
-		if (iter->_finished) {					\
-			return;						\
-		}							\
-		iter->_index = _hashtable_get_next(&iter->_map->impl, iter->_index + 1, &_##name##_info); \
-		if (iter->_index >= iter->_map->impl.capacity) {	\
-			iter->_finished = true;				\
-		} else {						\
-			iter->key = _hashtable_entry(&iter->_map->impl, iter->_index, &_##name##_info); \
-		}							\
-	}								\
-									\
-	static _attr_unused struct name##_iterator name##_iter_start(struct name *table) \
-	{								\
-		struct name##_iterator iter = {0};			\
-		iter._map = table;					\
-		iter._index = -1; /* iter_advance increments this to 0 */ \
-		iter._finished = false;					\
-		name##_iter_advance(&iter);				\
-		return iter;						\
-	}								\
-									\
-	static _attr_unused key_type *name##_lookup(struct name *table, key_type key, name##_uint_t hash) \
+	static _attr_unused entry_type *name##_lookup(struct name *table, key_type key, name##_uint_t hash) \
 	{								\
 		_hashtable_idx_t index;					\
 		if (!_hashtable_lookup(&table->impl, &key, hash, &index, &_##name##_info)) { \
@@ -245,23 +145,21 @@
 		return _hashtable_entry(&table->impl, index, &_##name##_info); \
 	}								\
 									\
-	static _attr_unused key_type *name##_insert(struct name *table, key_type key, name##_uint_t hash) \
+	static _attr_unused entry_type *name##_insert(struct name *table, key_type key, name##_uint_t hash) \
 	{								\
 		_hashtable_idx_t index = _hashtable_insert(&table->impl, hash, &_##name##_info); \
-		key_type *pkey = _hashtable_entry(&table->impl, index, &_##name##_info); \
-		*pkey = key;						\
-		return pkey;						\
+		return _hashtable_entry(&table->impl, index, &_##name##_info); \
 	}								\
 									\
-	static _attr_unused bool name##_remove(struct name *table, key_type key, name##_uint_t hash, key_type *ret_key) \
+	static _attr_unused bool name##_remove(struct name *table, key_type key, name##_uint_t hash, entry_type *ret_entry) \
 	{								\
 		_hashtable_idx_t index;					\
 		if (!_hashtable_lookup(&table->impl, &key, hash, &index, &_##name##_info)) { \
 			return NULL;					\
 		}							\
 									\
-		if (ret_key) {						\
-			*ret_key = *(key_type *)_hashtable_entry(&table->impl, index, &_##name##_info); \
+		if (ret_entry) {					\
+			*ret_entry = *(entry_type *)_hashtable_entry(&table->impl, index, &_##name##_info); \
 		}							\
 		_hashtable_remove(&table->impl, index, &_##name##_info); \
 		return true;						\

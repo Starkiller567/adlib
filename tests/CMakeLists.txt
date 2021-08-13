@@ -14,6 +14,7 @@ set(TESTS
   hashmap
   hashset
   hashtable_benchmark
+  json
   random
   rb_tree
 )

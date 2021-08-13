@@ -22,7 +22,7 @@ static int cmp_int(const void *a, const void *b)
 	return *(const int *)a - *(const int *)b;
 }
 
-DEFINE_HASHSET(itable, int, 8, (*a == *b))
+DEFINE_HASHTABLE(itable, int, int, 8, (*key == *entry))
 
 int main(int argc, char **argv)
 {
@@ -38,21 +38,20 @@ int main(int argc, char **argv)
 		if (r < 100) {
 			int x = rand() % (1 << 20);
 			bool found = false;
-			int *item;
-			array_foreach(arr, item) {
-				if (*item == x) {
+			array_foreach_value(arr, it) {
+				if (it == x) {
 					found = true;
 					break;
 				}
 			}
-			item = itable_lookup(&itable, x, integer_hash(x));
-			if (item) {
+			int *entry = itable_lookup(&itable, x, integer_hash(x));
+			if (entry) {
 				assert(found);
-				assert(*item == x);
+				assert(*entry == x);
 			} else {
 				assert(!found);
-				item = itable_insert(&itable, x, integer_hash(x));
-				assert(*item == x);
+				entry = itable_insert(&itable, x, integer_hash(x));
+				*entry = x;
 				array_add(arr, x);
 			}
 		} else if (array_len(arr) != 0) {
@@ -73,7 +72,7 @@ int main(int argc, char **argv)
 			for (itable_iter_t iter = itable_iter_start(&itable);
 			     !itable_iter_finished(&iter);
 			     itable_iter_advance(&iter)) {
-				array_add(arr2, *iter.key);
+				array_add(arr2, *iter.entry);
 			}
 			array_sort(arr, cmp_int);
 			array_sort(arr2, cmp_int);

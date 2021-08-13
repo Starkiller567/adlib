@@ -22,7 +22,12 @@ static int cmp_int(const void *a, const void *b)
 	return *(const int *)a - *(const int *)b;
 }
 
-DEFINE_HASHMAP(itable, int, int, 8, (*a == *b))
+struct itable_entry {
+	int key;
+	int value;
+};
+
+DEFINE_HASHTABLE(itable, int, struct itable_entry, 8, (entry->value == *key))
 
 int main(int argc, char **argv)
 {
@@ -38,29 +43,32 @@ int main(int argc, char **argv)
 		if (r < 100) {
 			int x = rand() % (1 << 20);
 			bool found = false;
-			int *item;
-			array_foreach(arr, item) {
-				if (*item == x) {
+			array_foreach_value(arr, it) {
+				if (it == x) {
 					found = true;
 					break;
 				}
 			}
-			item = itable_lookup(&itable, x, integer_hash(x));
-			if (item) {
+			struct itable_entry *entry = itable_lookup(&itable, x, integer_hash(x));
+			if (entry) {
 				assert(found);
-				assert(*item == x);
+				assert(entry->key == x);
+				assert(entry->value == x);
 			} else {
 				assert(!found);
-				item = itable_insert(&itable, x, integer_hash(x));
-				*item = x;
+				entry = itable_insert(&itable, x, integer_hash(x));
+				entry->key = x;
+				entry->value = x;
 				array_add(arr, x);
 			}
 		} else if (array_len(arr) != 0) {
-			int key, item;
 			int idx = rand() % array_len(arr);
 			int x = arr[idx];
-			bool removed = itable_remove(&itable, x, integer_hash(x), &key, &item);
+			struct itable_entry entry;
+			bool removed = itable_remove(&itable, x, integer_hash(x), &entry);
 			assert(removed);
+			assert(entry.key == x);
+			assert(entry.value == x);
 			array_fast_delete(arr, idx);
 		}
 
@@ -73,8 +81,8 @@ int main(int argc, char **argv)
 			for (itable_iter_t iter = itable_iter_start(&itable);
 			     !itable_iter_finished(&iter);
 			     itable_iter_advance(&iter)) {
-				assert(*iter.key == *iter.value);
-				array_add(arr2, *iter.key);
+				assert(iter.entry->value == iter.entry->key);
+				array_add(arr2, iter.entry->value);
 			}
 			array_sort(arr, cmp_int);
 			array_sort(arr2, cmp_int);

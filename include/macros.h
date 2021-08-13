@@ -35,6 +35,12 @@
 # define _attr_warn_unused_result
 #endif
 
+#ifdef HAVE_ATTR_ALWAYS_INLINE
+# define _attr_always_inline                 inline __attribute__((always_inline))
+#else
+# define _attr_always_inline                 inline
+#endif
+
 #ifdef HAVE_ATTR_FORMAT_PRINTF
 # define _attr_format_printf(f, a)           __attribute__((format (printf, (f), (a))))
 #else
@@ -45,6 +51,10 @@
 # define _attr_unused                        __attribute__((unused))
 #else
 # define _attr_unused
+#endif
+
+#ifdef HAVE_ATTR_PACKED
+# define _attr_packed                        __attribute__((packed))
 #endif
 
 #ifdef HAVE_BUILTIN_EXPECT

@@ -41,8 +41,8 @@
 //
 
 // TODO array_memset, array_set_all, array_push_repeat, array_at
-// TODO clearly define when reallocation happens
-// TODO handle non-standard alignments?
+// TODO clearly define and document when reallocation happens
+// TODO document alignment
 // TODO make array_grow private?
 // TODO deprecate array_len and replace it with array_length?
 

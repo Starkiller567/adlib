@@ -161,41 +161,41 @@ static unsigned long long ns_elapsed(struct timespec *start, struct timespec *en
 	return ns + 1000000000 * s;
 }
 
-static double get_avg_rate(unsigned long long nanoseconds[N], unsigned int num_items)
+static double get_avg_rate(unsigned long long nanoseconds[N], unsigned int num_entries)
 {
 	double avg = 0.0;
 	for (unsigned int i = 0; i < N; i++) {
 		avg += nanoseconds[i];
 	}
 	avg /= N;
-	return num_items / avg;
+	return num_entries / avg;
 }
 
-DEFINE_HASHMAP(itable, int, int, 8, (*a == *b))
-DEFINE_HASHMAP(stable, char *, char *, 8, (strcmp(*a, *b) == 0))
-DEFINE_HASHMAP(sstable, char *, struct short_string, 8, (strcmp(*a, *b) == 0))
-DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a->s, b->s) == 0))
+DEFINE_HASHTABLE(itable, int, int, 8, (*key == *entry));
+DEFINE_HASHTABLE(stable, char *, char *, 8, (strcmp(*key, *entry) == 0));
+DEFINE_HASHTABLE(sstable, char *, struct short_string, 8, (strcmp(*key, entry->s) == 0));
+DEFINE_HASHTABLE(ssstable, struct short_string, struct short_string, 8, (strcmp(entry->s, key->s) == 0));
 
-#define BENCHMARK(name, hash, key_type, item_type, keys1, values1, keys2, values2, keys3, values3, keys4, values4, ...) \
+#define BENCHMARK(name, hash, key_type, entry_type, keys1, values1, keys2, values2, keys3, values3, keys4, values4, ...) \
 	for (unsigned int n = 0; n < N; n++) {				\
 		fprintf(stderr, "%u/%u\r", n, N);			\
 									\
 		name##_init(&name, 128);				\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
-			*item = values1[i];				\
+		for (i = 0; i < num_entries; i++) {			\
+			entry_type *entry = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
+			*entry = values1[i];				\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
 		insert[n] = ns_elapsed(&start_tp, &end_tp);		\
 									\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
+		for (i = 0; i < num_entries; i++) {			\
+			entry_type *entry = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
 			key_type *k = &keys2[i];			\
-			item_type *v = item;				\
+			entry_type *v = entry;				\
 			assert(__VA_ARGS__);				\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
@@ -203,20 +203,19 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 									\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
-			item_type *item = name##_lookup(&name, keys3[i], (hash)(keys3[i])); \
-			assert(!item);					\
+		for (i = 0; i < num_entries; i++) {			\
+			entry_type *entry = name##_lookup(&name, keys3[i], (hash)(keys3[i])); \
+			assert(!entry);					\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
 		lookup2[n] = ns_elapsed(&start_tp, &end_tp);		\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
-			key_type key;					\
-			item_type item;					\
-			bool found = name##_remove(&name, keys4[i], (hash)(keys4[i]), &key, &item); \
-			key_type *k = &key;				\
-			item_type *v = &item;				\
+		for (i = 0; i < num_entries; i++) {			\
+			entry_type entry;				\
+			bool found = name##_remove(&name, keys4[i], (hash)(keys4[i]), &entry); \
+			key_type *k = &keys4[i];				\
+			entry_type *v = &entry;				\
 			assert(found && (__VA_ARGS__));			\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
@@ -227,28 +226,27 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		name##_init(&name, 128);				\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
+		for (i = 0; i < num_entries; i++) {			\
 			{						\
-				item_type *item = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
-				assert(!item);				\
+				entry_type *entry = name##_lookup(&name, keys2[i], (hash)(keys2[i])); \
+				assert(!entry);				\
 			}						\
 			{						\
-				item_type *item = name##_insert(&name, keys2[i], (hash)(keys2[i])); \
-				*item = values2[i];			\
+				entry_type *entry = name##_insert(&name, keys2[i], (hash)(keys2[i])); \
+				*entry = values2[i];			\
 			}						\
 			{						\
-				key_type key;				\
-				item_type item;				\
-				bool found = name##_remove(&name, keys1[i], (hash)(keys1[i]), &key, &item); \
-				key_type *k = &key;			\
-				item_type *v = &item;			\
+				entry_type entry;				\
+				bool found = name##_remove(&name, keys1[i], (hash)(keys1[i]), &entry); \
+				key_type *k = &keys1[i];		\
+				entry_type *v = &entry;			\
 				assert(!found || (__VA_ARGS__));	\
 			}						\
 			{						\
-				item_type *item = name##_lookup(&name, keys4[i], (hash)(keys4[i])); \
+				entry_type *entry = name##_lookup(&name, keys4[i], (hash)(keys4[i])); \
 				key_type *k = &keys4[i];		\
-				item_type *v = item;			\
-				assert(!item || (__VA_ARGS__));		\
+				entry_type *v = entry;			\
+				assert(!entry || (__VA_ARGS__));		\
 			}						\
 		}							\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp);	\
@@ -259,15 +257,15 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		name##_init(&name, 128);				\
 									\
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp);	\
-		for (i = 0; i < num_items; i++) {			\
+		for (i = 0; i < num_entries; i++) {			\
 			{						\
-				item_type *item = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
-				*item = values1[i];			\
+				entry_type *entry = name##_insert(&name, keys1[i], (hash)(keys1[i])); \
+				*entry = values1[i];			\
 			}						\
 			for (unsigned int j = i - 10; j < i; j++) {	\
-				item_type *item = name##_lookup(&name, keys1[j], (hash)(keys1[j])); \
+				entry_type *entry = name##_lookup(&name, keys1[j], (hash)(keys1[j])); \
 				key_type *k = &keys1[j];		\
-				item_type *v = item;			\
+				entry_type *v = entry;			\
 				assert(__VA_ARGS__);			\
 			}						\
 		}							\
@@ -277,12 +275,12 @@ DEFINE_HASHMAP(ssstable, struct short_string, struct short_string, 8, (strcmp(a-
 		name##_destroy(&name);					\
 	}								\
 									\
-	printf("%10.2fM insertions per second\n", 1000.0 * get_avg_rate(insert, num_items)); \
-	printf("%10.2fM lookups per second (found)\n", 1000.0 * get_avg_rate(lookup1, num_items)); \
-	printf("%10.2fM lookups per second (not found)\n", 1000.0 * get_avg_rate(lookup2, num_items)); \
-	printf("%10.2fM deletions per second\n", 1000.0 * get_avg_rate(delete, num_items)); \
-	printf("%10.2fM mixed ops (with delete) per second\n", 1000.0 * get_avg_rate(mixed, num_items)); \
-	printf("%10.2fM mixed ops (no delete) per second\n", 1000.0 * get_avg_rate(mixed2, num_items));	\
+	printf("%10.2fM insertions per second\n", 1000.0 * get_avg_rate(insert, num_entries)); \
+	printf("%10.2fM lookups per second (found)\n", 1000.0 * get_avg_rate(lookup1, num_entries)); \
+	printf("%10.2fM lookups per second (not found)\n", 1000.0 * get_avg_rate(lookup2, num_entries)); \
+	printf("%10.2fM deletions per second\n", 1000.0 * get_avg_rate(delete, num_entries)); \
+	printf("%10.2fM mixed ops (with delete) per second\n", 1000.0 * get_avg_rate(mixed, num_entries)); \
+	printf("%10.2fM mixed ops (no delete) per second\n", 1000.0 * get_avg_rate(mixed2, num_entries));	\
 
 
 int main(int argc, char **argv)
@@ -291,7 +289,7 @@ int main(int argc, char **argv)
 	struct stable stable;
 	struct sstable sstable;
 	struct ssstable ssstable;
-	unsigned int i, seed = 12345, num_items;
+	unsigned int i, seed = 12345, num_entries;
 	struct timespec start_tp, end_tp;
 	bool bad_hash = false;
 	bool shuffle = true; // TODO do partial sorts/shuffles
@@ -309,11 +307,11 @@ int main(int argc, char **argv)
 		puts("itable");
 		puts("--------------------------------------------------------");
 
-		num_items = 500000;
+		num_entries = 500000;
 
 		int *arr1 = NULL;
-		array_reserve(arr1, num_items);
-		for (i = 0; i < num_items; i++) {
+		array_reserve(arr1, num_entries);
+		for (i = 0; i < num_entries; i++) {
 			array_add(arr1, i);
 		}
 		if (shuffle) {
@@ -324,9 +322,9 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, random_size_t);
 
 		int *arr3 = NULL;
-		array_reserve(arr3, num_items);
-		for (i = 0; i < num_items; i++) {
-			array_add(arr3, i + num_items);
+		array_reserve(arr3, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			array_add(arr3, i + num_entries);
 		}
 		array_shuffle(arr3, random_size_t);
 
@@ -349,11 +347,11 @@ int main(int argc, char **argv)
 		puts("stable");
 		puts("--------------------------------------------------------");
 
-		num_items = 200000;
+		num_entries = 200000;
 
 		char **arr1 = NULL;
-		array_reserve(arr1, num_items);
-		for (i = 0; i < num_items; i++) {
+		array_reserve(arr1, num_entries);
+		for (i = 0; i < num_entries; i++) {
 			array_add(arr1, mprintf("%i", i));
 		}
 		if (shuffle) {
@@ -364,9 +362,9 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, random_size_t);
 
 		char **arr3 = NULL;
-		array_reserve(arr3, num_items);
-		for (i = 0; i < num_items; i++) {
-			array_add(arr3, mprintf("%i", i + num_items));
+		array_reserve(arr3, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			array_add(arr3, mprintf("%i", i + num_entries));
 		}
 		array_shuffle(arr3, random_size_t);
 
@@ -395,13 +393,13 @@ int main(int argc, char **argv)
 		puts("sstable");
 		puts("--------------------------------------------------------");
 
-		num_items = 200000;
+		num_entries = 200000;
 
 		struct short_string *values1 = NULL;
-		array_reserve(values1, num_items);
-		for (i = 0; i < num_items; i++) {
-			struct short_string *item = array_addn(values1, 1);
-			sprintf(item->s, "%i", i);
+		array_reserve(values1, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			struct short_string *entry = array_addn(values1, 1);
+			sprintf(entry->s, "%i", i);
 		}
 		if (shuffle) {
 			array_shuffle(values1, random_size_t);
@@ -411,10 +409,10 @@ int main(int argc, char **argv)
 		array_shuffle(values2, random_size_t);
 
 		struct short_string *values3 = NULL;
-		array_reserve(values3, num_items);
-		for (i = 0; i < num_items; i++) {
-			struct short_string *item = array_addn(values3, 1);
-			sprintf(item->s, "%i", i + num_items);
+		array_reserve(values3, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			struct short_string *entry = array_addn(values3, 1);
+			sprintf(entry->s, "%i", i + num_entries);
 		}
 		array_shuffle(values3, random_size_t);
 
@@ -422,22 +420,22 @@ int main(int argc, char **argv)
 		array_shuffle(values4, random_size_t);
 
 		char **keys1 = NULL;
-		array_reserve(keys1, num_items);
+		array_reserve(keys1, num_entries);
 		array_foreach(values1, iter) {
 			array_add(keys1, strdup(iter->s));
 		}
 		char **keys2 = NULL;
-		array_reserve(keys2, num_items);
+		array_reserve(keys2, num_entries);
 		array_foreach(values2, iter) {
 			array_add(keys2, strdup(iter->s));
 		}
 		char **keys3 = NULL;
-		array_reserve(keys3, num_items);
+		array_reserve(keys3, num_entries);
 		array_foreach(values3, iter) {
 			array_add(keys3, strdup(iter->s));
 		}
 		char **keys4 = NULL;
-		array_reserve(keys4, num_items);
+		array_reserve(keys4, num_entries);
 		array_foreach(values4, iter) {
 			array_add(keys4, strdup(iter->s));
 		}
@@ -474,13 +472,13 @@ int main(int argc, char **argv)
 		puts("ssstable");
 		puts("--------------------------------------------------------");
 
-		num_items = 100000;
+		num_entries = 100000;
 
 		struct short_string *arr1 = NULL;
-		array_reserve(arr1, num_items);
-		for (i = 0; i < num_items; i++) {
-			struct short_string *item = array_addn(arr1, 1);
-			sprintf(item->s, "%i", i);
+		array_reserve(arr1, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			struct short_string *entry = array_addn(arr1, 1);
+			sprintf(entry->s, "%i", i);
 		}
 		if (shuffle) {
 			array_shuffle(arr1, random_size_t);
@@ -490,10 +488,10 @@ int main(int argc, char **argv)
 		array_shuffle(arr2, random_size_t);
 
 		struct short_string *arr3 = NULL;
-		array_reserve(arr3, num_items);
-		for (i = 0; i < num_items; i++) {
-			struct short_string *item = array_addn(arr3, 1);
-			sprintf(item->s, "%i", i + num_items);
+		array_reserve(arr3, num_entries);
+		for (i = 0; i < num_entries; i++) {
+			struct short_string *entry = array_addn(arr3, 1);
+			sprintf(entry->s, "%i", i + num_entries);
 		}
 		array_shuffle(arr3, random_size_t);
 

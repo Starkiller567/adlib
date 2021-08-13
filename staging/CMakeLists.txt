@@ -7,7 +7,9 @@ set(EXECUTABLES
   cbuf
   endian
   error
+  heap
   list
+  locktest
   malloc
   mbuf
   mem_arena
@@ -20,4 +22,7 @@ foreach(EXECUTABLE IN LISTS EXECUTABLES)
   target_link_libraries(${EXECUTABLE} ad-static)
 endforeach()
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(locktest Threads::Threads)
 target_link_libraries(random m)

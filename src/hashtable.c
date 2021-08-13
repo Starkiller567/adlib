@@ -27,9 +27,11 @@
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      how to implement resize cleanly?
 // TODO add generation and check it during iteration?
-// TODO maybe make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)
-// TODO in hash_to_idx xor the hash with a random seed that changes whenever the hashtable gets resized
-// TODO make it possible to choose the implementation at runtime
+// TODO make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)?
+// TODO in hash_to_idx xor the hash with a random seed that changes whenever the hashtable gets resized?
+// TODO make it possible to choose the implementation at runtime?
+// TODO make _hashtable_lookup return the first eligable slot for insertion to speed up subsequent insertion
+//      and make hashtable_set (lookup + insert) helper
 
 /* Memory layout:
  * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
@@ -123,7 +125,7 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
-	if (unlikely(!table->storage)) {
+	if (unlikely(!table->storage && table->capacity != 0)) {
 		abort();
 	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
@@ -463,7 +465,7 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
-	if (unlikely(!table->storage)) {
+	if (unlikely(!table->storage && table->capacity != 0)) {
 		abort();
 	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
@@ -903,7 +905,7 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
-	if (unlikely(!table->storage)) {
+	if (unlikely(!table->storage && table->capacity != 0)) {
 		abort();
 	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
