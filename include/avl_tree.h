@@ -33,7 +33,13 @@ enum avl_direction {
 
 struct avl_node {
 	uintptr_t _parent_balance;
-	struct avl_node *children[2];
+	union {
+		struct {
+			struct avl_node *left;
+			struct avl_node *right;
+		};
+		struct avl_node *children[2];
+	};
 };
 
 struct avl_root {

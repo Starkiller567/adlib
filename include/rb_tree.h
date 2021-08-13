@@ -32,7 +32,13 @@ enum rb_direction {
 
 struct rb_node {
 	uintptr_t _parent_color;
-	struct rb_node *children[2];
+	union {
+		struct {
+			struct rb_node *left;
+			struct rb_node *right;
+		};
+		struct rb_node *children[2];
+	};
 };
 
 struct rb_root {
