@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <inttypes.h>
 #include <math.h>
 #include <stdint.h>
@@ -54,6 +55,34 @@ static _attr_unused bool random_bool(void)
 	return random_next_bool(&g_random_state);
 }
 
+static void check(double *numbers, size_t n, double min, double max)
+{
+	double mean = 0;
+	for (size_t i = 0; i < n; i++) {
+		mean = (i * mean + numbers[i]) / (i + 1);
+	}
+	double stddev = 0;
+	for (size_t i = 0; i < n; i++) {
+		double x = numbers[i] - mean;
+		stddev += x * x;
+	}
+	stddev = sqrt(stddev / n);
+
+
+	double target_mean = (max - min) / 2.0;
+	double target_stddev = sqrt((max - min) * (max - min) / 12.0);
+
+	double dev_mean = fabs(target_mean - mean) / target_mean;
+	double dev_stddev = fabs(target_stddev - stddev) / target_stddev;
+
+	printf("target: mean = %g, stddev = %g\n", target_mean, target_stddev);
+	printf("actual: mean = %g, stddev = %g\n", mean, stddev);
+	// printf("deviation: mean = %g%%, stddev = %g%%\n", dev_mean, dev_stddev);
+
+	assert(dev_mean < 0.001);
+	assert(dev_stddev < 0.02);
+}
+
 int main(int argc, char **argv)
 {
 	// random_state_init(&g_random_state, 12345);
@@ -63,31 +92,67 @@ int main(int argc, char **argv)
 	}
 #define N (32 * 1024 * 1024)
 	double *numbers = calloc(N, sizeof(numbers[0]));
-	for (size_t i = 0; i < N; i++) {
-		// numbers[i] = random_u64();
-		numbers[i] = random_u64_in_range(0, 100);
-		// numbers[i] = random_u64() % 101;
-		// numbers[i] = random_u32();
-		// numbers[i] = random_u32_in_range(0, 100);
-		// numbers[i] = random_bool();
-		// numbers[i] = random_uniform_double();
-		// numbers[i] = random_uniform_float();
-		// numbers[i] = random_double_in_range(0, 100);
-		// numbers[i] = random_float_in_range(0, 100);
-	}
-	double mean = 0;
-	for (size_t i = 0; i < N; i++) {
-		mean = (i * mean + numbers[i]) / (i + 1);
-	}
-	double stddev = 0;
-	for (size_t i = 0; i < N; i++) {
-		double x = numbers[i] - mean;
-		stddev += x * x;
-	}
-	stddev = sqrt(stddev / N);
 
-	printf("mean: %g, stddev: %g\n", mean, stddev);
-	// TODO assert that these are reasonable
+	puts("random_u64_in_range(0, 100)");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_u64_in_range(0, 100);
+	}
+	check(numbers, N, 0, 100);
+
+	puts("random_u32_in_range(0, 100)");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_u32_in_range(0, 100);
+	}
+	check(numbers, N, 0, 100);
+
+	puts("random_double_in_range(0, 100)");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_double_in_range(0, 100);
+	}
+	check(numbers, N, 0, 100);
+
+	puts("random_float_in_range(0, 100)");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_float_in_range(0, 100);
+	}
+	check(numbers, N, 0, 100);
+
+	puts("random_u64()");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_u64();
+	}
+	check(numbers, N, 0, UINT64_MAX);
+
+	puts("random_u32()");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_u32();
+	}
+	check(numbers, N, 0, UINT32_MAX);
+
+	puts("random_uniform_double()");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_uniform_double();
+	}
+	check(numbers, N, 0, 1);
+
+	puts("random_uniform_float()");
+	for (size_t i = 0; i < N; i++) {
+		numbers[i] = random_uniform_float();
+	}
+	check(numbers, N, 0, 1);
+
+	puts("random_bool()");
+	size_t nfalse = 0;
+	size_t ntrue = 0;
+	for (size_t i = 0; i < N; i++) {
+		if (random_bool()) {
+			ntrue++;
+		} else {
+			nfalse++;
+		}
+	}
+	printf("ntrue = %zu, nfalse = %zu\n", ntrue, nfalse);
+	assert(fabs((double)ntrue - (double)nfalse) / N < 0.001);
 
 	free(numbers);
 }

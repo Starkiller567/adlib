@@ -113,13 +113,12 @@ __AD_LINKAGE double random_next_uniform_double(struct random_state *state)
 
 __AD_LINKAGE float random_next_uniform_float(struct random_state *state)
 {
-	// TODO should be able to do a similar thing as above for double
-	return (float)random_next_uniform_double(state);
+	return (random_next_u32(state) >> 8) * 0x1.0p-24f;
 }
 
 __AD_LINKAGE bool random_next_bool(struct random_state *state)
 {
-	return random_next_u64(state) & 1;
+	return random_next_u32(state) & 1;
 }
 
 __AD_LINKAGE uint32_t random_next_u32_in_range(struct random_state *state, uint32_t min, uint32_t max)
@@ -127,7 +126,7 @@ __AD_LINKAGE uint32_t random_next_u32_in_range(struct random_state *state, uint3
 	// TODO look into https://arxiv.org/pdf/1805.10941.pdf
 	assert(min <= max);
 	uint32_t n = max - min + 1;
-	uint32_t remainder = n == 0 ? 0 : UINT32_MAX % n;
+	uint32_t remainder = UINT32_MAX % n;
 	uint32_t x;
 	do {
 		x = random_next_u32(state);
@@ -140,7 +139,7 @@ __AD_LINKAGE uint64_t random_next_u64_in_range(struct random_state *state, uint6
 	// TODO look into https://arxiv.org/pdf/1805.10941.pdf
 	assert(min <= max);
 	uint64_t n = max - min + 1;
-	uint64_t remainder = n == 0 ? 0 : UINT64_MAX % n;
+	uint64_t remainder = UINT64_MAX % n;
 	uint64_t x;
 	do {
 		x = random_next_u64(state);
