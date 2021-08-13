@@ -40,7 +40,7 @@
 //         array_free(my_array);
 //
 
-// TODO array_memset, array_set_all, array_push_repeat, array_at
+// TODO array_memset, array_set_all, array_push_repeat, array_at, array_call_foreach
 // TODO clearly define and document when reallocation happens
 // TODO document alignment
 // TODO make array_grow private?
@@ -69,10 +69,11 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 #define array_t(T) T *
 
 // get number of elements in array (as size_t)
-#define array_len(a)                    _arr_len(a)
+#define array_length(a)                 _arr_length(a)
+#define array_len(a)                    _arr_length(a)
 
 // is array empty? (empty arrays are not always NULL due to array_reserve and array_clear)
-#define array_empty(a)                  (_arr_len(a) == 0)
+#define array_empty(a)                  (_arr_length(a) == 0)
 
 #define array_lasti(a)                  _arr_lasti(a)
 
@@ -246,7 +247,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 #endif
 
 typedef struct {
-	size_t len;
+	size_t length;
 	size_t capacity;
 #ifdef ARRAY_SAFETY_CHECKS
 	size_t magic1;
@@ -277,14 +278,14 @@ __AD_LINKAGE _attr_unused void _arr_fast_deleten(void *arr, size_t elem_size, si
 __AD_LINKAGE _attr_nonnull(3) _attr_unused void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *));
 __AD_LINKAGE _attr_unused void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *));
 
-static inline _attr_unused size_t _arr_len(const void *arr)
+static inline _attr_unused size_t _arr_length(const void *arr)
 {
-	return arr ? _arrhead_const(arr)->len : 0;
+	return arr ? _arrhead_const(arr)->length : 0;
 }
 
 static inline _attr_nonnull(1) _attr_unused size_t _arr_lasti(const void *arr)
 {
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(len != 0);
 #endif
@@ -299,14 +300,14 @@ static inline _attr_unused size_t _arr_capacity(const void *arr)
 static inline _attr_unused void _arr_clear(void *arr)
 {
 	if (arr) {
-		_arrhead(arr)->len = 0;
+		_arrhead(arr)->length = 0;
 	}
 }
 
 static inline _attr_unused void _arr_truncate(void *arr, size_t newlen)
 {
-	if (newlen < _arr_len(arr)) {
-		_arrhead(arr)->len = newlen;
+	if (newlen < _arr_length(arr)) {
+		_arrhead(arr)->length = newlen;
 	}
 }
 
@@ -329,7 +330,7 @@ static inline _attr_unused _attr_warn_unused_result void *_arr_move(void **arrp)
 
 static inline _attr_unused void _arr_reserve(void **arrp, size_t elem_size, size_t n)
 {
-	size_t rem = _arr_capacity(*arrp) - _arr_len(*arrp);
+	size_t rem = _arr_capacity(*arrp) - _arr_length(*arrp);
 	if (n > rem) {
 		_arr_grow(arrp, elem_size, n - rem);
 	}
@@ -356,14 +357,14 @@ static inline _attr_unused void *_arr_insertn_zero(void **arrp, size_t elem_size
 static inline _attr_unused void _arr_popn(void *arr, size_t n)
 {
 #ifdef ARRAY_SAFETY_CHECKS
-	assert(n <= _arr_len(arr));
+	assert(n <= _arr_length(arr));
 #endif
-	_arrhead(arr)->len -= n;
+	_arrhead(arr)->length -= n;
 }
 
 static inline _attr_unused void _arr_shrink_to_fit(void **arrp, size_t elem_size)
 {
-	*arrp = _arr_resize_internal(*arrp, elem_size, _arr_len(*arrp));
+	*arrp = _arr_resize_internal(*arrp, elem_size, _arr_length(*arrp));
 }
 
 static inline _attr_nonnull(1, 3) _attr_unused
@@ -373,7 +374,7 @@ size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 	size_t index = diff / elem_size;
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(diff % elem_size == 0);
-	assert(index < _arr_len(arr));
+	assert(index < _arr_length(arr));
 #endif
 	return index;
 }
@@ -386,7 +387,7 @@ static inline _attr_unused void _arr_add_arrayn(void **arrp, size_t elem_size, c
 
 static inline _attr_unused void _arr_add_array(void **arrp, size_t elem_size, const void *arr2)
 {
-	_arr_add_arrayn(arrp, elem_size, arr2, _arr_len(arr2));
+	_arr_add_arrayn(arrp, elem_size, arr2, _arr_length(arr2));
 }
 
 static _attr_unused _attr_warn_unused_result
@@ -396,8 +397,8 @@ _Bool _arr_equal(const void *arr1, size_t elem_size, const void *arr2)
 		// the code below does not cover the case where both are NULL!
 		return 1;
 	}
-	size_t len = _arr_len(arr1);
-	if (len != _arr_len(arr2)) {
+	size_t len = _arr_length(arr1);
+	if (len != _arr_length(arr2)) {
 		return 0;
 	}
 	return memcmp(arr1, arr2, len * elem_size) == 0;
@@ -428,7 +429,7 @@ void _arr_swap_elements(void *arr, size_t elem_size, unsigned char *buf, size_t 
 static inline _attr_nonnull(3) _attr_unused
 void _arr_reverse(void *arr, size_t elem_size, unsigned char *buf)
 {
-	for (size_t i = 0; i < _arr_len(arr) / 2; i++) {
+	for (size_t i = 0; i < _arr_length(arr) / 2; i++) {
 		_arr_swap_elements_unchecked(arr, elem_size, buf, i, _arr_lasti(arr) - i);
 	}
 }
@@ -478,8 +479,8 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(vo
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(!array_empty(arr));
 #endif
-	_arrhead(arr)->len--;
-	return (char *)arr + _arr_len(arr) * elem_size;
+	_arrhead(arr)->length--;
+	return (char *)arr + _arr_length(arr) * elem_size;
 }
 
 #define _arr_fori(a, itername) for (size_t (itername) = 0, _arr_iter_end_##__LINE__ = array_len(a); \

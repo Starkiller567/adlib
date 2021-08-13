@@ -41,7 +41,7 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 		if (unlikely(!head)) {
 			abort();
 		}
-		head->len = 0;
+		head->length = 0;
 #ifdef ARRAY_SAFETY_CHECKS
 		head->magic1 = ARRAY_MAGIC1;
 		head->magic2 = ARRAY_MAGIC2;
@@ -55,8 +55,8 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 			return arr;
 		}
 		head = realloc(head, new_size);
-		if (unlikely(head->len > capacity)) {
-			head->len = capacity;
+		if (unlikely(head->length > capacity)) {
+			head->length = capacity;
 		}
 	}
 	head->capacity = capacity;
@@ -69,8 +69,8 @@ __AD_LINKAGE void *_arr_copy(const void *arr, size_t elem_size)
 	if (!new_arr) {
 		return NULL;
 	}
-	_arrhead(new_arr)->len = _arr_len(arr);
-	memcpy(new_arr, arr, elem_size * _arr_len(arr));
+	_arrhead(new_arr)->length = _arr_length(arr);
+	memcpy(new_arr, arr, elem_size * _arr_length(arr));
 	return new_arr;
 }
 
@@ -101,9 +101,9 @@ __AD_LINKAGE void _arr_make_valid(void **arrp, size_t elem_size, size_t i)
 	if (i >= capacity) {
 		_arr_grow(arrp, elem_size, i - capacity + 1);
 	}
-	if (i >= _arr_len(*arrp)) {
+	if (i >= _arr_length(*arrp)) {
 		// *arrp cannot be null here
-		_arrhead(*arrp)->len = i + 1;
+		_arrhead(*arrp)->length = i + 1;
 	}
 }
 
@@ -114,14 +114,14 @@ __AD_LINKAGE void *_arr_addn(void **arrp, size_t elem_size, size_t n)
 	}
 	if (unlikely(!(*arrp))) {
 		_arr_grow(arrp, elem_size, n);
-		_arrhead(*arrp)->len = n;
+		_arrhead(*arrp)->length = n;
 		return *arrp;
 	}
 	_arr *head = _arrhead(*arrp);
-	size_t old_len = head->len;
-	head->len += n;
-	if (unlikely(head->len > head->capacity)) {
-		_arr_grow(arrp, elem_size, head->len - head->capacity);
+	size_t old_len = head->length;
+	head->length += n;
+	if (unlikely(head->length > head->capacity)) {
+		_arr_grow(arrp, elem_size, head->length - head->capacity);
 	}
 	return (char *)(*arrp) + (old_len * elem_size);
 }
@@ -129,7 +129,7 @@ __AD_LINKAGE void *_arr_addn(void **arrp, size_t elem_size, size_t n)
 __AD_LINKAGE void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n)
 {
 	void *arr = *arrp;
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(i <= len);
 #endif
@@ -149,19 +149,19 @@ __AD_LINKAGE void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t 
 
 __AD_LINKAGE void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
 	char *src = (char *)arr + (i + n) * elem_size;
 	char *dst = (char *)arr + i * elem_size;
 	memmove(dst, src, (len - (i + n)) * elem_size);
-	_arrhead(arr)->len -= n;
+	_arrhead(arr)->length -= n;
 }
 
 __AD_LINKAGE void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n)
 {
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 #ifdef ARRAY_SAFETY_CHECKS
 	assert(i < len && n <= len && (i + n) <= len);
 #endif
@@ -172,12 +172,12 @@ __AD_LINKAGE void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_
 	char *src = (char *)arr + (len - k) * elem_size;
 	char *dst = (char *)arr + i * elem_size;
 	memmove(dst, src, k * elem_size);
-	_arrhead(arr)->len -= n;
+	_arrhead(arr)->length -= n;
 }
 
 __AD_LINKAGE void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *))
 {
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 	if (likely(len != 0)) {
 		qsort(arr, len, elem_size, compare);
 	}
@@ -186,7 +186,7 @@ __AD_LINKAGE void _arr_sort(void *arr, size_t elem_size, int (*compare)(const vo
 __AD_LINKAGE void *_arr_bsearch(void *arr, size_t elem_size, const void *key,
 				int (*compare)(const void *, const void *))
 {
-	size_t len = _arr_len(arr);
+	size_t len = _arr_length(arr);
 	if (unlikely(len == 0)) {
 		return NULL;
 	}

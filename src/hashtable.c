@@ -34,14 +34,14 @@
 //      and make hashtable_set (lookup + insert) helper
 
 /* Memory layout:
- * For in-place resizing the memory layout needs to look like this (k=key, v=value, m=metadata):
- * kvkvkvkvkvmmmmm
+ * For in-place resizing the memory layout needs to look like this (e=entry, m=metadata):
+ * eeeeemmmmm
  * So that when we double the capacity we get this:
- * kvkvkvkvkvmmmmm
- * kvkvkvkvkvkvkvkvkvkvmmmmmmmmmm
+ * eeeeemmmmm
+ * eeeeeeeeeemmmmmmmmmm
  * Notice how the old entries remain in the same place!
  * (The old metadata gets copied to the back early on, so it's fine to overwrite it.
- *  But we don't want to copy any keys or values since those tend to be bigger.)
+ *  But we don't want to copy any entries since those tend to be bigger.)
  */
 
 static _attr_unused _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_t capacity)
