@@ -5,7 +5,7 @@
 #include "array.h"
 
 struct item {
-	list_link_t link;
+	struct list_head link;
 	int i;
 };
 
@@ -17,7 +17,7 @@ static void add(int i)
 	array_add(arr, i);
 	struct item *item = malloc(sizeof(*item));
 	item->i = i;
-	list_insert_last(&list, &item->link);
+	list_insert_before(&list, &item->link);
 }
 
 static void remove(int i)
@@ -40,11 +40,11 @@ static void remove(int i)
 static void check(void)
 {
 	int *iter;
-	list_link_t *cur = list_get_head(&list);
+	struct list_head *cur = list.next;
 	array_foreach(arr, iter) {
 		assert(cur != &list);
 		assert(*iter == container_of(cur, struct item, link)->i);
-		cur = list_next(cur);
+		cur = cur->next;
 	}
 }
 

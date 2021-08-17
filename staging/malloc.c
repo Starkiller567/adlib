@@ -165,7 +165,7 @@ static inline void free_list_insert(struct heap *heap, struct memblock *memblock
 {
 	struct freeblock *freeblock = (struct freeblock *)memblock;
 	size_t idx = size_to_bucket_index(get_size(memblock));
-	list_insert_first(&heap->free_list[idx], &freeblock->list_head);
+	list_insert_after(&heap->free_list[idx], &freeblock->list_head);
 }
 
 static inline void free_list_remove(struct heap *heap, struct memblock *memblock)

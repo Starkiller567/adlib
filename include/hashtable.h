@@ -181,56 +181,37 @@ struct _hashtable_info {
 	unsigned char f3;
 };
 
-// TODO maybe make struct _hashtable opaque so all this stuff doesn't have to be in the header
-typedef struct _hashtable_metadata _hashtable_metadata_t;
-
+struct _hashtable {
+	_hashtable_uint_t num_entries;
 #if defined(HASHTABLE_QUADRATIC)
-
-struct _hashtable {
-	_hashtable_uint_t num_entries;
 	_hashtable_uint_t num_tombstones;
-	_hashtable_uint_t capacity;
-	unsigned char *storage;
-	_hashtable_metadata_t *metadata;
-};
-
-#elif defined(HASHTABLE_HOPSCOTCH)
-
-struct _hashtable {
-	_hashtable_uint_t num_entries;
-	_hashtable_uint_t capacity;
-	unsigned char *storage;
-	_hashtable_metadata_t *metadata;
-};
-
-#elif defined(HASHTABLE_ROBINHOOD)
-
-struct _hashtable {
-	_hashtable_uint_t num_entries;
-	_hashtable_uint_t capacity;
-	unsigned char *storage;
-	_hashtable_metadata_t *metadata;
-};
-
 #endif
+	_hashtable_uint_t capacity;
+	unsigned char *storage;
+	struct _hashtable_metadata *metadata;
+};
 
-__AD_LINKAGE  _attr_unused void *_hashtable_entry(struct _hashtable *table, _hashtable_idx_t index,
-						  const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
+__AD_LINKAGE _attr_unused void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
 						const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused void _hashtable_destroy(struct _hashtable *table);
-__AD_LINKAGE  _attr_unused _attr_warn_unused_result
+__AD_LINKAGE _attr_unused void _hashtable_destroy(struct _hashtable *table);
+__AD_LINKAGE _attr_unused _attr_warn_unused_result
 bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
 		       _hashtable_idx_t *ret_index, const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
+__AD_LINKAGE _attr_unused _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
 								const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
+__AD_LINKAGE _attr_unused void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
 						  const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused _attr_warn_unused_result
+__AD_LINKAGE _attr_unused _attr_warn_unused_result
 _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
 				   const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
+__AD_LINKAGE _attr_unused void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,
 						  const struct _hashtable_info *info);
-__AD_LINKAGE  _attr_unused void _hashtable_clear(struct _hashtable *table, const struct _hashtable_info *info);
+__AD_LINKAGE _attr_unused void _hashtable_clear(struct _hashtable *table, const struct _hashtable_info *info);
+
+static inline void *_hashtable_entry(struct _hashtable *table, _hashtable_idx_t index,
+				     const struct _hashtable_info *info)
+{
+	return table->storage + index * info->entry_size;
+}
 
 #endif

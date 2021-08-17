@@ -20,19 +20,19 @@ int main(void)
 {
 	struct dbuf dbuf;
 	dbuf_init(&dbuf);
-	dbuf_addstr(&dbuf, "");
+	dbuf_add_str(&dbuf, "");
 	assert(dbuf_size(&dbuf) == 0);
 	const char *string = "agdfhgdsio89th4389fcn82fugu";
-	dbuf_addstr(&dbuf, string);
-	dbuf_addb(&dbuf, 0);
+	dbuf_add_str(&dbuf, string);
+	dbuf_add_byte(&dbuf, 0);
 	assert(strcmp(dbuf_buffer(&dbuf), string) == 0);
 	check_size_and_capacity(&dbuf);
 	dbuf_destroy(&dbuf);
 	dbuf = DBUF_INITIALIZER;
 	for (const char *s = string; *s; s++) {
-		dbuf_addb(&dbuf, *s);
+		dbuf_add_byte(&dbuf, *s);
 	}
-	dbuf_addb(&dbuf, 0);
+	dbuf_add_byte(&dbuf, 0);
 	assert(strcmp(dbuf_buffer(&dbuf), string) == 0);
 	check_size_and_capacity(&dbuf);
 	dbuf_destroy(&dbuf);
@@ -59,7 +59,7 @@ int main(void)
 	assert(dbuf_buffer(&dbuf) == NULL);
 
 	int integers[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-	dbuf_addbuf(&dbuf, integers, sizeof(integers));
+	dbuf_add_buf(&dbuf, integers, sizeof(integers));
 	assert(dbuf_size(&dbuf) == sizeof(integers));
 	check_size_and_capacity(&dbuf);
 	struct dbuf dbuf2 = DBUF_INITIALIZER;
@@ -77,7 +77,7 @@ int main(void)
 	dbuf_clear(&dbuf);
 	assert(dbuf_size(&dbuf) == 0);
 	assert(dbuf_capacity(&dbuf) == dbuf_capacity(&dbuf3));
-	dbuf_adddbuf(&dbuf, &dbuf2);
+	dbuf_add_dbuf(&dbuf, &dbuf2);
 	assert(dbuf_size(&dbuf) == dbuf_size(&dbuf2));
 	assert(dbuf_size(&dbuf) == dbuf_size(&dbuf3));
 	assert(dbuf_capacity(&dbuf) == dbuf_capacity(&dbuf3));
@@ -90,9 +90,9 @@ int main(void)
 	dbuf_destroy(&dbuf3);
 
 	dbuf_init(&dbuf);
-	dbuf_printf(&dbuf, "%d %s %c", 123, "abc", '!');
+	dbuf_add_fmt(&dbuf, "%d %s %c", 123, "abc", '!');
 	check_size_and_capacity(&dbuf);
-	dbuf_addb(&dbuf, 0);
+	dbuf_add_byte(&dbuf, 0);
 	check_size_and_capacity(&dbuf);
 	assert(strcmp(dbuf_buffer(&dbuf), "123 abc !") == 0);
 	dbuf_destroy(&dbuf);

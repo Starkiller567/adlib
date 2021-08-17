@@ -127,7 +127,7 @@ __AD_LINKAGE void dbuf_reserve(struct dbuf *dbuf, size_t n)
 	}
 }
 
-__AD_LINKAGE void dbuf_addb(struct dbuf *dbuf, unsigned char byte)
+__AD_LINKAGE void dbuf_add_byte(struct dbuf *dbuf, unsigned char byte)
 {
 	dbuf_reserve(dbuf, 1);
 	dbuf->_buf[dbuf->_size] = byte;
@@ -142,7 +142,7 @@ __AD_LINKAGE void *dbuf_add_uninitialized(struct dbuf *dbuf, size_t count)
 	return p;
 }
 
-__AD_LINKAGE void dbuf_addbuf(struct dbuf *dbuf, const void *buf, size_t count)
+__AD_LINKAGE void dbuf_add_buf(struct dbuf *dbuf, const void *buf, size_t count)
 {
 	if (likely(count != 0)) {
 		void *p = dbuf_add_uninitialized(dbuf, count);
@@ -150,17 +150,17 @@ __AD_LINKAGE void dbuf_addbuf(struct dbuf *dbuf, const void *buf, size_t count)
 	}
 }
 
-__AD_LINKAGE void dbuf_adddbuf(struct dbuf *dbuf, const struct dbuf *other)
+__AD_LINKAGE void dbuf_add_dbuf(struct dbuf *dbuf, const struct dbuf *other)
 {
-	dbuf_addbuf(dbuf, dbuf_buffer(other), dbuf_size(other));
+	dbuf_add_buf(dbuf, dbuf_buffer(other), dbuf_size(other));
 }
 
-__AD_LINKAGE void dbuf_addstr(struct dbuf *dbuf, const char *str)
+__AD_LINKAGE void dbuf_add_str(struct dbuf *dbuf, const char *str)
 {
-	dbuf_addbuf(dbuf, str, strlen(str));
+	dbuf_add_buf(dbuf, str, strlen(str));
 }
 
-__AD_LINKAGE void dbuf_printf(struct dbuf *dbuf, const char *fmt, ...)
+__AD_LINKAGE void dbuf_add_fmt(struct dbuf *dbuf, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);

@@ -1,6 +1,9 @@
 #ifndef __mbuf_include__
 #define __mbuf_include__
 
+// TODO varint message headers
+// TODO allow empty messages
+
 #include "cbuf.h"
 
 struct mbuf {
@@ -9,7 +12,7 @@ struct mbuf {
 
 typedef struct {
 	size_t size;
-} __mbuf_msg_hdr;
+} _mbuf_msg_hdr;
 
 static inline void mbuf_init(struct mbuf *mbuf, void *mem, size_t capacity)
 {
@@ -29,7 +32,7 @@ static inline size_t mbuf_capacity(const struct mbuf *mbuf)
 static inline size_t mbuf_avail_size(const struct mbuf *mbuf)
 {
 	size_t avail = cbuf_avail_size(&mbuf->cbuf);
-	size_t hdr_size = sizeof(__mbuf_msg_hdr);
+	size_t hdr_size = sizeof(_mbuf_msg_hdr);
 	return avail > hdr_size ? avail - hdr_size : 0;
 }
 
@@ -46,7 +49,7 @@ static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count, bool o
 		// (was the header pushed or not?, empty message or no message?)
 		return 0;
 	}
-	__mbuf_msg_hdr hdr;
+	_mbuf_msg_hdr hdr;
 	size_t n, total_size = sizeof(hdr) + count;
 	if (cbuf_avail_size(&mbuf->cbuf) < total_size) {
 		if (!overwrite || total_size > cbuf_capacity(&mbuf->cbuf)) {
@@ -73,7 +76,7 @@ static size_t mbuf_push(struct mbuf *mbuf, const void *buf, size_t count, bool o
 static size_t mbuf_pop(struct mbuf *mbuf, void *buf, size_t count)
 {
 	size_t n;
-	__mbuf_msg_hdr hdr;
+	_mbuf_msg_hdr hdr;
 	n = cbuf_peek(&mbuf->cbuf, &hdr, sizeof(hdr));
 	if (n == 0) {
 		return 0;

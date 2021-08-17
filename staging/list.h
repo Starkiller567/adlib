@@ -15,41 +15,19 @@ struct list_head {
 	struct list_head *next;
 };
 
-typedef struct list_head list_link_t;
-
-static inline struct list_head list_head_init(struct list_head *list)
+static struct list_head list_head_init(struct list_head *list)
 {
 	list->prev = list;
 	list->next = list;
 	return *list;
 }
 
-static inline bool list_empty(struct list_head *list)
+static bool list_empty(struct list_head *list)
 {
 	return list->next == list;
 }
 
-static inline list_link_t *list_next(list_link_t *item)
-{
-	return item->next;
-}
-
-static inline list_link_t *list_prev(list_link_t *item)
-{
-	return item->prev;
-}
-
-static inline list_link_t *list_get_head(struct list_head *list)
-{
-	return list_next(list);
-}
-
-static inline list_link_t *list_get_tail(struct list_head *list)
-{
-	return list_prev(list);
-}
-
-static inline void list_insert_after(list_link_t *pos, list_link_t *item)
+static void list_insert_after(struct list_head *pos, struct list_head *item)
 {
 	item->prev = pos;
 	item->next = pos->next;
@@ -57,7 +35,7 @@ static inline void list_insert_after(list_link_t *pos, list_link_t *item)
 	pos->next = item;
 }
 
-static inline void list_insert_before(list_link_t *pos, list_link_t *item)
+static void list_insert_before(struct list_head *pos, struct list_head *item)
 {
 	item->prev = pos->prev;
 	item->next = pos;
@@ -65,36 +43,12 @@ static inline void list_insert_before(list_link_t *pos, list_link_t *item)
 	pos->prev = item;
 }
 
-static inline void list_insert_first(struct list_head *list, list_link_t *item)
-{
-	list_insert_after(list, item);
-}
-
-static inline void list_insert_last(struct list_head *list, list_link_t *item)
-{
-	list_insert_before(list, item);
-}
-
-static inline void list_remove_item(list_link_t *item)
+static void list_remove_item(struct list_head *item)
 {
 	item->prev->next = item->next;
 	item->next->prev = item->prev;
-	item->prev = (list_link_t *)0xdeadbeef;
-	item->next = (list_link_t *)0xdeadbeef;
-}
-
-static struct list_head *list_remove_head(struct list_head *list)
-{
-	list_link_t *head = list_get_head(list);
-	list_remove_item(head);
-	return head;
-}
-
-static struct list_head *list_remove_tail(struct list_head *list)
-{
-	list_link_t *tail = list_get_tail(list);
-	list_remove_item(tail);
-	return tail;
+	item->prev = (struct list_head *)0xdeadbeef;
+	item->next = (struct list_head *)0xdeadbeef;
 }
 
 #define list_foreach(list, itername)					\

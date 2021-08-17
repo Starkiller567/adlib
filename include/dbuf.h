@@ -23,6 +23,8 @@
 #include "config.h"
 #include "macros.h"
 
+// TODO rename dbuf_add* to dbuf_append_* ?
+
 struct dbuf {
 	// do not access these fields directly
 	char *_buf;
@@ -64,17 +66,17 @@ __AD_LINKAGE _attr_unused void dbuf_grow(struct dbuf *dbuf, size_t n);
 // (does not change length, only capacity)
 __AD_LINKAGE _attr_unused void dbuf_reserve(struct dbuf *dbuf, size_t n);
 // append a byte
-__AD_LINKAGE _attr_unused void dbuf_addb(struct dbuf *dbuf, unsigned char byte);
+__AD_LINKAGE _attr_unused void dbuf_add_byte(struct dbuf *dbuf, unsigned char byte);
 // append 'count' bytes of uninitialized memory and return a pointer to that memory
 // Warning: modifications to dbuf may invalidate the returned pointer (due to realloc)
 __AD_LINKAGE _attr_unused _attr_warn_unused_result void *dbuf_add_uninitialized(struct dbuf *dbuf, size_t count);
 // append 'count' bytes from 'buf' ('buf' can only be NULL if 'count' is zero)
-__AD_LINKAGE _attr_unused void dbuf_addbuf(struct dbuf *dbuf, const void *buf, size_t count);
+__AD_LINKAGE _attr_unused void dbuf_add_buf(struct dbuf *dbuf, const void *buf, size_t count);
 // append the contents of 'other'
-__AD_LINKAGE _attr_unused _attr_nonnull(2) void dbuf_adddbuf(struct dbuf *dbuf, const struct dbuf *other);
+__AD_LINKAGE _attr_unused _attr_nonnull(2) void dbuf_add_dbuf(struct dbuf *dbuf, const struct dbuf *other);
 // append a null-terminated string without the null terminator
-__AD_LINKAGE _attr_unused _attr_nonnull(2) void dbuf_addstr(struct dbuf *dbuf, const char *str);
+__AD_LINKAGE _attr_unused _attr_nonnull(2) void dbuf_add_str(struct dbuf *dbuf, const char *str);
 // append a formatted string (see printf for details)
-__AD_LINKAGE _attr_unused _attr_format_printf(2, 3) void dbuf_printf(struct dbuf *dbuf, const char *fmt, ...);
+__AD_LINKAGE _attr_unused _attr_format_printf(2, 3) void dbuf_add_fmt(struct dbuf *dbuf, const char *fmt, ...);
 
 #endif

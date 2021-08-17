@@ -40,11 +40,10 @@
 //         array_free(my_array);
 //
 
-// TODO array_memset, array_set_all, array_push_repeat, array_at, array_call_foreach, array_insert_sorted
+// TODO array_set_all, array_push_repeat/addn_copies, array_at, array_call_foreach, array_insert_sorted
 // TODO clearly define and document when reallocation happens
 // TODO document alignment
 // TODO make array_grow private?
-// TODO deprecate array_len and replace it with array_length?
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
