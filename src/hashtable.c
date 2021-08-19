@@ -26,10 +26,11 @@
 
 // TODO add ordered hashmap/hashset implementation? (insertion order chaining)
 //      store the entries in a linear array in insertion order and let the hashtable map keys to indices
+//      (how to implement remove efficiently? bitmap for deleted entries + compaction during resize?)
 // TODO add generation and check it during iteration?
 // TODO make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)?
 // TODO in hash_to_idx xor the hash with a random seed that changes whenever the hashtable gets resized?
-// TODO make it possible to choose the implementation for each instance?
+// TODO make it possible to choose the implementation for each instance? (probably too slow or messy...)
 // TODO make _hashtable_lookup return the first eligable slot for insertion to speed up subsequent insertion
 //      and make hashtable_set (lookup + insert) helper
 

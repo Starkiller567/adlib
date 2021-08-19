@@ -103,7 +103,7 @@
 	typedef struct name##_iterator {				\
 		entry_type *entry;					\
 		_hashtable_idx_t _index;				\
-		struct name *_map;					\
+		struct name *_table;					\
 		bool _finished;						\
 	} name##_iter_t;						\
 									\
@@ -118,18 +118,18 @@
 		if (iter->_finished) {					\
 			return;						\
 		}							\
-		iter->_index = _hashtable_get_next(&iter->_map->impl, iter->_index + 1, &_##name##_info); \
-		if (iter->_index >= iter->_map->impl.capacity) {	\
+		iter->_index = _hashtable_get_next(&iter->_table->impl, iter->_index + 1, &_##name##_info); \
+		if (iter->_index >= iter->_table->impl.capacity) {	\
 			iter->_finished = true;				\
 		} else {						\
-			iter->entry = _hashtable_entry(&iter->_map->impl, iter->_index, &_##name##_info); \
+			iter->entry = _hashtable_entry(&iter->_table->impl, iter->_index, &_##name##_info); \
 		}							\
 	}								\
 									\
 	static _attr_unused struct name##_iterator name##_iter_start(struct name *table) \
 	{								\
 		struct name##_iterator iter = {0};			\
-		iter._map = table;					\
+		iter._table = table;					\
 		iter._index = -1; /* iter_advance increments this to 0 */ \
 		iter._finished = false;					\
 		name##_iter_advance(&iter);				\
