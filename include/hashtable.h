@@ -171,6 +171,9 @@
 typedef uint32_t _hashtable_hash_t;
 typedef size_t _hashtable_uint_t;
 typedef _hashtable_uint_t _hashtable_idx_t;
+#if defined(HASHTABLE_HOPSCOTCH)
+typedef uint32_t _hashtable_bitmap_t;
+#endif
 
 struct _hashtable_info {
 	_hashtable_uint_t entry_size;
@@ -189,6 +192,9 @@ struct _hashtable {
 	_hashtable_uint_t capacity;
 	unsigned char *storage;
 	struct _hashtable_metadata *metadata;
+#if defined(HASHTABLE_HOPSCOTCH)
+	_hashtable_bitmap_t *bitmaps;
+#endif
 };
 
 __AD_LINKAGE _attr_unused void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
