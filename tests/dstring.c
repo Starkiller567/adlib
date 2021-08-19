@@ -52,7 +52,6 @@ int main(void)
 	assert(!dstr);
 
 	dstr = dstr_new_empty();
-	sanity_check(dstr);
 	for (size_t n = 0; n < 100; n++) {
 		for (size_t i = 0; i < 26; i++) {
 			char c = 'a' + i;

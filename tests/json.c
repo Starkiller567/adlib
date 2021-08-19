@@ -502,7 +502,7 @@ static char *_json_parse_string(struct strview *inputp)
 		return NULL;
 	}
 	*inputp = strview_narrow(input, end + 1, 0);
-	return strview_to_cstr(strview_substring(input, 0, end - 1));
+	return strview_to_cstr(strview_substring(input, 0, end));
 }
 
 static struct json_string *json_parse_string(struct strview *inputp)
