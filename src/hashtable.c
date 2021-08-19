@@ -448,11 +448,14 @@ __AD_LINKAGE void _hashtable_clear(struct _hashtable *table, const struct _hasht
 // setting this too small (<~8) may cause issues with shrink failing in remove among other problems
 #define __HASHTABLE_NEIGHBORHOOD 32
 
+typedef _hashtable_hash_t _hashtable_bitmap_t;
+
 _Static_assert(8 * sizeof(_hashtable_bitmap_t) >= __HASHTABLE_NEIGHBORHOOD,
 	       "hopscotch neighborhood size too big for bitmap");
 
 typedef struct _hashtable_metadata {
 	_hashtable_hash_t hash;
+	_hashtable_bitmap_t bitmap;
 } _hashtable_metadata_t;
 
 static _attr_unused _hashtable_idx_t _hashtable_wrap_index(_hashtable_idx_t index, _hashtable_uint_t capacity)
@@ -466,28 +469,16 @@ static _attr_unused _hashtable_uint_t _hashtable_metadata_offset(_hashtable_uint
 	return capacity * info->entry_size;
 }
 
-static _attr_unused _hashtable_uint_t _hashtable_bitmaps_offset(_hashtable_uint_t capacity,
-								const struct _hashtable_info *info)
-{
-	return capacity * (info->entry_size + sizeof(_hashtable_hash_t));
-}
-
 static _attr_unused _hashtable_metadata_t *_hashtable_metadata(struct _hashtable *table, _hashtable_idx_t index,
 							       const struct _hashtable_info *info)
 {
 	return &table->metadata[index];
 }
 
-static _attr_unused _hashtable_bitmap_t *_hashtable_bitmap(struct _hashtable *table, _hashtable_idx_t index,
-							   const struct _hashtable_info *info)
-{
-	return &table->bitmaps[index];
-}
-
 static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, const struct _hashtable_info *info)
 {
 	assert((table->capacity & (table->capacity - 1)) == 0);
-	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_metadata_t) + sizeof(_hashtable_bitmap_t);
+	_hashtable_uint_t size = info->entry_size + sizeof(_hashtable_metadata_t);
 	assert(((_hashtable_uint_t)-1) / size >= table->capacity);
 	size *= table->capacity;
 	table->storage = realloc(table->storage, size);
@@ -496,8 +487,6 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
 						    _hashtable_metadata_offset(table->capacity, info));
-	table->bitmaps = (_hashtable_bitmap_t *)(table->storage +
-						 _hashtable_bitmaps_offset(table->capacity, info));
 }
 
 __AD_LINKAGE void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
@@ -514,7 +503,7 @@ __AD_LINKAGE void _hashtable_init(struct _hashtable *table, _hashtable_uint_t ca
 	for (_hashtable_uint_t i = 0; i < capacity; i++) {
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = __HASHTABLE_EMPTY_HASH;
-		*_hashtable_bitmap(table, i, info) = 0;
+		m->bitmap = 0;
 	}
 }
 
@@ -537,7 +526,7 @@ __AD_LINKAGE bool _hashtable_lookup(struct _hashtable *table, void *key, _hashta
 {
 	hash = _hashtable_sanitize_hash(hash);
 	_hashtable_idx_t home = _hashtable_hash_to_index(table, hash);
-	_hashtable_bitmap_t bitmap = *_hashtable_bitmap(table, home, info);
+	_hashtable_bitmap_t bitmap = _hashtable_metadata(table, home, info)->bitmap;
 	if (bitmap == 0) {
 		return false;
 	}
@@ -590,7 +579,7 @@ static _attr_unused bool _hashtable_move_into_neighborhood(struct _hashtable *ta
 				continue;
 			}
 			m->hash = __HASHTABLE_EMPTY_HASH;
-			_hashtable_bitmap_t *bitmap = _hashtable_bitmap(table, home, info);
+			_hashtable_bitmap_t *bitmap = &_hashtable_metadata(table, home, info)->bitmap;
 			*bitmap &= ~((_hashtable_bitmap_t)1 << old_distance);
 			*bitmap |= (_hashtable_bitmap_t)1 << new_distance;
 			memcpy(_hashtable_entry(table, empty_index, info),
@@ -623,7 +612,7 @@ static _attr_unused bool _hashtable_do_insert(struct _hashtable *table, _hashtab
 		return false;
 	}
 
-	_hashtable_bitmap_t *bitmap = _hashtable_bitmap(table, home, info);
+	_hashtable_bitmap_t *bitmap = &_hashtable_metadata(table, home, info)->bitmap;
 	*bitmap |= (_hashtable_bitmap_t)1 << distance;
 	_hashtable_metadata(table, index, info)->hash = hash;
 	*pindex = index;
@@ -676,7 +665,7 @@ static _attr_unused bool _hashtable_insert_during_resize(struct _hashtable *tabl
 		// if we didn't succeed, we insert the entry anyway so it doesn't get lost
 	}
 
-	*_hashtable_bitmap(table, home, info) |= (_hashtable_bitmap_t)1 << distance;
+	_hashtable_metadata(table, home, info)->bitmap |= (_hashtable_bitmap_t)1 << distance;
 	_hashtable_metadata(table, index, info)->hash = hash;
 	memcpy(_hashtable_entry(table, index, info), entry, info->entry_size);
 	return success;
@@ -707,7 +696,10 @@ static _attr_unused void _hashtable_shrink(struct _hashtable *table, _hashtable_
 retry:
 	table->capacity = new_capacity;
 	// TODO is there a (simple) way to avoid this work?
-	memset(table->bitmaps, 0, old_capacity * sizeof(table->bitmaps[0]));
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
+		m->bitmap = 0;
+	}
 
 	void *entry = alloca(info->entry_size);
 	_hashtable_uint_t num_rehashed = 0;
@@ -724,7 +716,7 @@ retry:
 		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(table, hash);
 		if (optimal_index == index) {
 			_hashtable_slot_clear_needs_rehash(bitmap, index);
-			*_hashtable_bitmap(table, index, info) |= 1;
+			m->bitmap |= 1;
 			num_rehashed++;
 			continue;
 		}
@@ -755,10 +747,9 @@ retry:
 
 	size_t new_metadata_offset = _hashtable_metadata_offset(table->capacity, info);
 	_hashtable_metadata_t *new_metadata = (_hashtable_metadata_t *)(table->storage + new_metadata_offset);
-	memmove(new_metadata, table->metadata, old_capacity * sizeof(table->metadata[0]));
-	size_t new_bitmaps_offset = _hashtable_bitmaps_offset(table->capacity, info);
-	_hashtable_bitmap_t *new_bitmaps = (_hashtable_bitmap_t *)(table->storage + new_bitmaps_offset);
-	memmove(new_bitmaps, table->bitmaps, old_capacity * sizeof(table->bitmaps[0]));
+	for (_hashtable_uint_t i = 0; i < old_capacity; i++) {
+		new_metadata[i] = table->metadata[i];
+	}
 	_hashtable_realloc_storage(table, info);
 }
 
@@ -793,12 +784,13 @@ static _attr_unused void _hashtable_grow(struct _hashtable *table, _hashtable_ui
 	for (_hashtable_uint_t i = old_capacity; i-- > 0;) {
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = old_metadata[i].hash;
+		m->bitmap = 0;
 	}
 	for (_hashtable_uint_t i = old_capacity; i < table->capacity; i++) {
 		_hashtable_metadata_t *m = _hashtable_metadata(table, i, info);
 		m->hash = __HASHTABLE_EMPTY_HASH;
+		m->bitmap = 0;
 	}
-	memset(table->bitmaps, 0, table->capacity * sizeof(table->bitmaps[0]));
 
 	void *entry = alloca(info->entry_size);
 	_hashtable_uint_t num_rehashed = 0;
@@ -815,7 +807,7 @@ static _attr_unused void _hashtable_grow(struct _hashtable *table, _hashtable_ui
 		_hashtable_idx_t optimal_index = _hashtable_hash_to_index(table, hash);
 		if (optimal_index == index) {
 			_hashtable_slot_clear_needs_rehash(bitmap, index);
-			*_hashtable_bitmap(table, index, info) |= 1;
+			m->bitmap |= 1;
 			num_rehashed++;
 			continue;
 		}
@@ -867,8 +859,9 @@ __AD_LINKAGE void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t i
 {
 	_hashtable_metadata_t *m = _hashtable_metadata(table, index, info);
 	_hashtable_idx_t home = _hashtable_hash_to_index(table, m->hash);
+	_hashtable_metadata_t *home_m = _hashtable_metadata(table, home, info);
 	_hashtable_uint_t distance = _hashtable_wrap_index(index - home, table->capacity);
-	*_hashtable_bitmap(table, home, info) &= ~((_hashtable_bitmap_t)1 << distance);
+	home_m->bitmap &= ~((_hashtable_bitmap_t)1 << distance);
 	m->hash = __HASHTABLE_EMPTY_HASH;
 	table->num_entries--;
 	if (table->num_entries < table->capacity / 8) {
@@ -880,7 +873,7 @@ __AD_LINKAGE void _hashtable_clear(struct _hashtable *table, const struct _hasht
 {
 	for (_hashtable_uint_t i = 0; i < table->capacity; i++) {
 		_hashtable_metadata(table, i, info)->hash = __HASHTABLE_EMPTY_HASH;
-		*_hashtable_bitmap(table, i, info) = 0;
+		_hashtable_metadata(table, i, info)->bitmap = 0;
 	}
 	table->num_entries = 0;
 }
