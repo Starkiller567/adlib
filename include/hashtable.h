@@ -52,9 +52,6 @@
 		.entry_size = sizeof(entry_type),			\
 		.threshold = (THRESHOLD),				\
 		.keys_match = _##name##_keys_match,			\
-		.f1 = 10 / (THRESHOLD),					\
-		.f2 = (10 % (THRESHOLD)) / ((THRESHOLD) % 2 == 0 ? 2 : 1), \
-		.f3 = (THRESHOLD) / ((THRESHOLD) % 2 == 0 ? 2 : 1),	\
 	};								\
 									\
 	static _attr_unused void name##_init(struct name *table, name##_uint_t initial_capacity) \
@@ -176,9 +173,6 @@ struct _hashtable_info {
 	_hashtable_uint_t entry_size;
 	_hashtable_uint_t threshold;
 	bool (*keys_match)(const void *key, const void *entry);
-	unsigned char f1; // constants for the min capacity calculation
-	unsigned char f2;
-	unsigned char f3;
 };
 
 struct _hashtable {
@@ -186,6 +180,7 @@ struct _hashtable {
 #if defined(HASHTABLE_QUADRATIC)
 	_hashtable_uint_t num_tombstones;
 #endif
+	_hashtable_uint_t max_entries;
 	_hashtable_uint_t capacity;
 	unsigned char *storage;
 	struct _hashtable_metadata *metadata;

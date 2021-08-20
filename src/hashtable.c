@@ -59,41 +59,27 @@ static _attr_unused _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_
 	return capacity;
 }
 
-static _attr_unused _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_entries,
-							      const struct _hashtable_info *info)
+static _attr_unused _hashtable_uint_t _hashtable_max_entries(_hashtable_uint_t capacity,
+							     const struct _hashtable_info *info)
 {
-	// threshold=5 -> f1=2, f2=0, f2/threshold=0
-	// threshold=6 -> f1=1, f2=4, f2/threshold=4/6=2/3
-	// threshold=7 -> f1=1, f2=3, f2/threshold=3/7
-	// threshold=8 -> f1=1, f2=2, f2/threshold=2/8=1/4
-	// threshold=9 -> f1=1, f2=1, f2/threshold=1/9
-
-	_hashtable_uint_t f1 = info->f1;
-	_hashtable_uint_t f2 = info->f2;
-	_hashtable_uint_t f3 = info->f3;
-	_hashtable_uint_t capacity = num_entries * f1 + (num_entries * f2 + f3 - 1) / f3;
-	return capacity;
+	return (capacity / 10) * info->threshold + (capacity % 10) * info->threshold / 10;
 }
 
 static _attr_unused _hashtable_idx_t _hashtable_hash_to_index(const struct _hashtable *table,
 							      _hashtable_hash_t hash)
 {
 	_hashtable_idx_t h = hash;
-#if 0 // TODO enable this?
-	if (sizeof(hash) < sizeof(h)) {
-		h |= h << (8 * sizeof(hash));
-	}
-#endif
 
-	// TODO store log2(capacity) and use different constant for different sizeof(hash)
-	// const size_t shift_amount = __builtin_clzll(table->capacity) + 1;
-	// hash ^= hash >> shift_amount;
-	// return (2654435769 * hash) >> shift_amount;
-	// return (11400714819323198485llu * hash) >> shift_amount;
-
+#if 1
 	return (11 * h) & (table->capacity - 1);
-
-	// return hash & (table->capacity - 1);
+#elif 0
+	// return h & (table->capacity - 1);
+#elif 0
+	// const size_t shift_amount = __builtin_clzll(table->capacity) + 1;
+	// h ^= h >> shift_amount;
+	// h *= sizeof(h) == 8 ? 11400714819323198485llu : 2654435769;
+	// return h >> shift_amount;
+#endif
 }
 
 #if defined(HASHTABLE_QUADRATIC)
@@ -137,6 +123,7 @@ static _attr_unused void _hashtable_realloc_storage(struct _hashtable *table, co
 	}
 	table->metadata = (_hashtable_metadata_t *)(table->storage +
 						    _hashtable_metadata_offset(table->capacity, info));
+	table->max_entries = _hashtable_max_entries(table->capacity, info);
 }
 
 __AD_LINKAGE void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
@@ -395,11 +382,10 @@ static _attr_unused void _hashtable_grow(struct _hashtable *table, _hashtable_ui
 __AD_LINKAGE void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
 				    const struct _hashtable_info *info)
 {
-	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_entries, info);
-	if (new_capacity < min_capacity) {
-		new_capacity = min_capacity;
-	}
 	new_capacity = _hashtable_round_capacity(new_capacity);
+	while (_hashtable_max_entries(new_capacity, info) < table->num_entries) {
+		new_capacity *= 2;
+	}
 	if (new_capacity < table->capacity) {
 		_hashtable_shrink(table, new_capacity, info);
 	} else {
@@ -412,8 +398,7 @@ __AD_LINKAGE _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hasht
 {
 	hash = _hashtable_sanitize_hash(hash);
 	table->num_entries++;
-	_hashtable_uint_t min_capacity = _hashtable_min_capacity(table->num_entries + table->num_tombstones, info);
-	if (min_capacity > table->capacity) {
+	if ((table->num_entries + table->num_tombstones) > table->max_entries) {
 		_hashtable_grow(table, 2 * table->capacity, info);
 	}
 	return _hashtable_do_insert(table, hash, info);
