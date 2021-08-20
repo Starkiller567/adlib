@@ -78,13 +78,20 @@ static _attr_unused _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t 
 static _attr_unused _hashtable_idx_t _hashtable_hash_to_index(const struct _hashtable *table,
 							      _hashtable_hash_t hash)
 {
+	_hashtable_idx_t h = hash;
+#if 0 // TODO enable this?
+	if (sizeof(hash) < sizeof(h)) {
+		h |= h << (8 * sizeof(hash));
+	}
+#endif
+
 	// TODO store log2(capacity) and use different constant for different sizeof(hash)
 	// const size_t shift_amount = __builtin_clzll(table->capacity) + 1;
 	// hash ^= hash >> shift_amount;
 	// return (2654435769 * hash) >> shift_amount;
 	// return (11400714819323198485llu * hash) >> shift_amount;
 
-	return (11 * hash) & (table->capacity - 1);
+	return (11 * h) & (table->capacity - 1);
 
 	// return hash & (table->capacity - 1);
 }
