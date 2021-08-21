@@ -24,9 +24,7 @@
 #include "hashtable.h"
 #include "macros.h"
 
-// TODO add ordered hashmap/hashset implementation? (insertion order chaining)
-//      store the entries in a linear array in insertion order and let the hashtable map keys to indices
-//      (how to implement remove efficiently? bitmap for deleted entries + compaction during resize?)
+// TODO ordered hashtable implementation (insertion order) (see python dict) (how to share code?)
 // TODO add generation and check it during iteration?
 // TODO make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)?
 // TODO in hash_to_idx xor the hash with a random seed that changes whenever the hashtable gets resized?
@@ -58,6 +56,13 @@ static _attr_unused _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_
 	capacity++;
 	return capacity;
 }
+
+// static _attr_unused _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_entries,
+// 							      const struct _hashtable_info *info)
+// {
+// 	return (num_entries / info->threshold) * 10 +
+// 		((num_entries % info->threshold) * 10 + info->threshold - 1) / info->threshold;
+// }
 
 static _attr_unused _hashtable_uint_t _hashtable_max_entries(_hashtable_uint_t capacity,
 							     const struct _hashtable_info *info)

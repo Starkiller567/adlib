@@ -152,7 +152,7 @@
 	{								\
 		_hashtable_idx_t index;					\
 		if (!_hashtable_lookup(&table->impl, &key, hash, &index, &_##name##_info)) { \
-			return NULL;					\
+			return false;					\
 		}							\
 									\
 		if (ret_entry) {					\
