@@ -271,6 +271,7 @@ static _attr_unused void _hashtable_shrink(struct _hashtable *table, _hashtable_
 	table->capacity = new_capacity;
 	table->num_tombstones = 0;
 
+
 	size_t bitmap_size = (old_capacity + 31) / 32 * sizeof(uint32_t);
 	uint32_t *bitmap, *bitmap_to_free = NULL;
 	if (bitmap_size <= 1024) {
@@ -418,7 +419,6 @@ __AD_LINKAGE void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t i
 	if (table->num_entries < table->capacity / 8) {
 		_hashtable_shrink(table, table->capacity / 4, info);
 	} else if (table->num_tombstones > table->capacity / 2) {
-		// can this even happen?
 		_hashtable_grow(table, table->capacity, info);
 	}
 }
