@@ -24,6 +24,9 @@
 #include "hashtable.h"
 #include "macros.h"
 
+// TODO try new data layout similar to SwissTable (groups of 8/16)
+//      struct group { uint8_t ctrl_bytes[8]; hash_t hashes[8]; entry_t entries[8]; };
+//      struct hashtable { struct group *groups; };
 // TODO ordered hashtable implementation (insertion order) (see python dict) (how to share code?)
 // TODO add generation and check it during iteration?
 // TODO make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)?
@@ -313,7 +316,9 @@ static _attr_unused void _hashtable_shrink(struct _hashtable *table, _hashtable_
 		} while (need_rehash);
 	}
 
-	free(bitmap_to_free);
+	if (bitmap_to_free) {
+		free(bitmap_to_free);
+	}
 
 	size_t new_metadata_offset = _hashtable_metadata_offset(table->capacity, info);
 	_hashtable_metadata_t *new_metadata = (_hashtable_metadata_t *)(table->storage + new_metadata_offset);
@@ -382,7 +387,10 @@ static _attr_unused void _hashtable_grow(struct _hashtable *table, _hashtable_ui
 			num_rehashed++;
 		} while (need_rehash);
 	}
-	free(bitmap_to_free);
+
+	if (bitmap_to_free) {
+		free(bitmap_to_free);
+	}
 }
 
 __AD_LINKAGE void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,

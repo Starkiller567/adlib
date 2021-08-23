@@ -4,6 +4,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-function -Wno-unused-variable")
 
 set(EXECUTABLES
   bitmap
+  btree
   cbuf
   endian
   error
