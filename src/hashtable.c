@@ -24,9 +24,6 @@
 #include "hashtable.h"
 #include "macros.h"
 
-// TODO try new data layout similar to SwissTable (groups of 8/16)
-//      struct group { uint8_t ctrl_bytes[8]; hash_t hashes[8]; entry_t entries[8]; };
-//      struct hashtable { struct group *groups; };
 // TODO ordered hashtable implementation (insertion order) (see python dict) (how to share code?)
 // TODO add generation and check it during iteration?
 // TODO make the hashtable more robust against bad hash functions (e.g. by using fibonacci hashing)?
