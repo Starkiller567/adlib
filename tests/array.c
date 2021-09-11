@@ -210,6 +210,10 @@ int main(void)
 			     0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,
 			     10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19);
 
+	for (int i = -10; i < 20; i++) {
+		assert(array_bsearch(arr2, &i, cmp));
+	}
+
 	array_free(arr1);
 	array_free(arr2);
 
@@ -239,6 +243,36 @@ int main(void)
 
 	assert_array_content(18, arr1, 49, 50, 51, 99, 100, 101, 149, 150, 151, 199, 200, 201,
 			     249, 250, 251, 299, 300, 301);
+
+	for (int i = 0; i < 500; i++) {
+		int *p = array_bsearch(arr1, &i, cmp);
+		switch (i) {
+		case 49:
+		case 50:
+		case 51:
+		case 99:
+		case 100:
+		case 101:
+		case 149:
+		case 150:
+		case 151:
+		case 199:
+		case 200:
+		case 201:
+		case 249:
+		case 250:
+		case 251:
+		case 299:
+		case 300:
+		case 301:
+			assert(p);
+			assert(*p == i);
+			break;
+		default:
+			assert(!p);
+			break;
+		}
+	}
 
 	array_free(arr1);
 

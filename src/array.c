@@ -183,32 +183,33 @@ __AD_LINKAGE void _arr_sort(void *arr, size_t elem_size, int (*compare)(const vo
 	}
 }
 
-__AD_LINKAGE void _arr_insert_sorted(void **arrp, size_t elem_size, const void *key,
-				     int (*compare)(const void *, const void *))
+__AD_LINKAGE bool _arr_bsearch_index(const void *arr, size_t elem_size, const void *key,
+				     int (*compare)(const void *, const void *), size_t *ret_index)
 {
 	size_t start = 0;
-	size_t end = _arr_length(*arrp);
+	size_t end = _arr_length(arr);
 	while (end > start) {
 		size_t idx = start + (end - start) / 2;
-		int cmp = compare(key, (char *)*arrp + idx * elem_size);
+		int cmp = compare(key, (char *)arr + idx * elem_size);
 		if (cmp < 0) {
 			end = idx;
 		} else if (cmp > 0) {
 			start = idx + 1;
 		} else {
-			start = idx + 1;
-			break;
+			*ret_index = idx;
+			return true;
 		}
 	}
-	memcpy(_arr_insertn(arrp, elem_size, start, 1), key, elem_size);
+	*ret_index = start;
+	return false;
 }
 
 __AD_LINKAGE void *_arr_bsearch(const void *arr, size_t elem_size, const void *key,
 				int (*compare)(const void *, const void *))
 {
-	size_t len = _arr_length(arr);
-	if (unlikely(len == 0)) {
+	size_t idx;
+	if (!_arr_bsearch_index(arr, elem_size, key, compare, &idx)) {
 		return NULL;
 	}
-	return bsearch(key, arr, len, elem_size, compare);
+	return (char *)arr + idx * elem_size;
 }

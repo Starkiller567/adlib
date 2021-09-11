@@ -49,6 +49,7 @@
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
 
+#include <stdbool.h>
 #include <string.h>
 #include "config.h"
 #include "macros.h"
@@ -179,26 +180,32 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // delete the element at index i keeping the original order of elements
 #define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
 
-// add the n first elements of array b to a (a and b must have the same type, but b can be a static array)
-
+// add the n first elements of array b to a (a and b should have matching types, but b can be a static array)
 #define array_add_arrayn(a, b, n)       _arr_add_arrayn((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a), (n))
 
-// add all elements of (dynamic) array b to a (a and b should have the same type)
+// add all elements of (dynamic) array b to a (a and b should have matching types)
 #define array_add_array(a, b)           _arr_add_array((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a))
 
 // sort array with qsort using compare function (see qsort documentation)
-#define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), compare)
+#define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), (compare))
 
-// insert value v into a sorted array such that it remains sorted
+// binary search the sorted array for the key, store the final index in index_pointer (size_t *)
+// and return whether or not a matching element was found as a bool
+// (the type of key should be pointer to array element)
+// (the array needs to be sorted in ascending order according to the compare function)
+#define array_bsearch_index(a, key, compare, index_pointer) _arr_bsearch_index((a), sizeof((a)[0]), (key), (compare), (index_pointer))
+
+// insert value v into the sorted array such that it remains sorted
 // (v must be an r-value of array element type)
+// (a copy of v is made on the stack to obtain a pointer for the compare function)
 // (the array needs to be sorted in ascending order according to the compare function and will remain so)
-#define array_insert_sorted(a, v, compare) _arr_insert_sorted_helper(a, v, compare)
+#define array_insert_sorted(a, v, compare) _arr_insert_sorted(a, v, compare)
 
 // search array for key with bsearch using compare function (see bsearch documentation)
 // (the type of key should be pointer to array element)
 // (the array needs to be sorted in ascending order according to the compare function)
 #define array_bsearch(a, key, compare)  ((typeof(a))_arr_bsearch((a), sizeof((a)[0]), \
-									 1 ? (key) : (a), compare))
+								 1 ? (key) : (a), (compare)))
 
 // are arrays a and b equal in length and content? (byte-wise equality, see memcmp)
 #define array_equal(a, b)               _arr_equal(1 ? (a) : (b), sizeof((a)[0]), (b))
@@ -282,11 +289,12 @@ __AD_LINKAGE _attr_unused void _arr_ordered_deleten(void *arr, size_t elem_size,
 __AD_LINKAGE _attr_unused void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n);
 __AD_LINKAGE _attr_nonnull(3) _attr_unused void _arr_sort(void *arr, size_t elem_size,
 							  int (*compare)(const void *, const void *));
-__AD_LINKAGE _attr_unused _attr_nonnull(4) void _arr_insert_sorted(void **arrp, size_t elem_size,
-								   const void *key,
-								   int (*compare)(const void *, const void *));
 __AD_LINKAGE _attr_unused _attr_nonnull(4) void *_arr_bsearch(const void *arr, size_t elem_size, const void *key,
 							      int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_unused _attr_nonnull(4, 5) bool _arr_bsearch_index(const void *arr, size_t elem_size,
+								      const void *key,
+								      int (*compare)(const void *, const void *),
+								      size_t *ret_index);
 
 static inline _attr_unused size_t _arr_length(const void *arr)
 {
@@ -483,10 +491,13 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_last_pointer(void *arr, s
 
 #define _arr_insert(a, i, v) ((void)(*array_insertn(a, i, 1) = (v)))
 
-#define _arr_insert_sorted_helper(a, v, compare)			\
+#define _arr_insert_sorted(a, v, compare)				\
 	do {								\
-		typeof((a)[0]) v_lvalue = (v);				\
-		_arr_insert_sorted((void **)&(a), sizeof((a)[0]), &v_lvalue, compare); \
+		typeof(a) *_arrp = &(a);				\
+		typeof((a)[0]) _key = (v); /* need lvalue to take a pointer */ \
+		size_t _idx;						\
+		_arr_bsearch_index(*_arrp, sizeof(_key), &_key, compare, &_idx); \
+		array_insert(*_arrp, _idx, _key);			\
 	} while(0);
 
 #define _arr_pop(a) (*(typeof(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
