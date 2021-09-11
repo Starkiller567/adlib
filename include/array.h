@@ -40,10 +40,11 @@
 //         array_free(my_array);
 //
 
-// TODO array_set_all, array_push_repeat/addn_copies, array_at, array_call_foreach, array_insert_sorted
+// TODO array_set_all, array_push_repeat/addn_copies, array_at, array_call_foreach
 // TODO clearly define and document when reallocation happens
 // TODO document alignment
 // TODO make array_grow private?
+// TODO should these functions take an array_t(type) * instead of array_t(type)?
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
@@ -188,13 +189,18 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // sort array with qsort using compare function (see qsort documentation)
 #define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), compare)
 
+// insert value v into a sorted array such that it remains sorted
+// (v must be an r-value of array element type)
+// (the array needs to be sorted in ascending order according to the compare function and will remain so)
+#define array_insert_sorted(a, v, compare) _arr_insert_sorted_helper(a, v, compare)
+
 // search array for key with bsearch using compare function (see bsearch documentation)
 // (the type of key should be pointer to array element)
 // (the array needs to be sorted in ascending order according to the compare function)
 #define array_bsearch(a, key, compare)  ((typeof(a))_arr_bsearch((a), sizeof((a)[0]), \
 									 1 ? (key) : (a), compare))
 
-// are arrays a and b equal in content? (byte-wise equality)
+// are arrays a and b equal in length and content? (byte-wise equality, see memcmp)
 #define array_equal(a, b)               _arr_equal(1 ? (a) : (b), sizeof((a)[0]), (b))
 
 // swap elements at index idx1 and idx2
@@ -274,8 +280,13 @@ __AD_LINKAGE _attr_unused void *_arr_addn(void **arrp, size_t elem_size, size_t 
 __AD_LINKAGE _attr_unused void *_arr_insertn(void **arrp, size_t elem_size, size_t i, size_t n);
 __AD_LINKAGE _attr_unused void _arr_ordered_deleten(void *arr, size_t elem_size, size_t i, size_t n);
 __AD_LINKAGE _attr_unused void _arr_fast_deleten(void *arr, size_t elem_size, size_t i, size_t n);
-__AD_LINKAGE _attr_nonnull(3) _attr_unused void _arr_sort(void *arr, size_t elem_size, int (*compare)(const void *, const void *));
-__AD_LINKAGE _attr_unused void *_arr_bsearch(void *arr, size_t elem_size, const void *key, int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_nonnull(3) _attr_unused void _arr_sort(void *arr, size_t elem_size,
+							  int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_unused _attr_nonnull(4) void _arr_insert_sorted(void **arrp, size_t elem_size,
+								   const void *key,
+								   int (*compare)(const void *, const void *));
+__AD_LINKAGE _attr_unused _attr_nonnull(4) void *_arr_bsearch(const void *arr, size_t elem_size, const void *key,
+							      int (*compare)(const void *, const void *));
 
 static inline _attr_unused size_t _arr_length(const void *arr)
 {
@@ -471,6 +482,12 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_last_pointer(void *arr, s
 #define _arr_add(a, v) ((void)(*array_addn(a, 1) = (v)))
 
 #define _arr_insert(a, i, v) ((void)(*array_insertn(a, i, 1) = (v)))
+
+#define _arr_insert_sorted_helper(a, v, compare)			\
+	do {								\
+		typeof((a)[0]) v_lvalue = (v);				\
+		_arr_insert_sorted((void **)&(a), sizeof((a)[0]), &v_lvalue, compare); \
+	} while(0);
 
 #define _arr_pop(a) (*(typeof(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
 static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)

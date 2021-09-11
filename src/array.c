@@ -183,7 +183,27 @@ __AD_LINKAGE void _arr_sort(void *arr, size_t elem_size, int (*compare)(const vo
 	}
 }
 
-__AD_LINKAGE void *_arr_bsearch(void *arr, size_t elem_size, const void *key,
+__AD_LINKAGE void _arr_insert_sorted(void **arrp, size_t elem_size, const void *key,
+				     int (*compare)(const void *, const void *))
+{
+	size_t start = 0;
+	size_t end = _arr_length(*arrp);
+	while (end > start) {
+		size_t idx = start + (end - start) / 2;
+		int cmp = compare(key, (char *)*arrp + idx * elem_size);
+		if (cmp < 0) {
+			end = idx;
+		} else if (cmp > 0) {
+			start = idx + 1;
+		} else {
+			start = idx + 1;
+			break;
+		}
+	}
+	memcpy(_arr_insertn(arrp, elem_size, start, 1), key, elem_size);
+}
+
+__AD_LINKAGE void *_arr_bsearch(const void *arr, size_t elem_size, const void *key,
 				int (*compare)(const void *, const void *))
 {
 	size_t len = _arr_length(arr);

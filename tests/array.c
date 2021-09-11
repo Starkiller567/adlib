@@ -8,7 +8,7 @@
 
 static void print_array(int *arr, bool print_reverse)
 {
-	size_t len = array_len(arr);
+	size_t len = array_length(arr);
 	size_t limit = array_capacity(arr);
 	printf("{\n\tlen = %zu,\n\tlimit = %zu,\n\tval = {", len, limit);
 	size_t i = 0;
@@ -35,10 +35,11 @@ static void print_array(int *arr, bool print_reverse)
 	printf("}\n}\n");
 }
 
-static void assert_array_content(int *arr, ...)
+static void assert_array_content(size_t length, int *arr, ...)
 {
 	va_list args;
 	va_start(args, arr);
+	assert(array_length(arr) == length);
 	array_foreach(arr, cur) {
 		assert(*cur == va_arg(args, int));
 	}
@@ -76,7 +77,7 @@ int main(void)
 
 	int *arr2 = array_copy(arr1);
 	print_array(arr1, true);
-	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5);
+	assert_array_content(12, arr2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5);
 	array_shrink_to_fit(arr2);
 
 	assert(arr2[array_lasti(arr2)] == 5);
@@ -99,15 +100,15 @@ int main(void)
 	arr1[7] = 7;
 
 	array_addn(arr2, 15);
-	size_t len = array_len(arr2);
+	size_t len = array_length(arr2);
 	array_popn(arr2, 10);
-	assert(array_len(arr2) == len - 10);
+	assert(array_length(arr2) == len - 10);
 
 	array_clear(arr2);
 	array_shrink_to_fit(arr2);
 
 	print_array(arr1, true);
-	assert_array_content(arr1, 0, 1, 2, 3, 4, 5, 6, 7);
+	assert_array_content(8, arr1, 0, 1, 2, 3, 4, 5, 6, 7);
 	array_ordered_deleten(arr1, 2, 1);
 	array_fast_deleten(arr1, 2, 1);
 
@@ -136,7 +137,7 @@ int main(void)
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	print_array(arr1, true);
-	assert_array_content(arr1, 0, 0, 0, 0, 0);
+	assert_array_content(5, arr1, 0, 0, 0, 0, 0);
 	array_free(arr1);
 
 	int digits[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -144,14 +145,14 @@ int main(void)
 	arr2 = array_copy(arr1);
 	array_add_array(arr1, arr2);
 	print_array(arr1, true);
-	assert_array_content(arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(20, arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_truncate(arr1, 10);
-	assert_array_content(arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_free(arr1);
 
 	array_reverse(arr2);
 	print_array(arr2, true);
-	assert_array_content(arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+	assert_array_content(10, arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 
 	array_shuffle(arr2, (size_t(*)(void))random);
 	print_array(arr2, true);
@@ -159,8 +160,87 @@ int main(void)
 	print_array(arr2, true);
 	array_sort(arr2, cmp);
 	print_array(arr2, true);
-	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_free(arr2);
+
+	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(20, arr2, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9);
+	array_foreach(arr1, it) {
+		*it += 10;
+	}
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(30, arr2, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,
+			     10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(40, arr2, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,
+			     10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19);
+
+	array_foreach(arr1, it) {
+		*it -= 20;
+	}
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(50, arr2, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
+			     0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,
+			     10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19);
+
+	array_shuffle(arr1, (size_t(*)(void))random);
+	array_foreach_value(arr1, v) {
+		array_insert_sorted(arr2, v, cmp);
+	}
+	assert_array_content(60, arr2,
+			     -10, -10, -9, -9, -8, -8, -7, -7, -6, -6, -5, -5, -4, -4, -3, -3, -2, -2, -1, -1,
+			     0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9,
+			     10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19);
+
+	array_free(arr1);
+	array_free(arr2);
+
+	array_insert_sorted(arr1, 49, cmp);
+	array_insert_sorted(arr1, 50, cmp);
+	array_insert_sorted(arr1, 51, cmp);
+
+	array_insert_sorted(arr1, 99, cmp);
+	array_insert_sorted(arr1, 101, cmp);
+	array_insert_sorted(arr1, 100, cmp);
+
+	array_insert_sorted(arr1, 150, cmp);
+	array_insert_sorted(arr1, 149, cmp);
+	array_insert_sorted(arr1, 151, cmp);
+
+	array_insert_sorted(arr1, 200, cmp);
+	array_insert_sorted(arr1, 201, cmp);
+	array_insert_sorted(arr1, 199, cmp);
+
+	array_insert_sorted(arr1, 251, cmp);
+	array_insert_sorted(arr1, 249, cmp);
+	array_insert_sorted(arr1, 250, cmp);
+
+	array_insert_sorted(arr1, 301, cmp);
+	array_insert_sorted(arr1, 300, cmp);
+	array_insert_sorted(arr1, 299, cmp);
+
+	assert_array_content(18, arr1, 49, 50, 51, 99, 100, 101, 149, 150, 151, 199, 200, 201,
+			     249, 250, 251, 299, 300, 301);
+
+	array_free(arr1);
 
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	array_fori(arr1, i) {
@@ -196,7 +276,7 @@ int main(void)
 	}
 	print_array(arr2, true);
 	array_reverse(arr2);
-	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_fori(arr2, i) {
 		assert(arr2[i] == (int)i);
 	}
@@ -210,7 +290,7 @@ int main(void)
 
 	print_array(arr2, true);
 	array_reverse(arr2);
-	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	{
 		size_t i = 0;
 		array_foreach(arr2, it) {
@@ -224,15 +304,15 @@ int main(void)
 		array_foreach_value(arr1, it) {
 			array_add(arr2, it);
 		}
-		assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+		assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 		array_clear(arr2);
 		array_foreach_value_reverse(arr1, it) {
 			array_add(arr2, it);
 		}
 		array_reverse(arr1);
 		assert(array_equal(arr1, arr2));
-		assert_array_content(arr1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-		assert_array_content(arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+		assert_array_content(10, arr1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+		assert_array_content(10, arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 		array_clear(arr1);
 		array_foreach_value_reverse(arr2, it) {
 			array_add(arr1, it);
@@ -262,26 +342,26 @@ int main(void)
 	*array_add1(arr1) = 1;
 	array_addn_zero(arr1, 2);
 	*array_add1(arr1) = 1;
-	assert_array_content(arr1, 1, 0, 0, 1, 0, 0, 1);
+	assert_array_content(7, arr1, 1, 0, 0, 1, 0, 0, 1);
 	array_free(arr1);
 	array_addn_zero(arr1, 2);
 	array_add(arr1, 1);
 	array_addn_zero(arr1, 2);
 	array_add(arr1, 1);
 	array_addn_zero(arr1, 2);
-	assert_array_content(arr1, 0, 0, 1, 0, 0, 1, 0, 0);
+	assert_array_content(8, arr1, 0, 0, 1, 0, 0, 1, 0, 0);
 	array_clear(arr1);
 	array_addn_zero(arr1, 8);
-	assert(array_len(arr1) == 8);
-	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0);
+	assert(array_length(arr1) == 8);
+	assert_array_content(8, arr1, 0, 0, 0, 0, 0, 0, 0, 0);
 	for (size_t i = 0; i < 8; i++) {
 		array_addn_zero(arr1, 1);
 	}
-	assert(array_len(arr1) == 16);
-	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	assert(array_length(arr1) == 16);
+	assert_array_content(16, arr1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 	array_free(arr1);
 	array_addn_zero(arr1, 123);
-	assert(array_len(arr1) == 123);
+	assert(array_length(arr1) == 123);
 	array_free(arr1);
 
 	*array_insert1(arr1, 0) = 1;
@@ -291,26 +371,26 @@ int main(void)
 	array_insert1_zero(arr1, 1);
 	array_insert1_zero(arr1, 4);
 	array_insert1_zero(arr1, 5);
-	assert_array_content(arr1, 1, 0, 0, 1, 0, 0, 1);
+	assert_array_content(7, arr1, 1, 0, 0, 1, 0, 0, 1);
 	array_free(arr1);
 	array_add(arr1, 1);
 	array_add(arr1, 1);
 	array_insertn_zero(arr1, 0, 2);
 	array_insertn_zero(arr1, 3, 2);
 	array_insertn_zero(arr1, 6, 2);
-	assert_array_content(arr1, 0, 0, 1, 0, 0, 1, 0, 0);
+	assert_array_content(8, arr1, 0, 0, 1, 0, 0, 1, 0, 0);
 	array_clear(arr1);
 	array_insertn_zero(arr1, 0, 8);
-	assert(array_len(arr1) == 8);
-	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0);
+	assert(array_length(arr1) == 8);
+	assert_array_content(8, arr1, 0, 0, 0, 0, 0, 0, 0, 0);
 	for (size_t i = 0; i < 8; i++) {
 		array_insertn_zero(arr1, i, 1);
 	}
-	assert(array_len(arr1) == 16);
-	assert_array_content(arr1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	assert(array_length(arr1) == 16);
+	assert_array_content(16, arr1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 	array_free(arr1);
 	array_insertn_zero(arr1, 0, 123);
-	assert(array_len(arr1) == 123);
+	assert(array_length(arr1) == 123);
 	array_free(arr1);
 
 	for (int i = 0; i < 10; i++) {
@@ -318,22 +398,22 @@ int main(void)
 	}
 	arr2 = array_move(arr1);
 	assert(arr1 == NULL);
-	assert_array_content(arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	arr1 = array_move(arr2);
 	assert(arr2 == NULL);
-	assert_array_content(arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_swap(arr1, 1, 3);
-	assert_array_content(arr1, 0, 3, 2, 1, 4, 5, 6, 7, 8, 9);
+	assert_array_content(10, arr1, 0, 3, 2, 1, 4, 5, 6, 7, 8, 9);
 	array_swap(arr1, 6, 2);
-	assert_array_content(arr1, 0, 3, 6, 1, 4, 5, 2, 7, 8, 9);
+	assert_array_content(10, arr1, 0, 3, 6, 1, 4, 5, 2, 7, 8, 9);
 	array_swap(arr1, 9, 8);
-	assert_array_content(arr1, 0, 3, 6, 1, 4, 5, 2, 7, 9, 8);
+	assert_array_content(10, arr1, 0, 3, 6, 1, 4, 5, 2, 7, 9, 8);
 	array_swap(arr1, 8, 0);
-	assert_array_content(arr1, 9, 3, 6, 1, 4, 5, 2, 7, 0, 8);
+	assert_array_content(10, arr1, 9, 3, 6, 1, 4, 5, 2, 7, 0, 8);
 	array_swap(arr1, 9, 0);
-	assert_array_content(arr1, 8, 3, 6, 1, 4, 5, 2, 7, 0, 9);
+	assert_array_content(10, arr1, 8, 3, 6, 1, 4, 5, 2, 7, 0, 9);
 	array_swap(arr1, 5, 9);
-	assert_array_content(arr1, 8, 3, 6, 1, 4, 9, 2, 7, 0, 5);
+	assert_array_content(10, arr1, 8, 3, 6, 1, 4, 9, 2, 7, 0, 5);
 	array_free(arr1);
 
 #if 0
