@@ -53,6 +53,10 @@
 #include "config.h"
 #include "macros.h"
 
+#ifdef NDEBUG
+# undef ARRAY_SAFETY_CHECKS
+#endif
+
 #ifdef ARRAY_SAFETY_CHECKS
 # include <assert.h>
 #endif

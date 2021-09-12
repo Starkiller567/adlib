@@ -177,7 +177,7 @@ struct _hashtable_info {
 
 struct _hashtable {
 	_hashtable_uint_t num_entries;
-#if defined(HASHTABLE_QUADRATIC)
+#ifdef HASHTABLE_QUADRATIC
 	_hashtable_uint_t num_tombstones;
 #endif
 	_hashtable_uint_t max_entries;
