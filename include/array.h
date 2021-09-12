@@ -17,9 +17,9 @@
  * SOFTWARE.
  */
 
-// inspired by https://github.com/nothings/stb/blob/master/stb.h
+// Inspired by https://github.com/nothings/stb/blob/master/stb.h
 
-// declare an (empty) array like so: array_t(int) my_array = NULL;
+// Declare an (empty) array like so: array_t(int) my_array = NULL;
 // (or so: int *my_array = NULL;)
 // and use it like so: array_add(my_array, 1)
 // or so:
@@ -40,9 +40,10 @@
 //         array_free(my_array);
 //
 
+// Alignment: The first array element is aligned to 8/16 bytes on 32/64-bit architectures (2*sizeof(size_t))
+
 // TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
 // TODO clearly define and document when reallocation happens
-// TODO document alignment
 // TODO make array_grow private?
 // TODO should these functions take an array_t(type) * instead of array_t(type)?
 
