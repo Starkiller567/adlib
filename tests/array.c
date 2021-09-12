@@ -395,6 +395,10 @@ int main(void)
 		int *x = array_bsearch(arr1, &i, cmp);
 		assert(x);
 		assert(*x == i);
+		size_t idx;
+		bool found = array_bsearch_index(arr1, &i, cmp, &idx);
+		assert(found);
+		assert(array_index_of(arr1, x) == idx);
 	}
 	array_free(arr1);
 

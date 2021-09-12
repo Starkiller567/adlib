@@ -71,165 +71,219 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // (array_t(int) arr vs int *arr; the second could be a simple pointer or static array or dynamic array)
 #define array_t(T) T *
 
-// get number of elements in array (as size_t)
+// size_t array_length(array_t(T) a)
+//   get number of elements in array (as size_t)
 #define array_length(a)                 _arr_length(a)
 
-// is array empty? (empty arrays are not always NULL due to array_reserve and array_clear)
-#define array_empty(a)                  (_arr_length(a) == 0)
+// bool array_empty(array_t(T) a)
+//   is array empty? (empty arrays are not always NULL due to array_reserve, array_clear, etc.)
+#define array_empty(a)                  ((bool)(_arr_length(a) == 0))
 
-// get index of last element (length - 1)
+// size_t array_lasti(array_t(T) a)
+//   get index of last element (length - 1)
 #define array_lasti(a)                  _arr_lasti(a)
 
-// get last element
+// T array_last(array_t(T) a)
+//   get last element
 #define array_last(a)                   _arr_last(a)
 
-// return a new array with T as the element type and enough capacity for n elements
-// (this provides a shorthand for "array_t(T) a = NULL; array_reserve(a, n);")
+// array_t(T) array_new(<type> T, size_t n)
+//   return a new array with T as the element type and enough capacity for n elements
+//   (this provides a shorthand for "array_t(T) a = NULL; array_reserve(a, n);")
 #define array_new(T, n)                 ((array_t(T))_arr_resize_internal(NULL, sizeof(T), (n)))
 
-// get allocated capacity in elements (as size_t)
+// size_t array_capacity(array_t(T) a)
+//   get allocated capacity in elements (as size_t)
 #define array_capacity(a)               _arr_capacity(a)
 
-// release all resources of the array (will be set to NULL)
+// void array_free(array_t(T) &a)
+//   release all resources of the array (will be set to NULL)
 #define array_free(a)                   _arr_free((void **)&(a))
 
-// make an exact copy of the array
+// array_t(T) array_copy(array_t(T) a)
+//   make an exact copy of the array
 #define array_copy(a)	                ((typeof(a))_arr_copy((a), sizeof((a)[0])))
 
-// b = array_move(a) is equivalent to b = a, a = NULL
+// array_t(T) array_move(array_t(T) &a)
+//   b = array_move(a) is equivalent to b = a, a = NULL
 #define array_move(a)	                ((typeof(a))_arr_move((void **)&(a)))
 
-// add n unitialized elements to the end of the array and return a pointer to the first of those
-// (returns NULL if n is zero)
+// T *array_addn(array_t(T) &a, size_t n)
+//   add n unitialized elements to the end of the array and return a pointer to the first of those
+//   (returns NULL if n is zero)
 #define array_addn(a, n)                ((typeof(a))_arr_addn((void **)&(a), sizeof((a)[0]), (n)))
 
-// add one unitialized element to the end of the array and return a pointer to it
+// T *array_add1(array_t(T) &a)
+//   add one unitialized element to the end of the array and return a pointer to it
 #define array_add1(a)                   array_addn((a), 1)
 
-// add n zeroed elements to the end of the array and return a pointer to the first of those
-// (returns NULL if n is zero)
+// T *array_addn_zero(array_t(T) &a, size_t n)
+//   add n zeroed elements to the end of the array and return a pointer to the first of those
+//   (returns NULL if n is zero)
 #define array_addn_zero(a, n)           ((typeof(a))_arr_addn_zero((void **)&(a), sizeof((a)[0]), (n)))
 
-// add one zeroed element to the end of the array and return a pointer to it
+// T *array_add1_zero(array_t(T) &a)
+//   add one zeroed element to the end of the array and return a pointer to it
 #define array_add1_zero(a)              array_addn_zero((a), 1)
 
-// add value v to the end of the array (v must be an r-value of array element type)
+// void array_add(array_t(T) &a, T v)
+//   add value v to the end of the array (v must be an r-value of array element type)
 #define array_add(a, v)                 _arr_add(a, v)
 
-// insert n unitialized elements at index i and return a pointer to the first of them
-// (i must be less than or equal to array_length(a))
-// (returns NULL if n is zero)
+// T *array_insertn(array_t(T) &a, size_t i, size_t n)
+//   insert n unitialized elements at index i and return a pointer to the first of them
+//   (i must be less than or equal to array_length(a))
+//   (returns NULL if n is zero)
 #define array_insertn(a, i, n)          (typeof(a))_arr_insertn((void **)&(a), sizeof((a)[0]), (i), (n))
 
-// insert one unitialized element at index i and return a pointer to it
-// (i must be less than or equal to array_length(a))
+// T *array_insert1(array_t(T) &a, size_t i)
+//   insert one unitialized element at index i and return a pointer to it
+//   (i must be less than or equal to array_length(a))
 #define array_insert1(a, i)             array_insertn((a), (i), 1)
 
-// insert n zeroed elements at index i and return a pointer to the first of them
-// (i must be less than or equal to array_length(a))
-// (returns NULL if n is zero)
+// T *array_insertn_zero(array_t(T) &a, size_t i, size_t n)
+//   insert n zeroed elements at index i and return a pointer to the first of them
+//   (i must be less than or equal to array_length(a))
+//   (returns NULL if n is zero)
 #define array_insertn_zero(a, i, n)     (typeof(a))_arr_insertn_zero((void **)&(a), sizeof((a)[0]), (i), (n))
 
-// insert one zeroed element at index i and return a pointer to it
-// (i must be less than or equal to array_length(a))
+// T *array_insert1_zero(array_t(T) &a, size_t i)
+//   insert one zeroed element at index i and return a pointer to it
+//   (i must be less than or equal to array_length(a))
 #define array_insert1_zero(a, i)        array_insertn_zero((a), (i), 1)
 
-// insert value v at index i
-// (v must be an r-value of array element type and i must be less than or equal to array_length(a))
+// void array_insert(array_t(T) &a, size_t i, T v)
+//   insert value v at index i
+//   (v must be an r-value of array element type and i must be less than or equal to array_length(a))
 #define array_insert(a, i, v)           _arr_insert(a, i, v)
 
-// set the length of the array to zero (but keep the allocated memory)
+// void array_clear(array_t(T) a)
+//   set the length of the array to zero (but keep the allocated memory)
 #define array_clear(a)	                _arr_clear(a)
 
-// set the capacity of the array (truncates the array length if necessary)
+// void array_resize(array_t(T) &a, size_t capacity)
+//   set the capacity of the array (truncates the array length if necessary)
 #define array_resize(a, capacity)       _arr_resize((void **)&(a), sizeof((a)[0]), (capacity))
 
-// reduce the length of the array (does nothing if newlen >= len)
+// void array_truncate(array_t(T) a, size_t newlen)
+//   reduce the length of the array (does nothing if newlen >= len)
 #define array_truncate(a, newlen)       _arr_truncate((a), (newlen))
 
-// allocate enough space for n additional elements (does not change length, only capacity)
+// void array_reserve(array_t(T) &a, size_t n)
+//   allocate enough space for n additional elements (does not change length, only capacity)
 #define array_reserve(a, n)             _arr_reserve((void **)&(a), sizeof((a)[0]), (n))
 
-// increase capacity by atleast n elements
+// void array_grow(array_t(T) &a, size_t n)
+//   increase capacity by atleast n elements
 #define array_grow(a, n)                _arr_grow((void **)&(a), sizeof((a)[0]), (n))
 
-// make capacity equal to length
+// void array_shrink_to_fit(array_t(T) &a)
+//   make capacity equal to length
 #define array_shrink_to_fit(a)          _arr_shrink_to_fit((void **)&(a), sizeof((a)[0]))
 
-// ensure that i is a valid element index in the array
-// (by increasing length and capacity as appropriate, any new elements created by this are uninitialized)
+// void array_make_valid(array_t(T) &a, size_t i)
+//   ensure that i is a valid element index in the array
+//   (by increasing length and capacity as appropriate, any new elements created by this are uninitialized)
 #define array_make_valid(a, i)          _arr_make_valid((void **)&(a), sizeof((a)[0]), (i));
 
-// alias for array_add
+// void array_push(array_t(T) &a, T v)
+//   alias for array_add
 #define array_push(a, v)                array_add(a, v)
 
-// remove and return the last element
+// T array_pop(array_t(T) a)
+//   remove and return the last element
 #define array_pop(a)                    _arr_pop(a)
 
-// remove the last n elements
-#define array_popn(a, n)                _arr_popn((a), (n))
+// void array_popn(array_t(T) a, size_t n)
+//   remove the last n elements
+#define array_popn(a, n)                _arr_popn(a, n)
 
-// get the index of the element pointed to by ptr (must be a valid array element!)
+// size_t array_index_of(array_t(T) a, T *element_ptr)
+//   get the index of the element pointed to by ptr (must be a valid array element!)
 #define array_index_of(a, element_ptr)  _arr_index_of((1 ? (a) : (element_ptr)), sizeof((a)[0]), element_ptr)
 
-// delete n elements starting at index i WITHOUT keeping the original order of elements
-// (swap with the last n elements and decrease length by n)
+// void array_fast_deleten(array_t(T) a, size_t i, size_t n)
+//   delete n elements starting at index i WITHOUT keeping the original order of elements
+//   (swap with the last n elements and decrease length by n)
 #define array_fast_deleten(a, i, n)     _arr_fast_deleten((a), sizeof((a)[0]), (i), (n))
 
-// delete the element at index i WITHOUT keeping the original order of elements
-// (swap with the last element and decrement length)
+// void array_fast_delete(array_t(T) a, size_t i)
+//   delete the element at index i WITHOUT keeping the original order of elements
+//   (swap with the last element and decrement length)
 #define array_fast_delete(a, i)         array_fast_deleten(a, i, 1)
 
-// delete n elements starting at index i keeping the original order of elements
+// void array_ordered_deleten(array_t(T) a, size_t i, size_t n)
+//   delete n elements starting at index i keeping the original order of elements
 #define array_ordered_deleten(a, i, n)  _arr_ordered_deleten((a), sizeof((a)[0]), (i), (n))
 
-// delete the element at index i keeping the original order of elements
+// void array_ordered_delete(array_t(T) a, size_t i)
+//   delete the element at index i keeping the original order of elements
 #define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
 
-// add the n first elements of array b to a (a and b should have matching types, but b can be a static array)
+// void array_add_arrayn(array_t(T) &a, T b[n], size_t n)
+//   add the n first elements of array b to a (a and b should have matching types, but b can be a static array)
 #define array_add_arrayn(a, b, n)       _arr_add_arrayn((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a), (n))
 
-// add all elements of (dynamic) array b to a (a and b should have matching types)
+// void array_add_array(array_t(T) &a, array_t(T) b)
+//   add all elements of (dynamic) array b to a (a and b should have matching types)
 #define array_add_array(a, b)           _arr_add_array((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a))
 
-// sort array with qsort using compare function (see qsort documentation)
+// void array_sort(array_t(T) a, int (*compare)(const void *, const void *))
+//   sort array with qsort using compare function (see qsort documentation)
 #define array_sort(a, compare)          _arr_sort((a), sizeof((a)[0]), (compare))
 
-// binary search the sorted array for the key, store the final index in index_pointer (size_t *)
-// and return whether or not a matching element was found as a bool
-// (the type of key should be pointer to array element)
-// (the array needs to be sorted in ascending order according to the compare function)
-#define array_bsearch_index(a, key, compare, index_pointer) _arr_bsearch_index((a), sizeof((a)[0]), (key), (compare), (index_pointer))
+// bool array_bsearch_index(array_t(T) a, T *key, int (*compare)(const void *, const void *), size_t *index_pointer)
+//   binary search the sorted array for the key, store the final index in index_pointer (size_t *)
+//   and return whether or not a matching element was found as a bool
+//   (the type of key should be pointer to array element) (TODO allow any pointer type for key)
+//   (the array needs to be sorted in ascending order according to the compare function)
+#define array_bsearch_index(a, key, compare, index_pointer)		\
+	_arr_bsearch_index((a), sizeof((a)[0]), 1 ? (key) : (a), (compare), (index_pointer))
 
-// insert value v into the sorted array such that it remains sorted
-// (v must be an r-value of array element type)
-// (a copy of v is made on the stack to obtain a pointer for the compare function)
-// (the array needs to be sorted in ascending order according to the compare function and will remain so)
+// void array_insert_sorted(array_t(T) &a, T v, int (*compare)(const void *, const void *))
+//   insert value v into the sorted array such that it remains sorted
+//   (v must be an r-value of array element type)
+//   (a copy of v is made on the stack to obtain a pointer for the compare function)
+//   (the array needs to be sorted in ascending order according to the compare function and will remain so)
 #define array_insert_sorted(a, v, compare) _arr_insert_sorted(a, v, compare)
 
-// search array for key with bsearch using compare function (see bsearch documentation)
-// (the type of key should be pointer to array element)
-// (the array needs to be sorted in ascending order according to the compare function)
+// T *array_bsearch(array_t(T) a, T *key, int (*compare)(const void *, const void *))
+//   search array for key with bsearch using compare function (see bsearch documentation)
+//   (the type of key should be pointer to array element) (TODO allow any pointer type for key)
+//   (the array needs to be sorted in ascending order according to the compare function)
 #define array_bsearch(a, key, compare)  ((typeof(a))_arr_bsearch((a), sizeof((a)[0]), \
 								 1 ? (key) : (a), (compare)))
 
-// are arrays a and b equal in length and content? (byte-wise equality, see memcmp)
+// bool array_equal(array_t(T) a, array_t(T) b)
+//   are arrays a and b equal in length and content? (byte-wise equality, see memcmp)
 #define array_equal(a, b)               _arr_equal(1 ? (a) : (b), sizeof((a)[0]), (b))
 
-// swap elements at index idx1 and idx2
-// (Warning: uses at least as much stack space as the size of one element)
+// void array_swap(array_t(T) a, size_t idx1, size_t idx2)
+//   swap elements at index idx1 and idx2
+//   (Warning: uses at least as much stack space as the size of one element)
 #define array_swap(a, idx1, idx2)       _arr_swap(a, idx1, idx2)
 
-// reverse the order of elements in the array
-// (Warning: uses at least as much stack space as the size of one element)
+// void array_reverse(array_t(T) a)
+//   reverse the order of elements in the array
+//   (Warning: uses at least as much stack space as the size of one element)
 #define array_reverse(a)                _arr_reverse(a)
 
-// shuffle the elements in the array with the provided random function of type size_t (*)(void)
-// (creates a random permutation of the elements using the Fisher-Yates shuffle)
-// (Warning: uses at least as much stack space as the size of one element)
+// void array_shuffle(array_t(T) a, size_t (*random)(void))
+//   shuffle the elements in the array with the provided random function of type size_t (*)(void)
+//   (creates a random permutation of the elements using the Fisher-Yates shuffle)
+//   (Warning: uses at least as much stack space as the size of one element)
 #define array_shuffle(a, random)        _arr_shuffle(a, random)
 
+// void array_call_foreach(array_t(T) a, void (*func)(T *))
+//   for each element in the array call func with a pointer to the current element
+#define array_call_foreach(a, func)              _arr_call_foreach(a, func)
+
+// void array_call_foreach_value(array_t(T) a, void (*func)(T))
+//   for each element in the array call func with the value of the current element
+#define array_call_foreach_value(a, func)        _arr_call_foreach_value(a, func)
+
 // Iterators:
+// use these like for-statements, e.g. array_fori(a, i) { ... a[i] ... }
 // (Warning: do not modify the array inside these loops (unless you exit the loop right after),
 //  use a custom fori loop that does the necessary index adjustments for this purpose instead)
 
@@ -257,11 +311,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // (a variable named 'itername' will contain the _value_ of the current element)
 #define array_foreach_value_reverse(a, itername) _arr_foreach_value_reverse(a, itername)
 
-// for each element in the array call func with a pointer to the current element
-#define array_call_foreach(a, func)              _arr_call_foreach(a, func)
 
-// for each element in the array call func with the value of the current element
-#define array_call_foreach_value(a, func)        _arr_call_foreach_value(a, func)
 
 #ifndef ARRAY_MAGIC1
 # define ARRAY_MAGIC1 ((size_t)0xcccccccccccccccc)
@@ -453,13 +503,13 @@ void _arr_reverse(void *arr, size_t elem_size, unsigned char *buf)
 }
 
 static inline _attr_nonnull(3, 4) _attr_unused
-void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size_t (*random_index)(void))
+void _arr_shuffle_elements(void *arr, size_t elem_size, unsigned char *buf, size_t (*random)(void))
 {
 	if (unlikely(array_empty(arr))) {
 		return;
 	}
 	for (size_t i = _arr_lasti(arr); i > 0; i--) {
-		_arr_swap_elements_unchecked(arr, elem_size, buf, i, random_index() % (i + 1));
+		_arr_swap_elements_unchecked(arr, elem_size, buf, i, random() % (i + 1));
 	}
 }
 
