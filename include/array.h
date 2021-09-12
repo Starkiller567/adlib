@@ -43,7 +43,6 @@
 // Alignment: The first array element is aligned to 8/16 bytes on 32/64-bit architectures (2*sizeof(size_t))
 
 // TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
-// TODO add function prototypes to the documentation
 // TODO clearly define and document when reallocation happens
 // TODO make array_grow private?
 // TODO should these functions take an array_t(type) * instead of array_t(type)?
