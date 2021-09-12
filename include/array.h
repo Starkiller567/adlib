@@ -40,7 +40,7 @@
 //         array_free(my_array);
 //
 
-// TODO array_set_all, array_push_repeat/addn_copies, array_at, array_call_foreach
+// TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
 // TODO clearly define and document when reallocation happens
 // TODO document alignment
 // TODO make array_grow private?
@@ -250,6 +250,12 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // iterate over all array elements in reverse
 // (a variable named 'itername' will contain the _value_ of the current element)
 #define array_foreach_value_reverse(a, itername) _arr_foreach_value_reverse(a, itername)
+
+// for each element in the array call func with a pointer to the current element
+#define array_call_foreach(a, func)              _arr_call_foreach(a, func)
+
+// for each element in the array call func with the value of the current element
+#define array_call_foreach_value(a, func)        _arr_call_foreach_value(a, func)
 
 #ifndef ARRAY_MAGIC1
 # define ARRAY_MAGIC1 ((size_t)0xcccccccccccccccc)
@@ -498,7 +504,7 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_last_pointer(void *arr, s
 		size_t _idx;						\
 		_arr_bsearch_index(*_arrp, sizeof(_key), &_key, compare, &_idx); \
 		array_insert(*_arrp, _idx, _key);			\
-	} while(0);
+	} while (0)
 
 #define _arr_pop(a) (*(typeof(a))_arr_pop_and_return_pointer((a), sizeof((a)[0])))
 static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(void *arr, size_t elem_size)
@@ -536,5 +542,21 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(vo
 	for (typeof((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
 		     *_arr_iter_##__LINE__ = (_arr_base_##__LINE__) + array_len(_arr_base_##__LINE__); \
 	     (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
+
+#define _arr_call_foreach(a, func)		\
+	do {					\
+		typeof(func) *_func = (func);	\
+		_arr_foreach(a, _iter) {	\
+			_func(_iter);		\
+		}				\
+	} while (0)
+
+#define _arr_call_foreach_value(a, func)	\
+	do {					\
+		typeof(func) *_func = (func);	\
+		_arr_foreach_value(a, _iter) {	\
+			_func(_iter);		\
+		}				\
+	} while (0)
 
 #endif

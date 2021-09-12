@@ -5,8 +5,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "array.h"
+#include "config.h"
+#include "macros.h"
 
-static void print_array(int *arr, bool print_reverse)
+#ifdef HAVE_MALLOC_USABLE_SIZE
+#include <malloc.h>
+#endif
+
+static _attr_unused void print_array(int *arr, bool print_reverse)
 {
 	size_t len = array_length(arr);
 	size_t limit = array_capacity(arr);
@@ -37,9 +43,14 @@ static void print_array(int *arr, bool print_reverse)
 
 static void assert_array_content(size_t length, int *arr, ...)
 {
+	assert(array_length(arr) == length);
+	assert(array_capacity(arr) >= length);
+#ifdef HAVE_MALLOC_USABLE_SIZE
+	assert(malloc_usable_size((char *)arr - sizeof(_arr)) >= array_capacity(arr) * sizeof(arr[0]));
+#endif
+
 	va_list args;
 	va_start(args, arr);
-	assert(array_length(arr) == length);
 	array_foreach(arr, cur) {
 		assert(*cur == va_arg(args, int));
 	}
@@ -49,6 +60,17 @@ static void assert_array_content(size_t length, int *arr, ...)
 static int cmp(const void *a, const void *b)
 {
 	return *(const int *)a - *(const int *)b;
+}
+
+static void increment(int *i)
+{
+	(*i)++;
+}
+
+static int global_sum = 0;
+static void sum(int i)
+{
+	global_sum += i;
 }
 
 static void add_a_one(array_t(int) *some_array)
@@ -76,7 +98,6 @@ int main(void)
 	array_insert(arr1, 5, 5);
 
 	int *arr2 = array_copy(arr1);
-	print_array(arr1, true);
 	assert_array_content(12, arr2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5);
 	array_shrink_to_fit(arr2);
 
@@ -87,17 +108,26 @@ int main(void)
 
 	int i;
 	i = array_pop(arr1);
+	assert(i == 5);
 	i = array_pop(arr1);
+	assert(i == 4);
 	i = array_pop(arr1);
+	assert(i == 3);
 	i = array_pop(arr1);
+	assert(i == 2);
 	i = array_pop(arr1);
+	assert(i == 1);
 	i = array_pop(arr1);
 	assert(i == 0);
+	assert_array_content(6, arr1, 0, 1, 2, 3, 4, 5);
+	array_shrink_to_fit(arr1);
 
 	array_make_valid(arr1, 1);
+	assert_array_content(6, arr1, 0, 1, 2, 3, 4, 5);
 	array_make_valid(arr1, 7);
 	arr1[6] = 6;
 	arr1[7] = 7;
+	assert_array_content(8, arr1, 0, 1, 2, 3, 4, 5, 6, 7);
 
 	array_addn(arr2, 15);
 	size_t len = array_length(arr2);
@@ -105,20 +135,24 @@ int main(void)
 	assert(array_length(arr2) == len - 10);
 
 	array_clear(arr2);
+	assert(array_length(arr2) == 0);
 	array_shrink_to_fit(arr2);
+	assert(array_length(arr2) == 0);
+	assert(array_capacity(arr2) == 0);
 
-	print_array(arr1, true);
 	assert_array_content(8, arr1, 0, 1, 2, 3, 4, 5, 6, 7);
 	array_ordered_deleten(arr1, 2, 1);
+	assert_array_content(7, arr1, 0, 1, 3, 4, 5, 6, 7);
 	array_fast_deleten(arr1, 2, 1);
+	assert_array_content(6, arr1, 0, 1, 7, 4, 5, 6);
 
 	array_ordered_delete(arr1, 0);
+	assert_array_content(5, arr1, 1, 7, 4, 5, 6);
 	array_fast_delete(arr1, 0);
+	assert_array_content(4, arr1, 6, 7, 4, 5);
 
 	array_resize(arr1, 4);
-
-	print_array(arr1, true);
-	print_array(arr2, true);
+	assert_array_content(4, arr1, 6, 7, 4, 5);
 
 	array_free(arr1);
 	array_insertn(arr1, 0, 10);
@@ -127,16 +161,15 @@ int main(void)
 
 	array_reserve(arr1, 1);
 	assert(array_capacity(arr1) >= 1);
-	print_array(arr1, true);
+	assert(array_length(arr1) == 0);
 	array_reserve(arr1, 5);
 	assert(array_capacity(arr1) >= 5);
-	print_array(arr1, true);
+	assert(array_length(arr1) == 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
 	array_add(arr1, 0);
-	print_array(arr1, true);
 	assert_array_content(5, arr1, 0, 0, 0, 0, 0);
 	array_free(arr1);
 
@@ -144,22 +177,19 @@ int main(void)
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	arr2 = array_copy(arr1);
 	array_add_array(arr1, arr2);
-	print_array(arr1, true);
 	assert_array_content(20, arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_truncate(arr1, 10);
 	assert_array_content(10, arr1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_free(arr1);
 
 	array_reverse(arr2);
-	print_array(arr2, true);
 	assert_array_content(10, arr2, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+	array_sort(arr2, cmp);
+	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
 	array_shuffle(arr2, (size_t(*)(void))random);
-	print_array(arr2, true);
 	array_shuffle(arr2, (size_t(*)(void))random);
-	print_array(arr2, true);
 	array_sort(arr2, cmp);
-	print_array(arr2, true);
 	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_free(arr2);
 
@@ -308,7 +338,6 @@ int main(void)
 	array_fori_reverse(arr1, i) {
 		array_add(arr2, arr1[i]);
 	}
-	print_array(arr2, true);
 	array_reverse(arr2);
 	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	array_fori(arr2, i) {
@@ -322,7 +351,6 @@ int main(void)
 		}
 	}
 
-	print_array(arr2, true);
 	array_reverse(arr2);
 	assert_array_content(10, arr2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 	{
@@ -448,6 +476,17 @@ int main(void)
 	assert_array_content(10, arr1, 8, 3, 6, 1, 4, 5, 2, 7, 0, 9);
 	array_swap(arr1, 5, 9);
 	assert_array_content(10, arr1, 8, 3, 6, 1, 4, 9, 2, 7, 0, 5);
+	array_free(arr1);
+
+	array_add_arrayn(arr1, digits, 10);
+	global_sum = 0;
+	array_call_foreach_value(arr1, sum);
+	assert(global_sum == 45);
+	array_call_foreach(arr1, increment);
+	assert_array_content(10, arr1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+	global_sum = 0;
+	array_call_foreach_value(arr1, sum);
+	assert(global_sum == 55);
 	array_free(arr1);
 
 #if 0
