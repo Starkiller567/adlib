@@ -48,13 +48,13 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 #endif
 	} else {
 		head = _arrhead(arr);
-		if (unlikely(!head)) {
-			abort();
-		}
 		if (unlikely(capacity == head->capacity)) {
 			return arr;
 		}
 		head = realloc(head, new_size);
+		if (unlikely(!head)) {
+			abort();
+		}
 		if (unlikely(head->length > capacity)) {
 			head->length = capacity;
 		}
