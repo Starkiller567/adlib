@@ -54,9 +54,9 @@ int main(int argc, char **argv)
 				*entry = x;
 				array_add(arr, x);
 			}
-		} else if (array_len(arr) != 0) {
+		} else if (array_length(arr) != 0) {
 			int key;
-			int idx = rand() % array_len(arr);
+			int idx = rand() % array_length(arr);
 			int x = arr[idx];
 			bool removed = itable_remove(&itable, x, integer_hash(x), &key);
 			assert(removed);
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 				assert(itable_lookup(&itable, i, integer_hash(i)));
 			}
 			int *arr2 = NULL;
-			array_reserve(arr2, array_len(arr));
+			array_reserve(arr2, array_length(arr));
 			for (itable_iter_t iter = itable_iter_start(&itable);
 			     !itable_iter_finished(&iter);
 			     itable_iter_advance(&iter)) {
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 			array_sort(arr2, cmp_int);
 			assert(array_equal(arr, arr2));
 			array_free(arr2);
-			fprintf(stderr, "%zu %lu\r", array_len(arr), counter);
+			fprintf(stderr, "%zu %lu\r", array_length(arr), counter);
 		}
 	}
 

@@ -247,7 +247,7 @@ static bool json_object_equal(struct json_object *object1, struct json_object *o
 
 static bool json_array_equal(struct json_array *array1, struct json_array *array2)
 {
-	if (array_len(array1->elements) != array_len(array2->elements)) {
+	if (array_length(array1->elements) != array_length(array2->elements)) {
 		return false;
 	}
 	array_fori(array1->elements, i) {

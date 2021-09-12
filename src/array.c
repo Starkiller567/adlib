@@ -66,12 +66,25 @@ __AD_LINKAGE void *_arr_resize_internal(void *arr, size_t elem_size, size_t capa
 __AD_LINKAGE void *_arr_copy(const void *arr, size_t elem_size)
 {
 	void *new_arr = _arr_resize_internal(NULL, elem_size, _arr_capacity(arr));
-	if (!new_arr) {
+	if (unlikely(!new_arr)) {
 		return NULL;
 	}
 	_arrhead(new_arr)->length = _arr_length(arr);
 	memcpy(new_arr, arr, elem_size * _arr_length(arr));
 	return new_arr;
+}
+
+__AD_LINKAGE bool _arr_equal(const void *arr1, size_t elem_size, const void *arr2)
+{
+	if (unlikely(arr1 == arr2)) {
+		// the code below does not cover the case where both are NULL!
+		return true;
+	}
+	size_t len = _arr_length(arr1);
+	if (len != _arr_length(arr2)) {
+		return false;
+	}
+	return memcmp(arr1, arr2, len * elem_size) == 0;
 }
 
 __AD_LINKAGE void _arr_grow(void **arrp, size_t elem_size, size_t n)

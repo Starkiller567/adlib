@@ -489,6 +489,19 @@ int main(void)
 	assert(global_sum == 55);
 	array_free(arr1);
 
+	arr1 = array_new(int, 10);
+	assert(array_capacity(arr1) >= 10);
+	assert_array_content(0, arr1);
+	array_free(arr1);
+
+	arr1 = array_new(int, 1);
+	assert(array_capacity(arr1) >= 1);
+	assert_array_content(0, arr1);
+	array_free(arr1);
+
+	arr1 = array_new(int, 0);
+	assert(!arr1);
+
 #if 0
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	for (size_t i = 0; i < 5; i++) {
