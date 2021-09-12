@@ -43,8 +43,6 @@
 // Alignment: The first array element is aligned to 8/16 bytes on 32/64-bit architectures (2*sizeof(size_t))
 
 // TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
-// TODO clearly define and document when reallocation happens
-// TODO should these functions take an array_t(type) * instead of array_t(type)?
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
@@ -109,50 +107,60 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // T *array_addn(array_t(T) &a, size_t n)
 //   add n unitialized elements to the end of the array and return a pointer to the first of those
 //   (returns NULL if n is zero)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_addn(a, n)                ((typeof(a))_arr_addn((void **)&(a), sizeof((a)[0]), (n)))
 
 // T *array_add1(array_t(T) &a)
 //   add one unitialized element to the end of the array and return a pointer to it
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_add1(a)                   array_addn((a), 1)
 
 // T *array_addn_zero(array_t(T) &a, size_t n)
 //   add n zeroed elements to the end of the array and return a pointer to the first of those
 //   (returns NULL if n is zero)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_addn_zero(a, n)           ((typeof(a))_arr_addn_zero((void **)&(a), sizeof((a)[0]), (n)))
 
 // T *array_add1_zero(array_t(T) &a)
 //   add one zeroed element to the end of the array and return a pointer to it
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_add1_zero(a)              array_addn_zero((a), 1)
 
 // void array_add(array_t(T) &a, T v)
 //   add value v to the end of the array (v must be an r-value of array element type)
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_add(a, v)                 _arr_add(a, v)
 
 // T *array_insertn(array_t(T) &a, size_t i, size_t n)
 //   insert n unitialized elements at index i and return a pointer to the first of them
 //   (i must be less than or equal to array_length(a))
 //   (returns NULL if n is zero)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_insertn(a, i, n)          (typeof(a))_arr_insertn((void **)&(a), sizeof((a)[0]), (i), (n))
 
 // T *array_insert1(array_t(T) &a, size_t i)
 //   insert one unitialized element at index i and return a pointer to it
 //   (i must be less than or equal to array_length(a))
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_insert1(a, i)             array_insertn((a), (i), 1)
 
 // T *array_insertn_zero(array_t(T) &a, size_t i, size_t n)
 //   insert n zeroed elements at index i and return a pointer to the first of them
 //   (i must be less than or equal to array_length(a))
 //   (returns NULL if n is zero)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_insertn_zero(a, i, n)     (typeof(a))_arr_insertn_zero((void **)&(a), sizeof((a)[0]), (i), (n))
 
 // T *array_insert1_zero(array_t(T) &a, size_t i)
 //   insert one zeroed element at index i and return a pointer to it
 //   (i must be less than or equal to array_length(a))
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_insert1_zero(a, i)        array_insertn_zero((a), (i), 1)
 
 // void array_insert(array_t(T) &a, size_t i, T v)
 //   insert value v at index i
 //   (v must be an r-value of array element type and i must be less than or equal to array_length(a))
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_insert(a, i, v)           _arr_insert(a, i, v)
 
 // void array_clear(array_t(T) a)
@@ -161,6 +169,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 
 // void array_resize(array_t(T) &a, size_t capacity)
 //   set the capacity of the array (truncates the array length if necessary)
+//   (reallocates array a if capacity != array_capacity(a))
 #define array_resize(a, capacity)       _arr_resize((void **)&(a), sizeof((a)[0]), (capacity))
 
 // void array_truncate(array_t(T) a, size_t newlen)
@@ -169,19 +178,23 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 
 // void array_reserve(array_t(T) &a, size_t n)
 //   allocate enough space for n additional elements (does not change length, only capacity)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_reserve(a, n)             _arr_reserve((void **)&(a), sizeof((a)[0]), (n))
 
 // void array_shrink_to_fit(array_t(T) &a)
 //   make capacity equal to length
+//   (reallocates array a if array_length(a) != array_capacity(a))
 #define array_shrink_to_fit(a)          _arr_shrink_to_fit((void **)&(a), sizeof((a)[0]))
 
 // void array_make_valid(array_t(T) &a, size_t i)
 //   ensure that i is a valid element index in the array
 //   (by increasing length and capacity as appropriate, any new elements created by this are uninitialized)
+//   (reallocates array a if i >= array_capacity(a))
 #define array_make_valid(a, i)          _arr_make_valid((void **)&(a), sizeof((a)[0]), (i));
 
 // void array_push(array_t(T) &a, T v)
 //   alias for array_add
+//   (reallocates array a if array_length(a) >= array_capacity(a))
 #define array_push(a, v)                array_add(a, v)
 
 // T array_pop(array_t(T) a)
@@ -215,11 +228,13 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 #define array_ordered_delete(a, i)      array_ordered_deleten(a, i, 1)
 
 // void array_add_arrayn(array_t(T) &a, T b[n], size_t n)
-//   add the n first elements of array b to a (a and b should have matching types, but b can be a static array)
+//   add the first n elements of array b to a (a and b should have matching types, but b can be a static array)
+//   (reallocates array a if array_length(a) + n > array_capacity(a))
 #define array_add_arrayn(a, b, n)       _arr_add_arrayn((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a), (n))
 
 // void array_add_array(array_t(T) &a, array_t(T) b)
 //   add all elements of (dynamic) array b to a (a and b should have matching types)
+//   (reallocates array a if array_length(a) + array_length(b) > array_capacity(a))
 #define array_add_array(a, b)           _arr_add_array((void **)&(a), sizeof((a)[0]), 1 ? (b) : (a))
 
 // void array_sort(array_t(T) a, int (*compare)(const void *, const void *))
