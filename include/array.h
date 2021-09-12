@@ -44,7 +44,6 @@
 
 // TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
 // TODO clearly define and document when reallocation happens
-// TODO make array_grow private?
 // TODO should these functions take an array_t(type) * instead of array_t(type)?
 
 #ifndef __ARRAY_INCLUDE__
@@ -171,10 +170,6 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 // void array_reserve(array_t(T) &a, size_t n)
 //   allocate enough space for n additional elements (does not change length, only capacity)
 #define array_reserve(a, n)             _arr_reserve((void **)&(a), sizeof((a)[0]), (n))
-
-// void array_grow(array_t(T) &a, size_t n)
-//   increase capacity by atleast n elements
-#define array_grow(a, n)                _arr_grow((void **)&(a), sizeof((a)[0]), (n))
 
 // void array_shrink_to_fit(array_t(T) &a)
 //   make capacity equal to length
