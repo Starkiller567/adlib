@@ -8,7 +8,8 @@
 static size_t comparisons;
 
 static
-__attribute__((noinline, noipa))
+__attribute__((noinline))
+// __attribute__((noipa))
 bool int_less_than(int *a, int *b)
 {
 	comparisons++;

@@ -650,7 +650,7 @@ static void json_value_print(struct json_value *value, dstr_t *dstr)
 
 static dstr_t json_value_to_string(struct json_value *value)
 {
-	dstr_t dstr = dstr_new_empty();
+	dstr_t dstr = dstr_new();
 	json_value_print(value, &dstr);
 	return dstr;
 }

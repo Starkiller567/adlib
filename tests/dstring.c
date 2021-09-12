@@ -51,7 +51,7 @@ int main(void)
 	dstr_free(&dstr);
 	assert(!dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	for (size_t n = 0; n < 100; n++) {
 		for (size_t i = 0; i < 26; i++) {
 			char c = 'a' + i;
@@ -73,7 +73,7 @@ int main(void)
 	assert(dstr_rfind_cstr(dstr, "uvw", DSTR_NPOS) == 2594);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	assert(dstr_empty(dstr));
 	sanity_check(dstr);
 	dstr_free(&dstr);
@@ -123,7 +123,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_resize(&dstr, 0);
 	assert(dstr_empty(dstr));
 	sanity_check(dstr);
@@ -140,7 +140,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_reserve(&dstr, strlen(abc));
 	assert(dstr_capacity(dstr) - dstr_length(dstr) >= strlen(abc));
 	sanity_check(dstr);
@@ -177,7 +177,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_t dstr2 = dstr_copy(dstr);
 	assert(dstr_empty(dstr2));
 	sanity_check(dstr2);
@@ -193,13 +193,13 @@ int main(void)
 	dstr_free(&dstr2);
 	dstr2 = dstr_copy(dstr);
 	assert(dstr_length(dstr2) == 100 * strlen(abc));
-	assert(dstr_equal(dstr, dstr2));
+	assert(dstr_equal_dstr(dstr, dstr2));
 	sanity_check(dstr);
 	sanity_check(dstr2);
 	dstr_free(&dstr);
 	dstr_free(&dstr2);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_char(&dstr, 'a');
 	assert(strcmp(dstr, "a") == 0);
 	sanity_check(dstr);
@@ -227,7 +227,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_chars(&dstr, abc, strlen(abc));
 	sanity_check(dstr);
 	dstr_append_chars(&dstr, a256, strlen(a256));
@@ -236,7 +236,7 @@ int main(void)
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_cstr(&dstr, abc);
 	sanity_check(dstr);
 	assert(dstr_equal_cstr(dstr, abc));
@@ -246,7 +246,7 @@ int main(void)
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_view(&dstr, strview_from_cstr(abc));
 	sanity_check(dstr);
 	assert(dstr_equal_cstr(dstr, abc));
@@ -256,7 +256,7 @@ int main(void)
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_fmt(&dstr, "%s", abc);
 	sanity_check(dstr);
 	assert(dstr_equal_cstr(dstr, abc));
@@ -266,14 +266,14 @@ int main(void)
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr2 = dstr_from_cstr(abc);
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	dstr_free(&dstr2);
 	sanity_check(dstr);
 	assert(dstr_equal_cstr(dstr, abc));
 	dstr2 = dstr_from_cstr(a256);
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	dstr_free(&dstr2);
 	sanity_check(dstr);
 	assert(strncmp(dstr, abc, strlen(abc)) == 0);
@@ -309,7 +309,7 @@ int main(void)
 	dstr_free(&dstr2);
 	sanity_check(dstr);
 	dstr2 = dstr_from_cstr(abc);
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	dstr_free(&dstr2);
 	sanity_check(dstr);
 	assert(strncmp(dstr, a256, strlen(a256)) == 0);
@@ -368,24 +368,24 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr2 = dstr_new_empty();
+	dstr2 = dstr_new();
 	dstr = dstr_copy(dstr2);
 	sanity_check(dstr);
 	assert(dstr_empty(dstr));
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	assert(dstr_empty(dstr));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
 	assert(strncmp(dstr, abc, strlen(abc)) == 0);
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	sanity_check(dstr);
-	dstr_append(&dstr, dstr2);
+	dstr_append_dstr(&dstr, dstr2);
 	assert(strncmp(dstr, abc, strlen(abc)) == 0);
 	assert(strcmp(dstr + strlen(abc), a256) == 0);
 	sanity_check(dstr);
@@ -436,7 +436,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_insert_cstr(&dstr, 0, "");
 	dstr_insert_char(&dstr, 0, 'a');
 	assert(strcmp(dstr, "a") == 0);
@@ -465,7 +465,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	for (size_t i = 0; i <= strlen(abc); i++) {
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_cstr(&dstr, 0, abc);
 		sanity_check(dstr);
 		dstr_insert_cstr(&dstr, i, a256);
@@ -475,7 +475,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_view(&dstr, 0, strview_from_cstr(abc));
 		sanity_check(dstr);
 		dstr_insert_view(&dstr, i, strview_from_cstr(a256));
@@ -485,7 +485,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_chars(&dstr, 0, abc, strlen(abc));
 		sanity_check(dstr);
 		dstr_insert_chars(&dstr, i, a256, strlen(a256));
@@ -495,13 +495,13 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(abc);
-		dstr_insert(&dstr, 0, dstr2);
+		dstr_insert_dstr(&dstr, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(a256);
-		dstr_insert(&dstr, i, dstr2);
+		dstr_insert_dstr(&dstr, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
@@ -509,7 +509,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_fmt(&dstr, 0, "%s", abc);
 		sanity_check(dstr);
 		dstr_insert_fmt(&dstr, i, "%s", a256);
@@ -521,7 +521,7 @@ int main(void)
 	}
 
 	for (size_t i = 0; i <= strlen(a256); i++) {
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_cstr(&dstr, 0, a256);
 		sanity_check(dstr);
 		dstr_insert_cstr(&dstr, i, abc);
@@ -531,7 +531,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_view(&dstr, 0, strview_from_cstr(a256));
 		sanity_check(dstr);
 		dstr_insert_view(&dstr, i, strview_from_cstr(abc));
@@ -541,7 +541,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_chars(&dstr, 0, a256, strlen(a256));
 		sanity_check(dstr);
 		dstr_insert_chars(&dstr, i, abc, strlen(abc));
@@ -551,13 +551,13 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(a256);
-		dstr_insert(&dstr, 0, dstr2);
+		dstr_insert_dstr(&dstr, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(abc);
-		dstr_insert(&dstr, i, dstr2);
+		dstr_insert_dstr(&dstr, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
@@ -565,7 +565,7 @@ int main(void)
 		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_insert_fmt(&dstr, 0, "%s", a256);
 		sanity_check(dstr);
 		dstr_insert_fmt(&dstr, i, "%s", abc);
@@ -599,7 +599,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	for (size_t i = 0; i <= strlen(abc); i++) {
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, abc);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, i, DSTR_NPOS, a256);
@@ -607,7 +607,7 @@ int main(void)
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, abc);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, 0, i, a256);
@@ -615,7 +615,7 @@ int main(void)
 		assert(strncmp(dstr, a256, strlen(a256)) == 0);
 		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, abc);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, i / 2, strlen(abc) - i, a256);
@@ -625,7 +625,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(abc));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, i, DSTR_NPOS, strview_from_cstr(a256));
@@ -633,7 +633,7 @@ int main(void)
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(abc));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, 0, i, strview_from_cstr(a256));
@@ -641,7 +641,7 @@ int main(void)
 		assert(strncmp(dstr, a256, strlen(a256)) == 0);
 		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(abc));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, i / 2, strlen(abc) - i, strview_from_cstr(a256));
@@ -651,7 +651,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, i, DSTR_NPOS, a256, strlen(a256));
@@ -659,7 +659,7 @@ int main(void)
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, 0, i, a256, strlen(a256));
@@ -667,7 +667,7 @@ int main(void)
 		assert(strncmp(dstr, a256, strlen(a256)) == 0);
 		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, i / 2, strlen(abc) - i, a256, strlen(a256));
@@ -677,37 +677,37 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, i, DSTR_NPOS, dstr2);
+		dstr_replace_dstr(&dstr, i, DSTR_NPOS, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, 0, i, dstr2);
+		dstr_replace_dstr(&dstr, 0, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, strlen(a256)) == 0);
 		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, i / 2, strlen(abc) - i, dstr2);
+		dstr_replace_dstr(&dstr, i / 2, strlen(abc) - i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
@@ -715,7 +715,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", abc);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, i, DSTR_NPOS, "%s", a256);
@@ -723,7 +723,7 @@ int main(void)
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", abc);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, 0, i, "%s", a256);
@@ -731,7 +731,7 @@ int main(void)
 		assert(strncmp(dstr, a256, strlen(a256)) == 0);
 		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", abc);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, i / 2, strlen(abc) - i, "%s", a256);
@@ -743,7 +743,7 @@ int main(void)
 	}
 
 	for (size_t i = 0; i <= strlen(a256); i++) {
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, a256);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, i, DSTR_NPOS, abc);
@@ -751,7 +751,7 @@ int main(void)
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, a256);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, 0, i, abc);
@@ -759,7 +759,7 @@ int main(void)
 		assert(strncmp(dstr, abc, strlen(abc)) == 0);
 		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, a256);
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, i / 2, strlen(a256) - i, abc);
@@ -769,7 +769,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(a256));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, i, DSTR_NPOS, strview_from_cstr(abc));
@@ -777,7 +777,7 @@ int main(void)
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(a256));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, 0, i, strview_from_cstr(abc));
@@ -785,7 +785,7 @@ int main(void)
 		assert(strncmp(dstr, abc, strlen(abc)) == 0);
 		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(a256));
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, i / 2, strlen(a256) - i, strview_from_cstr(abc));
@@ -795,7 +795,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, i, DSTR_NPOS, abc, strlen(abc));
@@ -803,7 +803,7 @@ int main(void)
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, 0, i, abc, strlen(abc));
@@ -811,7 +811,7 @@ int main(void)
 		assert(strncmp(dstr, abc, strlen(abc)) == 0);
 		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
 		sanity_check(dstr);
 		dstr_replace_chars(&dstr, i / 2, strlen(a256) - i, abc, strlen(abc));
@@ -821,37 +821,37 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, i, DSTR_NPOS, dstr2);
+		dstr_replace_dstr(&dstr, i, DSTR_NPOS, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, 0, i, dstr2);
+		dstr_replace_dstr(&dstr, 0, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, strlen(abc)) == 0);
 		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace(&dstr, 0, 0, dstr2);
+		dstr_replace_dstr(&dstr, 0, 0, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace(&dstr, i / 2, strlen(a256) - i, dstr2);
+		dstr_replace_dstr(&dstr, i / 2, strlen(a256) - i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
@@ -859,7 +859,7 @@ int main(void)
 		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
 		dstr_free(&dstr);
 
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", a256);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, i, DSTR_NPOS, "%s", abc);
@@ -867,7 +867,7 @@ int main(void)
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", a256);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, 0, i, "%s", abc);
@@ -875,7 +875,7 @@ int main(void)
 		assert(strncmp(dstr, abc, strlen(abc)) == 0);
 		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
 		dstr_free(&dstr);
-		dstr = dstr_new_empty();
+		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", a256);
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, i / 2, strlen(a256) - i, "%s", abc);
@@ -918,13 +918,13 @@ int main(void)
 	assert(dstr_empty(dstr));
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_replace_cstr(&dstr, 0, 0, "");
 	sanity_check(dstr);
 	assert(dstr_empty(dstr));
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_erase(&dstr, 0, 0);
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
@@ -949,7 +949,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_cstr(&dstr, a256);
 	assert(strcmp(dstr, a256) == 0);
 	sanity_check(dstr);
@@ -968,7 +968,7 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr_append_chars(&dstr, abc, 24);
 	assert(strncmp(dstr, abc, 24) == 0);
 	sanity_check(dstr);
@@ -1160,7 +1160,7 @@ int main(void)
 		sanity_check(dstr2);
 		assert(dstr_equal_view(dstr,
 				       strview_substring(strview_from_cstr(abc), i, strlen(abc) - 2 * i)));
-		assert(dstr_equal(dstr, dstr2));
+		assert(dstr_equal_dstr(dstr, dstr2));
 		dstr_free(&dstr2);
 		dstr_free(&dstr);
 	}
@@ -1173,16 +1173,16 @@ int main(void)
 		sanity_check(dstr2);
 		assert(dstr_equal_view(dstr,
 				       strview_substring(strview_from_cstr(a256), i, strlen(a256) - 2 * i)));
-		assert(dstr_equal(dstr, dstr2));
+		assert(dstr_equal_dstr(dstr, dstr2));
 		dstr_free(&dstr2);
 		dstr_free(&dstr);
 	}
 
-	dstr = dstr_new_empty();
+	dstr = dstr_new();
 	dstr2 = dstr_substring_copy(dstr, 0, 0);
 	dstr_substring(&dstr, 0, 0);
 	assert(dstr_equal_cstr(dstr, ""));
-	assert(dstr_equal(dstr, dstr2));
+	assert(dstr_equal_dstr(dstr, dstr2));
 	sanity_check(dstr);
 	sanity_check(dstr2);
 	dstr_free(&dstr2);
@@ -1194,7 +1194,7 @@ int main(void)
 	assert(r == 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1204,7 +1204,7 @@ int main(void)
 	assert(r == 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1214,7 +1214,7 @@ int main(void)
 	assert(r > 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1224,7 +1224,7 @@ int main(void)
 	assert(r < 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1234,7 +1234,7 @@ int main(void)
 	assert(r < 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1244,7 +1244,7 @@ int main(void)
 	assert(r > 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1254,7 +1254,7 @@ int main(void)
 	assert(r < 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1264,7 +1264,7 @@ int main(void)
 	assert(r > 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1274,7 +1274,7 @@ int main(void)
 	assert(r < 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1284,7 +1284,7 @@ int main(void)
 	assert(r > 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1294,7 +1294,7 @@ int main(void)
 	assert(r == 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1304,7 +1304,7 @@ int main(void)
 	assert(r == 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1314,7 +1314,7 @@ int main(void)
 	assert(r < 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1324,7 +1324,7 @@ int main(void)
 	assert(r > 0);
 	assert(sign(dstr_compare_view(dstr, strview_from_cstr(str))) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(sign(dstr_compare(dstr, dstr2)) == r);
+	assert(sign(dstr_compare_dstr(dstr, dstr2)) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1334,7 +1334,7 @@ int main(void)
 	assert(r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1344,7 +1344,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1354,7 +1354,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1364,7 +1364,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1374,7 +1374,7 @@ int main(void)
 	assert(r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1384,7 +1384,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1394,7 +1394,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1404,7 +1404,7 @@ int main(void)
 	assert(r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1414,7 +1414,7 @@ int main(void)
 	assert(r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1424,7 +1424,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1434,7 +1434,7 @@ int main(void)
 	assert(!r);
 	assert(dstr_equal_view(dstr, strview_from_cstr(str)) == r);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_equal(dstr, dstr2) == r);
+	assert(dstr_equal_dstr(dstr, dstr2) == r);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1445,7 +1445,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1456,7 +1456,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1467,7 +1467,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1478,7 +1478,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1489,7 +1489,7 @@ int main(void)
 	assert(p == 2);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1500,7 +1500,7 @@ int main(void)
 	assert(p == 3);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1511,7 +1511,7 @@ int main(void)
 	assert(p == 3);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1522,7 +1522,7 @@ int main(void)
 	assert(p == 6);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1533,7 +1533,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1544,7 +1544,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1555,7 +1555,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1566,7 +1566,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1577,7 +1577,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_find_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_find(dstr, dstr2, s) == p);
+	assert(dstr_find_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1588,7 +1588,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1599,7 +1599,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1610,7 +1610,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1621,7 +1621,7 @@ int main(void)
 	assert(p == 3);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1632,7 +1632,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1643,7 +1643,7 @@ int main(void)
 	assert(p == 2);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1654,7 +1654,7 @@ int main(void)
 	assert(p == 3);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1665,7 +1665,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1676,7 +1676,7 @@ int main(void)
 	assert(p == 3);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1687,7 +1687,7 @@ int main(void)
 	assert(p == 6);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1698,7 +1698,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1709,7 +1709,7 @@ int main(void)
 	assert(p == 6);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1720,7 +1720,7 @@ int main(void)
 	assert(p == 0);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1731,7 +1731,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1742,7 +1742,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1753,7 +1753,7 @@ int main(void)
 	assert(p == DSTR_NPOS);
 	assert(dstr_rfind_view(dstr, strview_from_cstr(str), s) == p);
 	dstr2 = dstr_from_cstr(str);
-	assert(dstr_rfind(dstr, dstr2, s) == p);
+	assert(dstr_rfind_dstr(dstr, dstr2, s) == p);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 
@@ -1773,9 +1773,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr_t dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr_t dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1797,9 +1797,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1821,9 +1821,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1845,9 +1845,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1869,9 +1869,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1893,9 +1893,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1917,9 +1917,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1941,9 +1941,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1965,9 +1965,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -1989,9 +1989,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2013,9 +2013,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2037,9 +2037,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2061,9 +2061,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2085,9 +2085,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2109,9 +2109,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2133,9 +2133,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2157,9 +2157,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2181,9 +2181,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2205,9 +2205,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_find_replace(&dstr, dstr2, dstr3, max);
+	dstr_find_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2229,9 +2229,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2253,9 +2253,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2277,9 +2277,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2301,9 +2301,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2325,9 +2325,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2349,9 +2349,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2373,9 +2373,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2397,9 +2397,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2421,9 +2421,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2445,9 +2445,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2469,9 +2469,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2493,9 +2493,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2517,9 +2517,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2541,9 +2541,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2565,9 +2565,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2589,9 +2589,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2613,9 +2613,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2637,9 +2637,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2661,9 +2661,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -2685,9 +2685,9 @@ int main(void)
 	dstr = dstr_from_chars(haystack, strlen(haystack));
 	dstr2 = dstr_from_cstr(needle);
 	dstr3 = dstr_from_cstr(replacement);
-	dstr_rfind_replace(&dstr, dstr2, dstr3, max);
+	dstr_rfind_replace_dstr(&dstr, dstr2, dstr3, max);
 	dstr4 = dstr_from_cstr(result);
-	assert(dstr_equal(dstr, dstr4));
+	assert(dstr_equal_dstr(dstr, dstr4));
 	dstr_free(&dstr2);
 	dstr_free(&dstr3);
 	dstr_free(&dstr4);
@@ -3000,12 +3000,12 @@ int main(void)
 
 	dstr = dstr_from_cstr(a256);
 	dstr2 = dstr_from_cstr(a256);
-	assert(dstr_startswith(dstr, dstr2));
-	assert(dstr_endswith(dstr, dstr2));
+	assert(dstr_startswith_dstr(dstr, dstr2));
+	assert(dstr_endswith_dstr(dstr, dstr2));
 	dstr_free(&dstr2);
 	dstr2 = dstr_from_cstr("***");
-	assert(!dstr_startswith(dstr, dstr2));
-	assert(!dstr_endswith(dstr, dstr2));
+	assert(!dstr_startswith_dstr(dstr, dstr2));
+	assert(!dstr_endswith_dstr(dstr, dstr2));
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
 

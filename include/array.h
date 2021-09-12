@@ -48,6 +48,7 @@
 #define __ARRAY_INCLUDE__
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 #include "config.h"
 #include "macros.h"

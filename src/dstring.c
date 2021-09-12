@@ -487,7 +487,7 @@ __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 		if (likely(*dstrp != _dstr_empty_dstr)) {
 			size_t old_header_size = _dstr_header_size(_dstr_is_small(*dstrp));
 			free((uint8_t *)(*dstrp) - old_header_size);
-			*dstrp = dstr_new_empty();
+			*dstrp = dstr_new();
 		}
 		return;
 	}
@@ -598,7 +598,7 @@ __AD_LINKAGE void dstr_shrink_to_fit(dstr_t *dstrp)
 	dstr_resize(dstrp, dstr_length(*dstrp));
 }
 
-__AD_LINKAGE dstr_t dstr_new_empty(void)
+__AD_LINKAGE dstr_t dstr_new(void)
 {
 	return _dstr_empty_dstr;
 }
@@ -639,7 +639,7 @@ __AD_LINKAGE void dstr_append_chars(dstr_t *dstrp, const char *chars, size_t n)
 	memcpy(p, chars, n);
 }
 
-__AD_LINKAGE void dstr_append(dstr_t *dstrp, const dstr_t dstr)
+__AD_LINKAGE void dstr_append_dstr(dstr_t *dstrp, const dstr_t dstr)
 {
 	assert(dstr == _dstr_empty_dstr || *dstrp != dstr); // TODO? *dstrp must be != dstr currently
 	dstr_append_chars(dstrp, dstr, dstr_length(dstr));
@@ -680,7 +680,7 @@ __AD_LINKAGE void dstr_insert_char(dstr_t *dstrp, size_t pos, char c)
 	dstr_insert_chars(dstrp, pos, &c, 1);
 }
 
-__AD_LINKAGE void dstr_insert(dstr_t *dstrp, size_t pos, const dstr_t dstr)
+__AD_LINKAGE void dstr_insert_dstr(dstr_t *dstrp, size_t pos, const dstr_t dstr)
 {
 	assert(dstr == _dstr_empty_dstr || *dstrp != dstr); // TODO? *dstrp must be != dstr currently
 	dstr_insert_chars(dstrp, pos, dstr, dstr_length(dstr));
@@ -716,7 +716,7 @@ __AD_LINKAGE void dstr_replace_chars(dstr_t *dstrp, size_t pos, size_t len, cons
 	memcpy(p, chars, n);
 }
 
-__AD_LINKAGE void dstr_replace(dstr_t *dstrp, size_t pos, size_t len, const dstr_t dstr)
+__AD_LINKAGE void dstr_replace_dstr(dstr_t *dstrp, size_t pos, size_t len, const dstr_t dstr)
 {
 	assert(dstr == _dstr_empty_dstr || *dstrp != dstr); // TODO? *dstrp must be != dstr currently
 	dstr_replace_chars(dstrp, pos, len, dstr, dstr_length(dstr));
@@ -809,7 +809,7 @@ __AD_LINKAGE void dstr_rstrip(dstr_t *dstrp, const char *strip)
 
 __AD_LINKAGE dstr_t dstr_from_chars(const char *chars, size_t n)
 {
-	dstr_t dstr = dstr_new_empty();
+	dstr_t dstr = dstr_new();
 	dstr_append_chars(&dstr, chars, n);
 	return dstr;
 }
@@ -835,7 +835,7 @@ __AD_LINKAGE dstr_t dstr_from_fmt(const char *fmt, ...)
 
 __AD_LINKAGE dstr_t dstr_from_fmtv(const char *fmt, va_list args)
 {
-	dstr_t dstr = dstr_new_empty();
+	dstr_t dstr = dstr_new();
 	dstr_append_fmtv(&dstr, fmt, args);
 	return dstr;
 }
@@ -950,7 +950,7 @@ __AD_LINKAGE dstr_t dstr_substring_copy(const dstr_t dstr, size_t start, size_t 
 	return dstr_from_view(dstr_substring_view(dstr, start, length));
 }
 
-__AD_LINKAGE int dstr_compare(const dstr_t dstr1, const dstr_t dstr2)
+__AD_LINKAGE int dstr_compare_dstr(const dstr_t dstr1, const dstr_t dstr2)
 {
 	return strcmp(dstr1, dstr2);
 }
@@ -965,7 +965,7 @@ __AD_LINKAGE int dstr_compare_cstr(const dstr_t dstr, const char *cstr)
 	return strcmp(dstr, cstr);
 }
 
-__AD_LINKAGE bool dstr_equal(const dstr_t dstr1, const dstr_t dstr2)
+__AD_LINKAGE bool dstr_equal_dstr(const dstr_t dstr1, const dstr_t dstr2)
 {
 	return strview_equal(dstr_view(dstr1), dstr_view(dstr2));
 }
@@ -980,7 +980,7 @@ __AD_LINKAGE bool dstr_equal_cstr(const dstr_t dstr, const char *cstr)
 	return strcmp(dstr, cstr) == 0;
 }
 
-__AD_LINKAGE size_t dstr_find(const dstr_t haystack, const dstr_t needle, size_t pos)
+__AD_LINKAGE size_t dstr_find_dstr(const dstr_t haystack, const dstr_t needle, size_t pos)
 {
 	// TODO test that both versions behave the same for pos > length(haystack) and length(needle) ==/!= 0
 #ifdef HAVE_MEMMEM
@@ -1007,7 +1007,7 @@ __AD_LINKAGE size_t dstr_find_cstr(const dstr_t haystack, const char *needle_cst
 	return found ? (size_t)(found - haystack) : DSTR_NPOS;
 }
 
-__AD_LINKAGE size_t dstr_rfind(const dstr_t haystack, const dstr_t needle, size_t pos)
+__AD_LINKAGE size_t dstr_rfind_dstr(const dstr_t haystack, const dstr_t needle, size_t pos)
 {
 	return strview_rfind(dstr_view(haystack), dstr_view(needle), pos);
 }
@@ -1046,7 +1046,7 @@ __AD_LINKAGE size_t dstr_find_replace_view(dstr_t *haystackp, struct strview nee
 	return replaced;
 }
 
-__AD_LINKAGE size_t dstr_find_replace(dstr_t *haystackp, const dstr_t needle,
+__AD_LINKAGE size_t dstr_find_replace_dstr(dstr_t *haystackp, const dstr_t needle,
 				      const dstr_t dstr, size_t max)
 {
 	return dstr_find_replace_view(haystackp, dstr_view(needle), dstr_view(dstr), max);
@@ -1081,7 +1081,7 @@ __AD_LINKAGE size_t dstr_rfind_replace_view(dstr_t *haystackp, struct strview ne
 	return replaced;
 }
 
-__AD_LINKAGE size_t dstr_rfind_replace(dstr_t *haystackp, const dstr_t needle,
+__AD_LINKAGE size_t dstr_rfind_replace_dstr(dstr_t *haystackp, const dstr_t needle,
 				       const dstr_t dstr, size_t max)
 {
 	return dstr_rfind_replace_view(haystackp, dstr_view(needle), dstr_view(dstr), max);
@@ -1114,7 +1114,7 @@ __AD_LINKAGE size_t dstr_find_last_not_of(const dstr_t dstr, const char *reject,
 	return strview_find_last_not_of(dstr_view(dstr), reject, pos);
 }
 
-__AD_LINKAGE bool dstr_startswith(const dstr_t dstr, const dstr_t prefix)
+__AD_LINKAGE bool dstr_startswith_dstr(const dstr_t dstr, const dstr_t prefix)
 {
 	return strview_startswith(dstr_view(dstr), dstr_view(prefix));
 }
@@ -1129,7 +1129,7 @@ __AD_LINKAGE bool dstr_startswith_cstr(const dstr_t dstr, const char *prefix)
 	return strview_startswith_cstr(dstr_view(dstr), prefix);
 }
 
-__AD_LINKAGE bool dstr_endswith(const dstr_t dstr, const dstr_t suffix)
+__AD_LINKAGE bool dstr_endswith_dstr(const dstr_t dstr, const dstr_t suffix)
 {
 	return strview_endswith(dstr_view(dstr), dstr_view(suffix));
 }

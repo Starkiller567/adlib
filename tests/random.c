@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 	for (size_t i = 0; i < N; i++) {
 		numbers[i] = random_u64();
 	}
-	check(numbers, N, 0, UINT64_MAX);
+	check(numbers, N, 0, (double)UINT64_MAX);
 
 	puts("random_u32()");
 	for (size_t i = 0; i < N; i++) {
