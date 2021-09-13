@@ -20,6 +20,10 @@ def process_file(filepath, visited):
         return
     visited.add(filepath)
     f = open(filepath, "r")
+    # TODO just produce a different config.h file with "#define __AD_LINKAGE static" for single headers?
+    if filepath.endswith("include/config.h"):
+        outfile.write(f.read())
+        return
     for line in f:
         if match := include_pattern.fullmatch(line):
             headerpath = os.path.join("include", match.group(1))
