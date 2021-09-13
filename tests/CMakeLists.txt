@@ -29,3 +29,5 @@ foreach(TEST IN LISTS TESTS)
   endif()
   add_test(${TEST} ${TEST})
 endforeach()
+
+target_link_libraries(random m)
