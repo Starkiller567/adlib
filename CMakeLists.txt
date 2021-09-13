@@ -66,8 +66,6 @@ endif()
 
 configure_file(include/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h)
 
-add_compile_definitions(__AD_LINKAGE=)
-
 set(SOURCES
   array.c
   avl_tree.c
