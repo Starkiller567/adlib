@@ -1232,5 +1232,8 @@ __AD_LINKAGE void dstr_list_free(struct dstr_list *list)
 
 __AD_LINKAGE void *_dstr_debug_get_head_ptr(const dstr_t dstr)
 {
+	if (dstr == _dstr_empty_dstr) {
+		return NULL;
+	}
 	return dstr - _dstr_header_size(_dstr_is_small(dstr));
 }

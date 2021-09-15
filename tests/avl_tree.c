@@ -200,6 +200,7 @@ int main(void)
 			bool success = avl_insert_key(&root, key);
 			if (!success) {
 				struct avl_node *node = avl_remove_key(&root, key);
+				assert(node);
 				free(to_thing(node));
 				success = avl_insert_key(&root, key);
 				assert(success);
