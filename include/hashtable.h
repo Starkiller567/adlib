@@ -189,14 +189,14 @@ struct _hashtable {
 __AD_LINKAGE _attr_unused void _hashtable_init(struct _hashtable *table, _hashtable_uint_t capacity,
 						const struct _hashtable_info *info);
 __AD_LINKAGE _attr_unused void _hashtable_destroy(struct _hashtable *table);
-__AD_LINKAGE _attr_unused _attr_warn_unused_result
+__AD_LINKAGE _attr_unused _attr_nodiscard
 bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
 		       _hashtable_idx_t *ret_index, const struct _hashtable_info *info);
-__AD_LINKAGE _attr_unused _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
-								const struct _hashtable_info *info);
+__AD_LINKAGE _attr_unused _attr_pure _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
+									  const struct _hashtable_info *info);
 __AD_LINKAGE _attr_unused void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
 						  const struct _hashtable_info *info);
-__AD_LINKAGE _attr_unused _attr_warn_unused_result
+__AD_LINKAGE _attr_unused _attr_nodiscard
 _hashtable_idx_t _hashtable_insert(struct _hashtable *table, _hashtable_hash_t hash,
 				   const struct _hashtable_info *info);
 __AD_LINKAGE _attr_unused void _hashtable_remove(struct _hashtable *table, _hashtable_idx_t index,

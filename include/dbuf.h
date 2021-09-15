@@ -39,18 +39,18 @@ __AD_LINKAGE _attr_unused void dbuf_init(struct dbuf *dbuf);
 // release all resources associated with dbuf (you should reinitialize dbuf before using it again)
 __AD_LINKAGE _attr_unused void dbuf_destroy(struct dbuf *dbuf);
 // return the internal buffer (which you need to free() eventually) and reinitialize dbuf
-__AD_LINKAGE _attr_unused _attr_warn_unused_result void *dbuf_finalize(struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_nodiscard void *dbuf_finalize(struct dbuf *dbuf);
 // make an exact copy of dbuf (same content, same capacity, different memory)
-__AD_LINKAGE _attr_unused _attr_warn_unused_result struct dbuf dbuf_copy(const struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_nodiscard struct dbuf dbuf_copy(const struct dbuf *dbuf);
 // return the internal buffer (which is still owned by dbuf after calling this function)
 // Warning: modifications to dbuf may invalidate the returned pointer (due to realloc)
-__AD_LINKAGE _attr_unused void *dbuf_buffer(const struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_pure void *dbuf_buffer(const struct dbuf *dbuf);
 // return the size of the contents of dbuf in bytes
-__AD_LINKAGE _attr_unused size_t dbuf_size(const struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_pure size_t dbuf_size(const struct dbuf *dbuf);
 // return the capacity of the internal buffer of dbuf in bytes
-__AD_LINKAGE _attr_unused size_t dbuf_capacity(const struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_pure size_t dbuf_capacity(const struct dbuf *dbuf);
 // return the number of bytes that can be added to dbuf without causing the internal buffer to grow
-__AD_LINKAGE _attr_unused size_t dbuf_available_size(const struct dbuf *dbuf);
+__AD_LINKAGE _attr_unused _attr_pure size_t dbuf_available_size(const struct dbuf *dbuf);
 // set the size of dbuf's contents to min(new_size, dbuf_size(dbuf)) (does not change capacity)
 __AD_LINKAGE _attr_unused void dbuf_truncate(struct dbuf *dbuf, size_t new_size);
 // equivalent to dbuf_truncate(dbuf, 0)
@@ -69,7 +69,7 @@ __AD_LINKAGE _attr_unused void dbuf_reserve(struct dbuf *dbuf, size_t n);
 __AD_LINKAGE _attr_unused void dbuf_add_byte(struct dbuf *dbuf, unsigned char byte);
 // append 'count' bytes of uninitialized memory and return a pointer to that memory
 // Warning: modifications to dbuf may invalidate the returned pointer (due to realloc)
-__AD_LINKAGE _attr_unused _attr_warn_unused_result void *dbuf_add_uninitialized(struct dbuf *dbuf, size_t count);
+__AD_LINKAGE _attr_unused _attr_nodiscard void *dbuf_add_uninitialized(struct dbuf *dbuf, size_t count);
 // append 'count' bytes from 'buf' ('buf' can only be NULL if 'count' is zero)
 __AD_LINKAGE _attr_unused void dbuf_add_buf(struct dbuf *dbuf, const void *buf, size_t count);
 // append the contents of 'other'

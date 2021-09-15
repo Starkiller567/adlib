@@ -29,10 +29,10 @@
 # define _attr_nonnull(...)
 #endif
 
-#ifdef HAVE_ATTR_WARN_UNUSED_RESULT
-# define _attr_warn_unused_result            __attribute__((warn_unused_result))
+#ifdef HAVE_ATTR_NODISCARD
+# define _attr_nodiscard                     __attribute__((warn_unused_result))
 #else
-# define _attr_warn_unused_result
+# define _attr_nodiscard
 #endif
 
 #ifdef HAVE_ATTR_ALWAYS_INLINE
@@ -55,6 +55,42 @@
 
 #ifdef HAVE_ATTR_PACKED
 # define _attr_packed                        __attribute__((packed))
+#endif
+
+#ifdef HAVE_ATTR_MALLOC
+# define _attr_malloc                        __attribute__((malloc))
+#else
+# define _attr_malloc
+#endif
+
+#ifdef HAVE_ATTR_PURE
+# define _attr_pure                          __attribute__((pure))
+#else
+# define _attr_pure
+#endif
+
+#ifdef HAVE_ATTR_CONST
+# define _attr_const                         __attribute__((const))
+#else
+# define _attr_const
+#endif
+
+#ifdef HAVE_ATTR_ALLOC_SIZE
+# define _attr_alloc_size(...)               __attribute__((alloc_size (__VA_ARGS__)))
+#else
+# define _attr_alloc_size(...)
+#endif
+
+#ifdef HAVE_ATTR_ASSUME_ALIGNED
+# define _attr_assume_aligned(...)           __attribute__((assume_aligned (__VA_ARGS__)))
+#else
+# define _attr_assume_aligned(...)
+#endif
+
+#ifdef HAVE_ATTR_RETURNS_NONNULL
+# define _attr_returns_nonnull               __attribute__((returns_nonnull))
+#else
+# define _attr_returns_nonnull
 #endif
 
 #ifdef HAVE_BUILTIN_EXPECT

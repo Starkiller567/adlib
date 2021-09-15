@@ -52,8 +52,8 @@ struct rb_root {
 
 __AD_LINKAGE _attr_unused void rb_remove_node(struct rb_root *root, struct rb_node *node);
 __AD_LINKAGE _attr_unused void rb_insert_node(struct rb_root *root, struct rb_node *node, struct rb_node *parent, enum rb_direction dir);
-__AD_LINKAGE _attr_unused struct rb_node *rb_first(const struct rb_root *root);
+__AD_LINKAGE _attr_unused _attr_pure struct rb_node *rb_first(const struct rb_root *root);
 __AD_LINKAGE _attr_unused struct rb_node *rb_parent(const struct rb_node *node);
-__AD_LINKAGE _attr_unused struct rb_node *rb_next(const struct rb_node *node);
+__AD_LINKAGE _attr_unused _attr_pure struct rb_node *rb_next(const struct rb_node *node);
 
 #endif
