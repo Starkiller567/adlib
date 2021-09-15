@@ -228,6 +228,7 @@ int main(void)
 			bool success = rb_insert_key(&root, key);
 			if (!success) {
 				struct rb_node *node = rb_remove_key(&root, key);
+				assert(node);
 				free(to_thing(node));
 				success = rb_insert_key(&root, key);
 				assert(success);
