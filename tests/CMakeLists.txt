@@ -11,6 +11,7 @@ set(TESTS
   avl_tree
   dbuf
   dstring
+  hash
   hashmap
   hashset
   hashtable_benchmark

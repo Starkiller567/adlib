@@ -73,6 +73,7 @@ set(SOURCES
   config.c
   dbuf.c
   dstring.c
+  hash.c
   hashtable.c
   macros.c
   random.c
