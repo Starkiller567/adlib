@@ -12,6 +12,7 @@ set(TESTS
   dbuf
   dstring
   hash
+  hash_benchmark
   hashmap
   hashset
   hashtable_benchmark
