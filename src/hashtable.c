@@ -77,13 +77,15 @@ static _attr_unused _hashtable_idx_t _hashtable_hash_to_index(const struct _hash
 
 #if 1
 	return (11 * h) & (table->capacity - 1);
+	// return ((11 * h) ^ (h >> (sizeof(h) * 4))) & (table->capacity - 1);
 #elif 0
-	// return h & (table->capacity - 1);
+	return h & (table->capacity - 1);
 #elif 0
-	// const size_t shift_amount = __builtin_clzll(table->capacity) + 1;
-	// h ^= h >> shift_amount;
-	// h *= sizeof(h) == 8 ? 11400714819323198485llu : 2654435769;
-	// return h >> shift_amount;
+	const size_t shift_amount = __builtin_clzll(table->capacity) + 1;
+	h ^= h >> shift_amount;
+	h *= sizeof(h) == 8 ? 11400714819323198485llu : 2654435769;
+	// h *= sizeof(h) == 8 ? 7046029254386353131llu : 1640531527;
+	return h >> shift_amount;
 #endif
 }
 
