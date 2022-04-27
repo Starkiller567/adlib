@@ -1,10 +1,5 @@
 project(adlib-tests)
 
-option(TESTS_ENABLE_SANITIZERS "enable sanitizers for the tests" OFF)
-if(${TESTS_ENABLE_SANITIZERS})
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address,undefined")
-endif()
-
 set(TESTS
   array
   array_benchmark
@@ -18,6 +13,7 @@ set(TESTS
   hashtable_benchmark
   json
   random
+  random_benchmark
   rb_tree
 )
 
@@ -32,4 +28,5 @@ foreach(TEST IN LISTS TESTS)
   add_test(${TEST} ${TEST})
 endforeach()
 
+target_link_libraries(hash m)
 target_link_libraries(random m)

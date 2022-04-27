@@ -296,6 +296,7 @@ rebalance:
 __AD_LINKAGE void avl_insert_node(struct avl_root *root, struct avl_node *node, struct avl_node *parent, enum avl_direction dir)
 {
 	assert(((uintptr_t)node & 0x3) == 0);
+	node->_parent_balance = 0; // silence warning
 	_avl_set_parent(node, parent);
 	_avl_set_balance(node, 0);
 	node->children[AVL_LEFT] = NULL;

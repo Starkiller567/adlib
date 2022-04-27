@@ -114,7 +114,7 @@ static void btree_split(struct btree *btree, struct btree_node *node, size_t idx
 	}
 
 	btree_node_insert_key(parent, node->position, node->keys[--node->num_keys]);
-	for (size_t i = parent->num_keys + 1; i >= node->position + 1; i--) {
+	for (int i = parent->num_keys + 1; i >= node->position + 1; i--) {
 		struct btree_node *child = parent->children[i];
 		parent->children[i + 1] = child;
 		if (child) {

@@ -21,7 +21,7 @@
 #define __DBUF_INCLUDE__
 
 #include "config.h"
-#include "macros.h"
+#include "compiler.h"
 
 // TODO rename dbuf_add* to dbuf_append_* ?
 

@@ -21,12 +21,27 @@
 #define __RANDOM_INCLUDE__
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+#include "config.h"
+#include "compiler.h"
 #include "macros.h"
 
 struct random_state {
 	uint64_t s[4];
 };
+
+#define __RANDOM_SPLITMIX64_1(z) (((z) ^ ((z) >> 30)) * 0xbf58476d1ce4e5b9)
+#define __RANDOM_SPLITMIX64_2(z) (((z) ^ ((z) >> 27)) * 0x94d049bb133111eb)
+#define __RANDOM_SPLITMIX64_3(z) ((z) ^ ((z) >> 31))
+#define __RANDOM_SPLITMIX64(x, c)					\
+	(__RANDOM_SPLITMIX64_3(__RANDOM_SPLITMIX64_2(__RANDOM_SPLITMIX64_1((x) + (c) * 0x9e3779b97f4a7c15))))
+
+#define RANDOM_STATE_INIT(x) ((struct random_state){			\
+			.s[0] = __RANDOM_SPLITMIX64((uint64_t)(x), 1),	\
+			.s[1] = __RANDOM_SPLITMIX64((uint64_t)(x), 2),	\
+			.s[2] = __RANDOM_SPLITMIX64((uint64_t)(x), 3),	\
+			.s[3] = __RANDOM_SPLITMIX64((uint64_t)(x), 4)})
 
 __AD_LINKAGE _attr_unused void random_state_init(struct random_state *state, uint64_t seed);
 __AD_LINKAGE _attr_unused uint64_t random_next_u64(struct random_state *state);

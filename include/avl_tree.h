@@ -23,6 +23,8 @@
 // TODO documentation, high-level API (see tests/avl_tree.c)
 
 #include <stdint.h>
+#include "config.h"
+#include "compiler.h"
 #include "macros.h"
 
 enum avl_direction {

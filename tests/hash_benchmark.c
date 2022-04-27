@@ -60,7 +60,7 @@ static void measure_overhead(void)
 	overhead = get_median(times, n);
 }
 
-#define BENCHMARK(hash_call)						\
+#define STRINGHASH_BENCHMARK(hash_call)					\
 	do {								\
 		const unsigned int max_shift = 24;			\
 		uint8_t *input = malloc(1u << max_shift);		\
@@ -89,90 +89,141 @@ static void measure_overhead(void)
 		putchar('\n');						\
 	} while (0)
 
+#define INTHASH_BENCHMARK(hash_call)					\
+	do {								\
+		double times[5];					\
+		const unsigned int n = sizeof(times) / sizeof(times[0]); \
+		const unsigned int iterations = 1 << 24;		\
+		for (unsigned int k = 0; k < n; k++) {			\
+			uint64_t input = random_next_u64(&global_random_state);	\
+			struct timespec start_tp, end_tp;		\
+			clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_tp); \
+			for (unsigned int i = 0; i < iterations; i++, input++) { \
+				typeof(hash_call) h = (hash_call);	\
+				asm volatile("" :: "g" (input), "g"(h) : "memory"); \
+			}						\
+			clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_tp); \
+			times[k] = (ns_elapsed(start_tp, end_tp) - overhead) / iterations; \
+		}							\
+		double t = get_median(times, n);			\
+		printf("[%s]: %16.2f ns\n", __func__ + strlen("benchmark_"), t); \
+	} while (0)
+
+
 static void benchmark_siphash24_64(void)
 {
 	uint8_t key[16];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(siphash24_64(input, inlen, key));
+	STRINGHASH_BENCHMARK(siphash24_64(input, inlen, key));
 }
 
 static void benchmark_siphash24_128(void)
 {
 	uint8_t key[16];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(siphash24_128(input, inlen, key));
+	STRINGHASH_BENCHMARK(siphash24_128(input, inlen, key));
 }
 
 static void benchmark_siphash13_64(void)
 {
 	uint8_t key[16];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(siphash13_64(input, inlen, key));
+	STRINGHASH_BENCHMARK(siphash13_64(input, inlen, key));
 }
 
 static void benchmark_siphash13_128(void)
 {
 	uint8_t key[16];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(siphash13_128(input, inlen, key));
+	STRINGHASH_BENCHMARK(siphash13_128(input, inlen, key));
 }
 
 static void benchmark_halfsiphash24_32(void)
 {
 	uint8_t key[8];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(halfsiphash24_32(input, inlen, key));
+	STRINGHASH_BENCHMARK(halfsiphash24_32(input, inlen, key));
 }
 
 static void benchmark_halfsiphash24_64(void)
 {
 	uint8_t key[8];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(halfsiphash24_64(input, inlen, key));
+	STRINGHASH_BENCHMARK(halfsiphash24_64(input, inlen, key));
 }
 
 static void benchmark_halfsiphash13_32(void)
 {
 	uint8_t key[8];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(halfsiphash13_32(input, inlen, key));
+	STRINGHASH_BENCHMARK(halfsiphash13_32(input, inlen, key));
 }
 
 static void benchmark_halfsiphash13_64(void)
 {
 	uint8_t key[8];
 	random_fill_buffer(key, sizeof(key));
-	BENCHMARK(halfsiphash13_64(input, inlen, key));
+	STRINGHASH_BENCHMARK(halfsiphash13_64(input, inlen, key));
 }
 
 static void benchmark_murmurhash3_x86_32(void)
 {
 	uint32_t seed = random_next_u32(&global_random_state);
-	BENCHMARK(murmurhash3_x86_32(input, inlen, seed));
+	STRINGHASH_BENCHMARK(murmurhash3_x86_32(input, inlen, seed));
 }
 
 static void benchmark_murmurhash3_x86_64(void)
 {
 	uint32_t seed = random_next_u32(&global_random_state);
-	BENCHMARK(murmurhash3_x86_64(input, inlen, seed));
+	STRINGHASH_BENCHMARK(murmurhash3_x86_64(input, inlen, seed));
 }
 
 static void benchmark_murmurhash3_x86_128(void)
 {
 	uint32_t seed = random_next_u32(&global_random_state);
-	BENCHMARK(murmurhash3_x86_128(input, inlen, seed));
+	STRINGHASH_BENCHMARK(murmurhash3_x86_128(input, inlen, seed));
 }
 
 static void benchmark_murmurhash3_x64_64(void)
 {
 	uint32_t seed = random_next_u32(&global_random_state);
-	BENCHMARK(murmurhash3_x64_64(input, inlen, seed));
+	STRINGHASH_BENCHMARK(murmurhash3_x64_64(input, inlen, seed));
 }
 
 static void benchmark_murmurhash3_x64_128(void)
 {
 	uint32_t seed = random_next_u32(&global_random_state);
-	BENCHMARK(murmurhash3_x64_128(input, inlen, seed));
+	STRINGHASH_BENCHMARK(murmurhash3_x64_128(input, inlen, seed));
+}
+
+static void benchmark_hash_int32(void)
+{
+	INTHASH_BENCHMARK(hash_int32(input));
+}
+
+static void benchmark_hash_int64(void)
+{
+	INTHASH_BENCHMARK(hash_int64(input));
+}
+
+static void benchmark_fibonacci_hash32(void)
+{
+	INTHASH_BENCHMARK(fibonacci_hash32(input, 24));
+}
+
+static void benchmark_fibonacci_hash64(void)
+{
+	INTHASH_BENCHMARK(fibonacci_hash64(input, 48));
+}
+
+static void benchmark_hash_combine_int32(void)
+{
+	INTHASH_BENCHMARK(hash_combine_int32(input, ~input));
+}
+
+static void benchmark_hash_combine_int64(void)
+{
+	INTHASH_BENCHMARK(hash_combine_int64(input, ~input));
 }
 
 int main(int argc, char **argv)
@@ -198,6 +249,12 @@ int main(int argc, char **argv)
 		B(murmurhash3_x86_128),
 		B(murmurhash3_x64_64),
 		B(murmurhash3_x64_128),
+		B(hash_int32),
+		B(hash_int64),
+		B(fibonacci_hash32),
+		B(fibonacci_hash64),
+		B(hash_combine_int32),
+		B(hash_combine_int64),
 	};
 
 	for (size_t i = 0; i < sizeof(benchmarks) / sizeof(benchmarks[0]); i++) {

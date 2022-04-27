@@ -44,12 +44,16 @@ __AD_LINKAGE void *dbuf_finalize(struct dbuf *dbuf)
 __AD_LINKAGE struct dbuf dbuf_copy(const struct dbuf *dbuf)
 {
 	struct dbuf copy;
-	copy._buf = malloc(dbuf->_capacity);
-	if (unlikely(!copy._buf && dbuf->_capacity != 0)) {
-		abort();
-	}
 	copy._size = dbuf->_size;
 	copy._capacity = dbuf->_capacity;
+	copy._buf = NULL;
+	if (unlikely(dbuf->_capacity == 0)) {
+		return copy;
+	}
+	copy._buf = malloc(dbuf->_capacity);
+	if (unlikely(!copy._buf)) {
+		abort();
+	}
 	memcpy(copy._buf, dbuf->_buf, dbuf->_size);
 	return copy;
 }

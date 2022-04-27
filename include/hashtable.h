@@ -24,7 +24,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "config.h"
-#include "macros.h"
+#include "compiler.h"
+
+// #define __HASHTABLE_PROFILING
 
 // TODO documentation (see tests for now)
 // TODO split off type and function declarations for headers
@@ -127,7 +129,7 @@
 	{								\
 		struct name##_iterator iter = {0};			\
 		iter._table = table;					\
-		iter._index = -1; /* iter_advance increments this to 0 */ \
+		iter._index = (_hashtable_idx_t)-1; /* iter_advance increments this to 0 */ \
 		iter._finished = false;					\
 		name##_iter_advance(&iter);				\
 		return iter;						\
@@ -166,7 +168,7 @@
 // private API
 
 typedef uint32_t _hashtable_hash_t;
-typedef size_t _hashtable_uint_t;
+typedef uint32_t _hashtable_uint_t;
 typedef _hashtable_uint_t _hashtable_idx_t;
 
 struct _hashtable_info {
@@ -192,7 +194,8 @@ __AD_LINKAGE _attr_unused void _hashtable_destroy(struct _hashtable *table);
 __AD_LINKAGE _attr_unused _attr_nodiscard
 bool _hashtable_lookup(struct _hashtable *table, void *key, _hashtable_hash_t hash,
 		       _hashtable_idx_t *ret_index, const struct _hashtable_info *info);
-__AD_LINKAGE _attr_unused _attr_pure _hashtable_idx_t _hashtable_get_next(struct _hashtable *table, size_t start,
+__AD_LINKAGE _attr_unused _attr_pure _hashtable_idx_t _hashtable_get_next(struct _hashtable *table,
+									  _hashtable_idx_t start,
 									  const struct _hashtable_info *info);
 __AD_LINKAGE _attr_unused void _hashtable_resize(struct _hashtable *table, _hashtable_uint_t new_capacity,
 						  const struct _hashtable_info *info);

@@ -1,7 +1,11 @@
-#include "hash.h"
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include "hash.h"
+#include "random.h"
 
 // TODO test this on a big-endian machine
 
@@ -671,7 +675,7 @@ static void test_murmurhash3_x86_32(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash32_t hash = murmurhash3_x86_32(hashes, sizeof(hashes), 0);
-	assert(((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB0F57EE3);
+	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB0F57EE3);
 }
 
 static void test_murmurhash3_x86_128(void)
@@ -684,7 +688,7 @@ static void test_murmurhash3_x86_128(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x86_128(hashes, sizeof(hashes), 0);
-	assert(((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB3ECE62A);
+	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB3ECE62A);
 }
 
 static void test_murmurhash3_x64_128(void)
@@ -697,7 +701,145 @@ static void test_murmurhash3_x64_128(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x64_128(hashes, sizeof(hashes), 0);
-	assert(((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0x6384BA69);
+	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0x6384BA69);
+}
+
+#if 0
+static void test_avalanche(void)
+{
+	typedef uint32_t hash_t;
+
+	uint64_t quality = 22;
+	const uint64_t n = UINT64_C(1) << quality;
+	const unsigned int nbits = sizeof(hash_t) * 8;
+	uint64_t bitflips[sizeof(hash_t) * 8] = {0};
+	struct random_state rng;
+	random_state_init(&rng, 0xdeadbeef);
+	for (uint64_t i = 0; i < n; i++) {
+		// uint64_t r1 = random_next_u64(&rng);
+		// uint64_t r2 = random_next_u64(&rng);
+		// hash_t h = hash_combine_int64(r1, r2).u64;
+		uint64_t r = random_next_u64(&rng);
+		hash_t h = hash_int32(r).u32;
+		for (hash_t mask = 1; mask; mask <<= 1) {
+			hash_t d = h ^ hash_int32(r ^ mask).u32;
+			for (unsigned int bit = 0; bit < nbits; bit++) {
+				if (d & (UINT64_C(1) << bit)) {
+					bitflips[bit]++;
+				}
+			}
+		}
+		// for (hash_t mask = 1; mask; mask <<= 1) {
+		// 	hash_t d = h ^ hash_combine_int64(r1, r2 ^ mask).u64;
+		// 	for (unsigned int bit = 0; bit < nbits; bit++) {
+		// 		if (d & (UINT64_C(1) << bit)) {
+		// 			bitflips[bit]++;
+		// 		}
+		// 	}
+		// }
+	}
+
+	double c = 1.0 / (n * nbits);
+	double mean = 0;
+	for (size_t i = 0; i < 32; i++) {
+		mean += c * bitflips[i];
+	}
+	mean /= 32;
+
+	double stddev = 0;
+	for (size_t i = 0; i < 32; i++) {
+		double x = c * bitflips[i] - mean;
+		stddev += x * x;
+	}
+	stddev = sqrt(stddev / 32);
+	printf("bitflips: mean = %g, stddev = %g\n", mean, stddev);
+}
+#endif
+
+// TODO copy pasted from random
+static void check(double *numbers, size_t n, double min, double max)
+{
+	double mean = 0;
+	for (size_t i = 0; i < n; i++) {
+		mean += numbers[i];
+	}
+	mean /= (double)n;
+
+	double stddev = 0;
+	for (size_t i = 0; i < n; i++) {
+		double x = numbers[i] - mean;
+		stddev += x * x;
+	}
+	stddev = sqrt(stddev / (double)n);
+
+	double target_mean = 0.5 * (max + min);
+	double target_stddev = sqrt((max - min) * (max - min) / 12.0);
+
+	double dev_mean = fabs(target_mean - mean) / target_mean;
+	double dev_stddev = fabs(target_stddev - stddev) / target_stddev;
+
+	printf("  target: mean = %g, stddev = %g\n", target_mean, target_stddev);
+	printf("  actual: mean = %g, stddev = %g\n", mean, stddev);
+	printf("  deviation: mean = %g%%, stddev = %g%%\n", dev_mean, dev_stddev);
+
+	assert(dev_mean < 0.001);
+	assert(dev_stddev < 0.02);
+}
+
+static void test_integer_hashes(void)
+{
+#define N (32 * 1024 * 1024)
+	double *numbers = calloc(N, sizeof(numbers[0]));
+
+	puts("hash_int32(i)");
+	for (uint32_t i = 0; i < N; i++) {
+		numbers[i] = hash_int32(i).u32;
+	}
+	check(numbers, N, 0, (double)UINT32_MAX);
+
+	puts("hash_int64(i)");
+	for (uint64_t i = 0; i < N; i++) {
+		numbers[i] = hash_int64(i).u64;
+	}
+	check(numbers, N, 0, (double)UINT64_MAX);
+
+	puts("fibonacci_hash32(i, 24)");
+	for (uint32_t i = 0; i < N; i++) {
+		numbers[i] = fibonacci_hash32(i, 24).u32;
+	}
+	check(numbers, N, 0, 0x1.0p24);
+
+	puts("fibonacci_hash64(i, 48)");
+	for (uint64_t i = 0; i < N; i++) {
+		numbers[i] = fibonacci_hash64(i, 48).u64;
+	}
+	check(numbers, N, 0, 0x1.0p48f);
+
+	puts("hash_combine_int32(i, i + 1)");
+	for (uint32_t i = 0; i < N; i++) {
+		numbers[i] = hash_combine_int32(i, i + 1).u32;
+	}
+	check(numbers, N, 0, (double)UINT32_MAX);
+
+	puts("hash_combine_int32(i, i)");
+	for (uint32_t i = 0; i < N; i++) {
+		numbers[i] = hash_combine_int32(i, i).u32;
+	}
+	check(numbers, N, 0, (double)UINT32_MAX);
+
+	puts("hash_combine_int64(i, i + 1)");
+	for (uint64_t i = 0; i < N; i++) {
+		numbers[i] = hash_combine_int64(i, i + 1).u64;
+	}
+	check(numbers, N, 0, (double)UINT64_MAX);
+
+	puts("hash_combine_int64(i, i)");
+	for (uint64_t i = 0; i < N; i++) {
+		numbers[i] = hash_combine_int64(i, i).u64;
+	}
+	check(numbers, N, 0, (double)UINT64_MAX);
+
+	free(numbers);
 }
 
 int main(void)
@@ -713,4 +855,5 @@ int main(void)
 	test_murmurhash3_x86_32();
 	test_murmurhash3_x86_128();
 	test_murmurhash3_x64_128();
+	test_integer_hashes();
 }

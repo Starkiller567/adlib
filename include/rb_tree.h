@@ -23,7 +23,8 @@
 // TODO documentation, high-level API (see tests/rb_tree.c)
 
 #include <stdint.h>
-#include "macros.h"
+#include "config.h"
+#include "compiler.h"
 
 enum rb_direction {
 	RB_LEFT = 0,

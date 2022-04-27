@@ -123,28 +123,60 @@ __AD_LINKAGE bool random_next_bool(struct random_state *state)
 
 __AD_LINKAGE uint32_t random_next_u32_in_range(struct random_state *state, uint32_t min, uint32_t max)
 {
-	// TODO look into https://arxiv.org/pdf/1805.10941.pdf
+	// https://arxiv.org/pdf/1805.10941.pdf
 	assert(min <= max);
-	uint32_t n = max - min + 1;
-	uint32_t remainder = UINT32_MAX % n;
-	uint32_t x;
-	do {
-		x = random_next_u32(state);
-	} while (x >= UINT32_MAX - remainder);
-	return min + x % n;
+	uint32_t s = max - min + 1;
+	uint32_t x = random_next_u32(state);
+	if (unlikely(s == 0)) {
+		return x;
+	}
+	uint64_t m = (uint64_t)x * s;
+	uint32_t l = (uint32_t)m;
+	if (l < s) {
+		uint32_t t = (-s) % s;
+		while (l < t) {
+			x = random_next_u32(state);
+			m = (uint64_t)x * s;
+			l = (uint32_t)m;
+		}
+	}
+	return min + (m >> 32);
 }
 
 __AD_LINKAGE uint64_t random_next_u64_in_range(struct random_state *state, uint64_t min, uint64_t max)
 {
-	// TODO look into https://arxiv.org/pdf/1805.10941.pdf
 	assert(min <= max);
+#ifdef __SIZEOF_INT128__
+	// https://arxiv.org/pdf/1805.10941.pdf
+	typedef unsigned __int128 uint128_t;
+	uint64_t s = max - min + 1;
+	uint64_t x = random_next_u64(state);
+	if (unlikely(s == 0)) {
+		return x;
+	}
+	uint128_t m = (uint128_t)x * s;
+	uint64_t l = (uint64_t)m;
+	if (l < s) {
+		uint64_t t = (-s) % s;
+		while (l < t) {
+			x = random_next_u64(state);
+			m = (uint128_t)x * s;
+			l = (uint64_t)m;
+		}
+	}
+	return min + (m >> 64);
+#else
 	uint64_t n = max - min + 1;
+	if (unlikely(n == 0)) {
+		return random_next_u64(state);
+	}
 	uint64_t remainder = UINT64_MAX % n;
 	uint64_t x;
 	do {
 		x = random_next_u64(state);
 	} while (x >= UINT64_MAX - remainder);
 	return min + x % n;
+#endif
 }
 
 __AD_LINKAGE float random_next_float_in_range(struct random_state *state, float min, float max)
@@ -173,8 +205,8 @@ __AD_LINKAGE void random_jump(struct random_state *state)
 	uint64_t s1 = 0;
 	uint64_t s2 = 0;
 	uint64_t s3 = 0;
-	for (int i = 0; i < sizeof(JUMP) / sizeof(*JUMP); i++)
-		for (int b = 0; b < 64; b++) {
+	for (size_t i = 0; i < sizeof(JUMP) / sizeof(*JUMP); i++)
+		for (size_t b = 0; b < 64; b++) {
 			if (JUMP[i] & UINT64_C(1) << b) {
 				s0 ^= state->s[0];
 				s1 ^= state->s[1];
@@ -206,8 +238,8 @@ __AD_LINKAGE void random_long_jump(struct random_state *state)
 	uint64_t s1 = 0;
 	uint64_t s2 = 0;
 	uint64_t s3 = 0;
-	for (int i = 0; i < sizeof(LONG_JUMP) / sizeof(*LONG_JUMP); i++)
-		for (int b = 0; b < 64; b++) {
+	for (size_t i = 0; i < sizeof(LONG_JUMP) / sizeof(*LONG_JUMP); i++)
+		for (size_t b = 0; b < 64; b++) {
 			if (LONG_JUMP[i] & UINT64_C(1) << b) {
 				s0 ^= state->s[0];
 				s1 ^= state->s[1];

@@ -309,11 +309,11 @@ int main(void)
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	array_fori(arr1, i) {
 		assert(array_index_of(arr1, &arr1[i]) == i);
-		assert(arr1[i] == i);
+		assert((size_t)arr1[i] == i);
 	}
 	array_fori_reverse(arr1, i) {
 		assert(array_index_of(arr1, &arr1[i]) == i);
-		assert(arr1[i] == i);
+		assert((size_t)arr1[i] == i);
 	}
 	array_free(arr1);
 

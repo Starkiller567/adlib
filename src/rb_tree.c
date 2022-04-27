@@ -282,6 +282,7 @@ __AD_LINKAGE void rb_insert_node(struct rb_root *root, struct rb_node *node, str
 	assert(((uintptr_t)node & 1) == 0);
 	node->children[RB_LEFT] = NULL;
 	node->children[RB_RIGHT] = NULL;
+	node->_parent_color = 0; // silence warning
 	_rb_set_parent(node, parent);
 	if (!parent) {
 		_rb_set_color(node, RB_BLACK);

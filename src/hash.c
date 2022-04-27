@@ -100,20 +100,19 @@ static _attr_always_inline void _siphash(const void *in, const size_t inlen, con
 
 	switch (left) {
 	case 7:
-		b |= ((uint64_t)ni[6]) << 48;
+		b |= ((uint64_t)ni[6]) << 48; _attr_fallthrough;
 	case 6:
-		b |= ((uint64_t)ni[5]) << 40;
+		b |= ((uint64_t)ni[5]) << 40; _attr_fallthrough;
 	case 5:
-		b |= ((uint64_t)ni[4]) << 32;
+		b |= ((uint64_t)ni[4]) << 32; _attr_fallthrough;
 	case 4:
-		b |= ((uint64_t)ni[3]) << 24;
+		b |= ((uint64_t)ni[3]) << 24; _attr_fallthrough;
 	case 3:
-		b |= ((uint64_t)ni[2]) << 16;
+		b |= ((uint64_t)ni[2]) << 16; _attr_fallthrough;
 	case 2:
-		b |= ((uint64_t)ni[1]) << 8;
+		b |= ((uint64_t)ni[1]) << 8; _attr_fallthrough;
 	case 1:
-		b |= ((uint64_t)ni[0]);
-		break;
+		b |= ((uint64_t)ni[0]); _attr_fallthrough;
 	case 0:
 		break;
 	}
@@ -240,12 +239,11 @@ static _attr_always_inline void _halfsiphash(const void *in, const size_t inlen,
 
 	switch (left) {
 	case 3:
-		b |= ((uint32_t)ni[2]) << 16;
+		b |= ((uint32_t)ni[2]) << 16; _attr_fallthrough;
 	case 2:
-		b |= ((uint32_t)ni[1]) << 8;
+		b |= ((uint32_t)ni[1]) << 8; _attr_fallthrough;
 	case 1:
-		b |= ((uint32_t)ni[0]);
-		break;
+		b |= ((uint32_t)ni[0]); _attr_fallthrough;
 	case 0:
 		break;
 	}
@@ -378,8 +376,8 @@ static _attr_always_inline void _murmurhash3_x86_32(const void *in, size_t len, 
 
 	switch (len & 3)
 	{
-	case 3: k1 ^= tail[2] << 16;
-	case 2: k1 ^= tail[1] << 8;
+	case 3: k1 ^= tail[2] << 16; _attr_fallthrough;
+	case 2: k1 ^= tail[1] << 8; _attr_fallthrough;
 	case 1: k1 ^= tail[0];
 		k1 *= c1; k1 = __HASH_ROTL32(k1, 15); k1 *= c2; h1 ^= k1;
 	};
@@ -448,26 +446,26 @@ static _attr_always_inline void _murmurhash3_x86_128(const void *in, size_t len,
 
 	switch (len & 15)
 	{
-	case 15: k4 ^= tail[14] << 16;
-	case 14: k4 ^= tail[13] << 8;
+	case 15: k4 ^= tail[14] << 16; _attr_fallthrough;
+	case 14: k4 ^= tail[13] << 8; _attr_fallthrough;
 	case 13: k4 ^= tail[12] << 0;
 		k4 *= c4; k4 = __HASH_ROTL32(k4, 18); k4 *= c1; h4 ^= k4;
-
-	case 12: k3 ^= tail[11] << 24;
-	case 11: k3 ^= tail[10] << 16;
-	case 10: k3 ^= tail[ 9] << 8;
+		_attr_fallthrough;
+	case 12: k3 ^= tail[11] << 24; _attr_fallthrough;
+	case 11: k3 ^= tail[10] << 16; _attr_fallthrough;
+	case 10: k3 ^= tail[ 9] << 8; _attr_fallthrough;
 	case  9: k3 ^= tail[ 8] << 0;
 		k3 *= c3; k3 = __HASH_ROTL32(k3, 17); k3 *= c4; h3 ^= k3;
-
-	case  8: k2 ^= tail[ 7] << 24;
-	case  7: k2 ^= tail[ 6] << 16;
-	case  6: k2 ^= tail[ 5] << 8;
+		_attr_fallthrough;
+	case  8: k2 ^= tail[ 7] << 24; _attr_fallthrough;
+	case  7: k2 ^= tail[ 6] << 16; _attr_fallthrough;
+	case  6: k2 ^= tail[ 5] << 8; _attr_fallthrough;
 	case  5: k2 ^= tail[ 4] << 0;
 		k2 *= c2; k2 = __HASH_ROTL32(k2, 16); k2 *= c3; h2 ^= k2;
-
-	case  4: k1 ^= tail[ 3] << 24;
-	case  3: k1 ^= tail[ 2] << 16;
-	case  2: k1 ^= tail[ 1] << 8;
+		_attr_fallthrough;
+	case  4: k1 ^= tail[ 3] << 24; _attr_fallthrough;
+	case  3: k1 ^= tail[ 2] << 16; _attr_fallthrough;
+	case  2: k1 ^= tail[ 1] << 8; _attr_fallthrough;
 	case  1: k1 ^= tail[ 0] << 0;
 		k1 *= c1; k1 = __HASH_ROTL32(k1, 15); k1 *= c2; h1 ^= k1;
 	};
@@ -543,22 +541,22 @@ static _attr_always_inline void _murmurhash3_x64_128(const void *in, size_t len,
 
 	switch (len & 15)
 	{
-	case 15: k2 ^= ((uint64_t)tail[14]) << 48;
-	case 14: k2 ^= ((uint64_t)tail[13]) << 40;
-	case 13: k2 ^= ((uint64_t)tail[12]) << 32;
-	case 12: k2 ^= ((uint64_t)tail[11]) << 24;
-	case 11: k2 ^= ((uint64_t)tail[10]) << 16;
-	case 10: k2 ^= ((uint64_t)tail[ 9]) << 8;
+	case 15: k2 ^= ((uint64_t)tail[14]) << 48; _attr_fallthrough;
+	case 14: k2 ^= ((uint64_t)tail[13]) << 40; _attr_fallthrough;
+	case 13: k2 ^= ((uint64_t)tail[12]) << 32; _attr_fallthrough;
+	case 12: k2 ^= ((uint64_t)tail[11]) << 24; _attr_fallthrough;
+	case 11: k2 ^= ((uint64_t)tail[10]) << 16; _attr_fallthrough;
+	case 10: k2 ^= ((uint64_t)tail[ 9]) << 8; _attr_fallthrough;
 	case  9: k2 ^= ((uint64_t)tail[ 8]) << 0;
 		k2 *= c2; k2 = __HASH_ROTL64(k2, 33); k2 *= c1; h2 ^= k2;
-
-	case  8: k1 ^= ((uint64_t)tail[ 7]) << 56;
-	case  7: k1 ^= ((uint64_t)tail[ 6]) << 48;
-	case  6: k1 ^= ((uint64_t)tail[ 5]) << 40;
-	case  5: k1 ^= ((uint64_t)tail[ 4]) << 32;
-	case  4: k1 ^= ((uint64_t)tail[ 3]) << 24;
-	case  3: k1 ^= ((uint64_t)tail[ 2]) << 16;
-	case  2: k1 ^= ((uint64_t)tail[ 1]) << 8;
+		_attr_fallthrough;
+	case  8: k1 ^= ((uint64_t)tail[ 7]) << 56; _attr_fallthrough;
+	case  7: k1 ^= ((uint64_t)tail[ 6]) << 48; _attr_fallthrough;
+	case  6: k1 ^= ((uint64_t)tail[ 5]) << 40; _attr_fallthrough;
+	case  5: k1 ^= ((uint64_t)tail[ 4]) << 32; _attr_fallthrough;
+	case  4: k1 ^= ((uint64_t)tail[ 3]) << 24; _attr_fallthrough;
+	case  3: k1 ^= ((uint64_t)tail[ 2]) << 16; _attr_fallthrough;
+	case  2: k1 ^= ((uint64_t)tail[ 1]) << 8; _attr_fallthrough;
 	case  1: k1 ^= ((uint64_t)tail[ 0]) << 0;
 		k1 *= c1; k1 = __HASH_ROTL64(k1, 31); k1 *= c2; h1 ^= k1;
 	};
@@ -593,6 +591,56 @@ __AD_LINKAGE hash64_t murmurhash3_x64_64(const void *in, size_t inlen, uint32_t 
 	hash64_t out64;
 	memcpy(out64.bytes, out128.bytes, sizeof(out64));
 	return out64;
+}
+
+__AD_LINKAGE hash32_t hash_int32(uint32_t val)
+{
+	hash32_t out;
+	val = _murmur_fmix32(val);
+	__HASH_U32TO8_LE(out.bytes, val);
+	return out;
+}
+
+__AD_LINKAGE hash64_t hash_int64(uint64_t val)
+{
+	hash64_t out;
+	val = _murmur_fmix64(val);
+	__HASH_U64TO8_LE(out.bytes, val);
+	return out;
+}
+
+__AD_LINKAGE hash32_t fibonacci_hash32(uint32_t val, unsigned int bits)
+{
+	hash32_t out;
+	// val *= UINT32_C(2654435769);
+	val *= UINT32_C(1640531527);
+	out.u32 = val >> (32 - bits);
+	return out;
+}
+
+__AD_LINKAGE hash64_t fibonacci_hash64(uint64_t val, unsigned int bits)
+{
+	hash64_t out;
+	// val *= UINT64_C(11400714819323198485);
+	val *= UINT64_C(7046029254386353131);
+	out.u64 = val >> (64 - bits);
+	return out;
+}
+
+__AD_LINKAGE hash32_t hash_combine_int32(uint32_t seed, uint32_t val)
+{
+	return hash_int32(seed + UINT32_C(0xe6546b64) + UINT32_C(1640531527) * val);
+
+	// uint32_t buffer[2] = {seed, val};
+	// return murmurhash3_x86_32(&buffer, sizeof(buffer), 0);
+}
+
+__AD_LINKAGE hash64_t hash_combine_int64(uint64_t seed, uint64_t val)
+{
+	return hash_int64(seed + UINT32_C(0xe6546b64) + UINT64_C(7046029254386353131) * val);
+
+	// uint64_t buffer[2] = {seed, val};
+	// return murmurhash3_x64_64(&buffer, sizeof(buffer), 0);
 }
 
 #undef __HASH_ROTL32

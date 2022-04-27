@@ -42,7 +42,7 @@
 
 // Alignment: The first array element is aligned to 8/16 bytes on 32/64-bit architectures (2*sizeof(size_t))
 
-// TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter
+// TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter, array_byte_size, array_copy_to/from
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
@@ -51,7 +51,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "config.h"
-#include "macros.h"
+#include "compiler.h"
 
 #ifdef NDEBUG
 # undef ARRAY_SAFETY_CHECKS
@@ -70,7 +70,7 @@ _Static_assert(ARRAY_GROWTH_FACTOR_NUMERATOR > ARRAY_GROWTH_FACTOR_DENOMINATOR,
 
 // this macro provides a more explicit way of declaring a dynamic array with T as the element type
 // (array_t(int) arr vs int *arr; the second could be a simple pointer or static array or dynamic array)
-#define array_t(T) T *
+#define array_t(T) typeof(T *)
 
 // size_t array_length(array_t(T) a)
 //   get number of elements in array (as size_t)
@@ -480,6 +480,9 @@ size_t _arr_index_of(const void *arr, size_t elem_size, const void *ptr)
 
 static inline _attr_unused void _arr_add_arrayn(void **arrp, size_t elem_size, const void *arr2, size_t n)
 {
+	if (unlikely(n == 0 || !arr2)) {
+		return;
+	}
 	void *dst = _arr_addn(arrp, elem_size, n);
 	memcpy(dst, arr2, n * elem_size);
 }

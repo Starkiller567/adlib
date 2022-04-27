@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -402,35 +403,46 @@ __AD_LINKAGE _attr_unused void strview_list_free(struct strview_list *list)
 }
 
 
+// TODO use an extra flags byte and make a struct _dstr_medium?
+// (could probably also extend the current small_length != MAX scheme to avoid spending an extra byte for small strings, maybe only add the extra flags byte for medium and big strings?)
+
 struct _dstr_small {
-	uint8_t length;
 	uint8_t capacity;
+	uint8_t length;
 	char    characters[];
 };
+_Static_assert(sizeof(struct _dstr_small) == offsetof(struct _dstr_small, characters), "");
 
-struct
-#ifdef HAVE_ATTR_PACKED
-_attr_packed
-#endif
-_dstr_big {
-	size_t   length;
+// if _attr_packed is not available then sizeof(struct _dstr_big) != offsetof(struct _dstr_big, characters)
+// which is why the code for _dstr_big is different than the code for _dstr_small below
+struct _dstr_big {
 	size_t   capacity;
-	uint16_t _small_header;
+	size_t   length;
+	uint8_t  _small_length;
 	char     characters[];
+#ifdef HAVE_ATTR_PACKED
+} _attr_packed;
+#else
 };
+#endif
+_Static_assert(offsetof(struct _dstr_big, characters) - offsetof(struct _dstr_big, _small_length) ==
+	       offsetof(struct _dstr_small, characters) - offsetof(struct _dstr_small, length), "");
 
 struct _dstr_common {
-	uint16_t small_header;
+	uint8_t  small_length;
 	char     characters[];
 };
+_Static_assert(sizeof(struct _dstr_common) == offsetof(struct _dstr_common, characters), "");
+_Static_assert(offsetof(struct _dstr_common, characters) - offsetof(struct _dstr_common, small_length) ==
+	       offsetof(struct _dstr_small, characters) - offsetof(struct _dstr_small, length), "");
 
 static const uint8_t _dstr_empty_dstr_bytes[3] = { 0 /* length */, 0 /* capacity */, 0 /* null terminator */};
-static const dstr_t _dstr_empty_dstr = (const dstr_t)&_dstr_empty_dstr_bytes[2];
+static const dstr_t _dstr_empty_dstr = ((struct _dstr_small *)_dstr_empty_dstr_bytes)->characters;
 
-static _attr_unused bool _dstr_is_small(const dstr_t dstr)
+static _attr_unused _attr_always_inline bool _dstr_is_small(const dstr_t dstr)
 {
 	const struct _dstr_common *header = (const struct _dstr_common *)dstr - 1;
-	return likely(header->small_header != 0xffff);
+	return header->small_length != UINT8_MAX;
 }
 
 __AD_LINKAGE size_t dstr_length(const dstr_t dstr)
@@ -439,12 +451,13 @@ __AD_LINKAGE size_t dstr_length(const dstr_t dstr)
 		const struct _dstr_small *header = (const struct _dstr_small *)dstr - 1;
 		return header->length;
 	} else {
-		const struct _dstr_big *header = (const struct _dstr_big *)dstr - 1;
+		const struct _dstr_big *header = (const struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
+											    characters));
 		return header->length;
 	}
 }
 
-__AD_LINKAGE bool dstr_empty(const dstr_t dstr)
+__AD_LINKAGE bool dstr_is_empty(const dstr_t dstr)
 {
 	return dstr_length(dstr) == 0;
 }
@@ -455,7 +468,8 @@ __AD_LINKAGE size_t dstr_capacity(const dstr_t dstr)
 		const struct _dstr_small *header = (const struct _dstr_small *)dstr - 1;
 		return header->capacity;
 	} else {
-		const struct _dstr_big *header = (const struct _dstr_big *)dstr - 1;
+		const struct _dstr_big *header = (const struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
+											    characters));
 		return header->capacity;
 	}
 }
@@ -471,14 +485,15 @@ static _attr_unused void _dstr_set_length(dstr_t dstr, size_t length)
 		struct _dstr_small *header = (struct _dstr_small *)dstr - 1;
 		header->length = length;
 	} else {
-		struct _dstr_big *header = (struct _dstr_big *)dstr - 1;
+		struct _dstr_big *header = (struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
+										characters));
 		header->length = length;
 	}
 }
 
 static _attr_unused size_t _dstr_header_size(bool is_small)
 {
-	return is_small ? sizeof(struct _dstr_small) : sizeof(struct _dstr_big);
+	return is_small ? sizeof(struct _dstr_small) : offsetof(struct _dstr_big, characters);
 }
 
 __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
@@ -487,12 +502,11 @@ __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 		if (likely(*dstrp != _dstr_empty_dstr)) {
 			size_t old_header_size = _dstr_header_size(_dstr_is_small(*dstrp));
 			free((uint8_t *)(*dstrp) - old_header_size);
-			*dstrp = dstr_new();
+			*dstrp = _dstr_empty_dstr;
 		}
 		return;
 	}
 
-	// TODO move this up?
 	if (unlikely(new_capacity == dstr_capacity(*dstrp))) {
 		return;
 	}
@@ -514,9 +528,9 @@ __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 			*dstrp = header->characters;
 		} else {
 			struct _dstr_big *header = p;
-			// memset is necessary since the struct may not be packed
-			memset(header, 0xff, sizeof(*header));
+			header->length = 0;
 			header->capacity = new_capacity;
+			header->_small_length = UINT8_MAX;
 			*dstrp = header->characters;
 		}
 		(*dstrp)[0] = '\0';
@@ -547,10 +561,9 @@ __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 		*dstrp = header->characters;
 	} else {
 		struct _dstr_big *header = (struct _dstr_big *)p;
-		// memset is necessary since the struct may not be packed
-		memset(header, 0xff, sizeof(*header));
 		header->length = new_length;
 		header->capacity = new_capacity;
+		header->_small_length = UINT8_MAX;
 		*dstrp = header->characters;
 	}
 }
@@ -669,6 +682,11 @@ __AD_LINKAGE size_t dstr_append_fmtv(dstr_t *dstrp, const char *fmt, va_list arg
 	return dstr_replace_fmtv(dstrp, dstr_length(*dstrp), 0, fmt, args);
 }
 
+__AD_LINKAGE char *dstr_append_uninitialized(dstr_t *dstrp, size_t uninit_len)
+{
+	return _dstr_replace(dstrp, dstr_length(*dstrp), 0, uninit_len);
+}
+
 __AD_LINKAGE void dstr_insert_chars(dstr_t *dstrp, size_t pos, const char *chars, size_t n)
 {
 	char *p = _dstr_replace(dstrp, pos, 0, n);
@@ -708,6 +726,11 @@ __AD_LINKAGE size_t dstr_insert_fmt(dstr_t *dstrp, size_t pos, const char *fmt, 
 __AD_LINKAGE size_t dstr_insert_fmtv(dstr_t *dstrp, size_t pos, const char *fmt, va_list args)
 {
 	return dstr_replace_fmtv(dstrp, pos, 0, fmt, args);
+}
+
+__AD_LINKAGE char *dstr_insert_uninitialized(dstr_t *dstrp, size_t pos, size_t uninit_len)
+{
+	return _dstr_replace(dstrp, pos, 0, uninit_len);
 }
 
 __AD_LINKAGE void dstr_replace_chars(dstr_t *dstrp, size_t pos, size_t len, const char *chars, size_t n)
@@ -763,6 +786,11 @@ __AD_LINKAGE size_t dstr_replace_fmtv(dstr_t *dstrp, size_t pos, size_t len, con
 	vsnprintf(p, n + 1, fmt, args);
 	p[n] = saved_char;
 	return n;
+}
+
+__AD_LINKAGE char *dstr_replace_uninitialized(dstr_t *dstrp, size_t pos, size_t len, size_t uninit_len)
+{
+	return _dstr_replace(dstrp, pos, len, uninit_len);
 }
 
 __AD_LINKAGE void dstr_erase(dstr_t *dstrp, size_t pos, size_t len)

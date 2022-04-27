@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "config.h"
-#include "macros.h"
+#include "compiler.h"
 
 typedef union {
 	uint8_t bytes[4];
@@ -61,5 +61,14 @@ __AD_LINKAGE hash128_t murmurhash3_x86_128(const void *in, size_t inlen, uint32_
 // (see also https://github.com/PeterScott/murmur3)
 __AD_LINKAGE hash64_t murmurhash3_x64_64(const void *in, size_t inlen, uint32_t seed) _attr_unused _attr_pure;
 __AD_LINKAGE hash128_t murmurhash3_x64_128(const void *in, size_t inlen, uint32_t seed) _attr_unused _attr_pure;
+
+__AD_LINKAGE hash32_t hash_int32(uint32_t val) _attr_unused _attr_const;
+__AD_LINKAGE hash64_t hash_int64(uint64_t val) _attr_unused _attr_const;
+
+__AD_LINKAGE hash32_t fibonacci_hash32(uint32_t val, unsigned int bits) _attr_unused _attr_const;
+__AD_LINKAGE hash64_t fibonacci_hash64(uint64_t val, unsigned int bits) _attr_unused _attr_const;
+
+__AD_LINKAGE hash32_t hash_combine_int32(uint32_t seed, uint32_t val) _attr_unused _attr_const;
+__AD_LINKAGE hash64_t hash_combine_int64(uint64_t seed, uint64_t val) _attr_unused _attr_const;
 
 #endif

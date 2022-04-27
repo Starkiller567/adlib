@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/random.h>
 
 #include "random.h"
@@ -90,30 +91,39 @@ int main(int argc, char **argv)
 		perror("getrandom");
 		return 1;
 	}
+
 #define N (32 * 1024 * 1024)
 	double *numbers = calloc(N, sizeof(numbers[0]));
 
 	puts("random_u64_in_range(0, 100)");
 	for (size_t i = 0; i < N; i++) {
-		numbers[i] = random_u64_in_range(0, 100);
+		uint64_t x = random_u64_in_range(0, 100);
+		assert(x <= 100);
+		numbers[i] = x;
 	}
 	check(numbers, N, 0, 100);
 
 	puts("random_u32_in_range(0, 100)");
 	for (size_t i = 0; i < N; i++) {
-		numbers[i] = random_u32_in_range(0, 100);
+		uint32_t x = random_u32_in_range(0, 100);
+		assert(x <= 100);
+		numbers[i] = x;
 	}
 	check(numbers, N, 0, 100);
 
 	puts("random_double_in_range(0, 100)");
 	for (size_t i = 0; i < N; i++) {
-		numbers[i] = random_double_in_range(0, 100);
+		double x = random_double_in_range(0, 100);
+		assert(x <= 100);
+		numbers[i] = x;
 	}
 	check(numbers, N, 0, 100);
 
 	puts("random_float_in_range(0, 100)");
 	for (size_t i = 0; i < N; i++) {
-		numbers[i] = random_float_in_range(0, 100);
+		float x = random_float_in_range(0, 100);
+		assert(x <= 100);
+		numbers[i] = x;
 	}
 	check(numbers, N, 0, 100);
 
@@ -140,6 +150,17 @@ int main(int argc, char **argv)
 		numbers[i] = random_uniform_float();
 	}
 	check(numbers, N, 0, 1);
+
+	puts("random_state_init()");
+	for (uint64_t i = 0; i < N; i += 4) {
+		struct random_state state;
+		random_state_init(&state, i);
+		numbers[i + 0] = state.s[0];
+		numbers[i + 1] = state.s[1];
+		numbers[i + 2] = state.s[2];
+		numbers[i + 3] = state.s[3];
+	}
+	check(numbers, N, 0, (double)UINT64_MAX);
 
 	puts("random_bool()");
 	size_t nfalse = 0;

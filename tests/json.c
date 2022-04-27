@@ -47,9 +47,9 @@ static uint32_t string_hash(const void *string)
 	k = 0;
 	switch (nbytes & 3) {
 	case 3:
-		k ^= tail[2] << 16;
+		k ^= tail[2] << 16; _attr_fallthrough;
 	case 2:
-		k ^= tail[1] << 8;
+		k ^= tail[1] << 8; _attr_fallthrough;
 	case 1:
 		k ^= tail[0];
 		k *= c1;

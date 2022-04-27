@@ -20,16 +20,18 @@
 #ifndef __DSTRING_INCLUDE__
 #define __DSTRING_INCLUDE__
 
-// TODO join/concat/append with varargs, upper/lower?, casecmp?
+// TODO dstr_from_int/uint/ulong/..., join/concat/append with varargs, upper/lower?, casecmp?
+// TODO dstr_with_capacity
 
 #include <stdarg.h> // va_list
 #include <stdbool.h> // bool
 #include <stddef.h> // size_t
-#include "macros.h"
+#include "compiler.h"
 
 #define STRVIEW_NPOS ((size_t)-1)
 #define DSTR_NPOS    STRVIEW_NPOS
 
+ // TODO make this an (un)signed char * so that _Generic can differentiate between char * and dstr_t?
 typedef char * dstr_t;
 
 struct strview {
@@ -54,7 +56,7 @@ __AD_LINKAGE dstr_t dstr_from_view(struct strview view) _attr_unused _attr_nodis
 __AD_LINKAGE dstr_t dstr_from_fmt(const char *fmt, ...) _attr_unused _attr_nodiscard _attr_format_printf(1, 2);
 __AD_LINKAGE dstr_t dstr_from_fmtv(const char *fmt, va_list args) _attr_unused _attr_nodiscard _attr_format_printf(1, 0);
 __AD_LINKAGE size_t dstr_length(const dstr_t dstr) _attr_unused _attr_pure;
-__AD_LINKAGE bool dstr_empty(const dstr_t dstr) _attr_unused _attr_pure; // TODO rename dstr_is_empty?
+__AD_LINKAGE bool dstr_is_empty(const dstr_t dstr) _attr_unused _attr_pure;
 __AD_LINKAGE size_t dstr_capacity(const dstr_t dstr) _attr_unused _attr_pure;
 __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity) _attr_unused;
 __AD_LINKAGE void dstr_free(dstr_t *dstrp) _attr_unused;
@@ -69,6 +71,7 @@ __AD_LINKAGE void dstr_append_cstr(dstr_t *dstrp, const char *cstr) _attr_unused
 __AD_LINKAGE void dstr_append_view(dstr_t *dstrp, struct strview view) _attr_unused;
 __AD_LINKAGE size_t dstr_append_fmt(dstr_t *dstrp, const char *fmt, ...) _attr_unused _attr_format_printf(2, 3);
 __AD_LINKAGE size_t dstr_append_fmtv(dstr_t *dstrp, const char *fmt, va_list args) _attr_unused _attr_format_printf(2, 0);
+__AD_LINKAGE char *dstr_append_uninitialized(dstr_t *dstrp, size_t uninit_len) _attr_unused;
 __AD_LINKAGE void dstr_insert_char(dstr_t *dstrp, size_t pos, char c) _attr_unused;
 __AD_LINKAGE void dstr_insert_chars(dstr_t *dstrp, size_t pos, const char *chars, size_t n) _attr_unused;
 __AD_LINKAGE void dstr_insert_dstr(dstr_t *dstrp, size_t pos, const dstr_t dstr) _attr_unused;
@@ -76,12 +79,14 @@ __AD_LINKAGE void dstr_insert_cstr(dstr_t *dstrp, size_t pos, const char *cstr) 
 __AD_LINKAGE void dstr_insert_view(dstr_t *dstrp, size_t pos, struct strview view) _attr_unused;
 __AD_LINKAGE size_t dstr_insert_fmt(dstr_t *dstrp, size_t pos, const char *fmt, ...) _attr_unused _attr_format_printf(3, 4);
 __AD_LINKAGE size_t dstr_insert_fmtv(dstr_t *dstrp, size_t pos, const char *fmt, va_list args) _attr_unused _attr_format_printf(3, 0);
+__AD_LINKAGE char *dstr_insert_uninitialized(dstr_t *dstrp, size_t pos, size_t uninit_len) _attr_unused;
 __AD_LINKAGE void dstr_replace_chars(dstr_t *dstrp, size_t pos, size_t len, const char *chars, size_t n) _attr_unused;
 __AD_LINKAGE void dstr_replace_dstr(dstr_t *dstrp, size_t pos, size_t len, const dstr_t dstr) _attr_unused;
 __AD_LINKAGE void dstr_replace_cstr(dstr_t *dstrp, size_t pos, size_t len, const char *cstr) _attr_unused;
 __AD_LINKAGE void dstr_replace_view(dstr_t *dstrp, size_t pos, size_t len, struct strview view) _attr_unused;
 __AD_LINKAGE size_t dstr_replace_fmt(dstr_t *dstrp, size_t pos, size_t len, const char *fmt, ...) _attr_unused _attr_format_printf(4, 5);
 __AD_LINKAGE size_t dstr_replace_fmtv(dstr_t *dstrp, size_t pos, size_t len, const char *fmt, va_list args) _attr_unused _attr_format_printf(4, 0);
+__AD_LINKAGE char *dstr_replace_uninitialized(dstr_t *dstrp, size_t pos, size_t len, size_t uninit_len) _attr_unused;
 __AD_LINKAGE void dstr_erase(dstr_t *dstrp, size_t pos, size_t len) _attr_unused;
 __AD_LINKAGE void dstr_strip(dstr_t *dstrp, const char *strip) _attr_unused;
 __AD_LINKAGE void dstr_lstrip(dstr_t *dstrp, const char *strip) _attr_unused;
@@ -95,6 +100,7 @@ __AD_LINKAGE dstr_t dstr_substring_copy(const dstr_t dstr, size_t start, size_t 
 __AD_LINKAGE int dstr_compare_dstr(const dstr_t dstr1, const dstr_t dstr2) _attr_unused _attr_pure;
 __AD_LINKAGE int dstr_compare_view(const dstr_t dstr, struct strview view) _attr_unused _attr_pure;
 __AD_LINKAGE int dstr_compare_cstr(const dstr_t dstr, const char *cstr) _attr_unused _attr_pure;
+// TODO rename equals
 __AD_LINKAGE bool dstr_equal_dstr(const dstr_t dstr1, const dstr_t dstr2) _attr_unused _attr_pure;
 __AD_LINKAGE bool dstr_equal_view(const dstr_t dstr, struct strview view) _attr_unused _attr_pure;
 __AD_LINKAGE bool dstr_equal_cstr(const dstr_t dstr, const char *cstr) _attr_unused _attr_pure;
@@ -104,7 +110,7 @@ __AD_LINKAGE size_t dstr_find_cstr(const dstr_t haystack, const char *needle_cst
 __AD_LINKAGE size_t dstr_rfind_dstr(const dstr_t haystack, const dstr_t needle, size_t pos) _attr_unused _attr_pure;
 __AD_LINKAGE size_t dstr_rfind_view(const dstr_t haystack, struct strview needle_view, size_t pos) _attr_unused _attr_pure;
 __AD_LINKAGE size_t dstr_rfind_cstr(const dstr_t haystack, const char *needle_cstr, size_t pos) _attr_unused _attr_pure;
-// TODO should these have a pos argument
+// TODO these should have a pos argument
 __AD_LINKAGE size_t dstr_find_replace_dstr(dstr_t *haystackp, const dstr_t needle, const dstr_t dstr, size_t max) _attr_unused;
 __AD_LINKAGE size_t dstr_find_replace_view(dstr_t *haystackp, struct strview needle_view, struct strview view, size_t max) _attr_unused;
 __AD_LINKAGE size_t dstr_find_replace_cstr(dstr_t *haystackp, const char *needle_cstr, const char *cstr, size_t max) _attr_unused;
