@@ -7,10 +7,12 @@
 
 #cmakedefine HAVE_TYPEOF 1
 #cmakedefine HAVE_BUILTIN_EXPECT 1
+#cmakedefine HAVE_BUILTIN_UNREACHABLE 1
 
 #cmakedefine HAVE_MALLOC_USABLE_SIZE 1
 #cmakedefine HAVE_MEMMEM 1
 #cmakedefine HAVE_MEMRCHR 1
+#cmakedefine HAVE_STRNLEN 1
 
 // array
 

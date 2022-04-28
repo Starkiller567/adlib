@@ -76,6 +76,9 @@
 #if !defined(HAVE_BUILTIN_EXPECT) && __has_builtin(__builtin_expect)
 # define HAVE_BUILTIN_EXPECT 1
 #endif
+#if !defined(HAVE_BUILTIN_UNREACHABLE) && __has_builtin(__builtin_unreachable)
+# define HAVE_BUILTIN_UNREACHABLE 1
+#endif
 
 #ifdef HAVE_ATTR_NONNULL
 # define _attr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
@@ -166,6 +169,12 @@
 #else
 # define likely(expr)                        (expr)
 # define unlikely(expr)                      (expr)
+#endif
+
+#ifdef HAVE_BUILTIN_UNREACHABLE
+# define unreachable()                       __builtin_unreachable()
+#else
+# define unreachable()                       do {} while (0)
 #endif
 
 #endif

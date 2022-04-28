@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "compiler.h"
 #include "config.h"
 #include "dstring.h"
-#include "macros.h"
 
 __AD_LINKAGE struct strview strview_from_chars(const char *chars, size_t n)
 {
@@ -267,12 +267,16 @@ __AD_LINKAGE bool strview_startswith(struct strview view, struct strview prefix)
 __AD_LINKAGE bool strview_startswith_cstr(struct strview view, const char *prefix)
 {
 	// TODO which implementation is faster?
-#if 0
-	return strview_startswith(view, strview_from_cstr(prefix));
+#ifdef HAVE_STRNLEN
+	// if the prefix is longer than the view we always return false, so use strnlen to limit the number
+	// of bytes we touch in the prefix
+	// (if the prefix is *much* longer than the view than using strlen would really hurt performance)
+	struct strview prefix_view = strview_from_chars(prefix, strnlen(prefix, view.length + 1));
+	return strview_startswith(view, prefix_view);
 #else
 	// theoretically this should be faster if the compiler can vectorize this loop
 	size_t i;
-	for (i = 0; i <= view.length; i++) {
+	for (i = 0; i < view.length; i++) {
 		if (prefix[i] == '\0') {
 			return true;
 		}
@@ -294,7 +298,13 @@ __AD_LINKAGE bool strview_endswith(struct strview view, struct strview suffix)
 
 __AD_LINKAGE bool strview_endswith_cstr(struct strview view, const char *suffix)
 {
-	return strview_endswith(view, strview_from_cstr(suffix));
+#ifdef HAVE_STRNLEN
+	// see comment in strview_startswith_cstr
+	struct strview suffix_view = strview_from_chars(suffix, strnlen(suffix, view.length + 1));
+#else
+	struct strview suffix_view = strview_from_cstr(suffix);
+#endif
+	return strview_endswith(view, suffix_view);
 }
 
 static _attr_unused struct strview _strview_strip(struct strview view, const char *strip,
@@ -402,10 +412,6 @@ __AD_LINKAGE _attr_unused void strview_list_free(struct strview_list *list)
 	list->count = 0;
 }
 
-
-// TODO use an extra flags byte and make a struct _dstr_medium?
-// (could probably also extend the current small_length != MAX scheme to avoid spending an extra byte for small strings, maybe only add the extra flags byte for medium and big strings?)
-
 struct _dstr_small {
 	uint8_t capacity;
 	uint8_t length;
@@ -413,11 +419,23 @@ struct _dstr_small {
 };
 _Static_assert(sizeof(struct _dstr_small) == offsetof(struct _dstr_small, characters), "");
 
+struct _dstr_medium {
+	uint16_t capacity;
+	uint16_t length;
+	uint8_t  is_big;
+	uint8_t  _small_length;
+	char     characters[];
+};
+_Static_assert(sizeof(struct _dstr_medium) == offsetof(struct _dstr_medium, characters), "");
+_Static_assert(offsetof(struct _dstr_medium, characters) - offsetof(struct _dstr_medium, _small_length) ==
+	       offsetof(struct _dstr_small, characters) - offsetof(struct _dstr_small, length), "");
+
 // if _attr_packed is not available then sizeof(struct _dstr_big) != offsetof(struct _dstr_big, characters)
-// which is why the code for _dstr_big is different than the code for _dstr_small below
+// which is why the code for _dstr_big is different than the code for _dstr_small and _dstr_medium below
 struct _dstr_big {
 	size_t   capacity;
 	size_t   length;
+	uint8_t  is_big;
 	uint8_t  _small_length;
 	char     characters[];
 #ifdef HAVE_ATTR_PACKED
@@ -429,32 +447,58 @@ _Static_assert(offsetof(struct _dstr_big, characters) - offsetof(struct _dstr_bi
 	       offsetof(struct _dstr_small, characters) - offsetof(struct _dstr_small, length), "");
 
 struct _dstr_common {
+	union {
+		uint8_t  is_big;
+		uint8_t  small_capacity;
+	};
 	uint8_t  small_length;
 	char     characters[];
 };
+_Static_assert(sizeof(struct _dstr_common) == sizeof(struct _dstr_small), "");
 _Static_assert(sizeof(struct _dstr_common) == offsetof(struct _dstr_common, characters), "");
 _Static_assert(offsetof(struct _dstr_common, characters) - offsetof(struct _dstr_common, small_length) ==
 	       offsetof(struct _dstr_small, characters) - offsetof(struct _dstr_small, length), "");
+_Static_assert(offsetof(struct _dstr_common, characters) - offsetof(struct _dstr_common, is_big) ==
+	       offsetof(struct _dstr_medium, characters) - offsetof(struct _dstr_medium, is_big), "");
+_Static_assert(offsetof(struct _dstr_common, characters) - offsetof(struct _dstr_common, is_big) ==
+	       offsetof(struct _dstr_big, characters) - offsetof(struct _dstr_big, is_big), "");
+
+enum _dstr_type {
+	__DSTR_SMALL,
+	__DSTR_MEDIUM,
+	__DSTR_BIG
+};
 
 static const uint8_t _dstr_empty_dstr_bytes[3] = { 0 /* length */, 0 /* capacity */, 0 /* null terminator */};
 static const dstr_t _dstr_empty_dstr = ((struct _dstr_small *)_dstr_empty_dstr_bytes)->characters;
 
-static _attr_unused _attr_always_inline bool _dstr_is_small(const dstr_t dstr)
+static _attr_unused _attr_always_inline enum _dstr_type _dstr_get_type(const dstr_t dstr)
 {
 	const struct _dstr_common *header = (const struct _dstr_common *)dstr - 1;
-	return header->small_length != UINT8_MAX;
+	if (likely(header->small_length != UINT8_MAX)) {
+		return __DSTR_SMALL;
+	}
+	return unlikely(header->is_big) ? __DSTR_BIG : __DSTR_MEDIUM;
 }
 
 __AD_LINKAGE size_t dstr_length(const dstr_t dstr)
 {
-	if (likely(_dstr_is_small(dstr))) {
+	switch (_dstr_get_type(dstr)) {
+	case __DSTR_SMALL: {
 		const struct _dstr_small *header = (const struct _dstr_small *)dstr - 1;
 		return header->length;
-	} else {
+	}
+	case __DSTR_MEDIUM: {
+		const struct _dstr_medium *header = (const struct _dstr_medium *)dstr - 1;
+		return header->length;
+	}
+	case __DSTR_BIG: {
 		const struct _dstr_big *header = (const struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
 											    characters));
 		return header->length;
 	}
+	}
+	unreachable();
 }
 
 __AD_LINKAGE bool dstr_is_empty(const dstr_t dstr)
@@ -464,14 +508,22 @@ __AD_LINKAGE bool dstr_is_empty(const dstr_t dstr)
 
 __AD_LINKAGE size_t dstr_capacity(const dstr_t dstr)
 {
-	if (likely(_dstr_is_small(dstr))) {
+	switch (_dstr_get_type(dstr)) {
+	case __DSTR_SMALL: {
 		const struct _dstr_small *header = (const struct _dstr_small *)dstr - 1;
 		return header->capacity;
-	} else {
+	}
+	case __DSTR_MEDIUM: {
+		const struct _dstr_medium *header = (const struct _dstr_medium *)dstr - 1;
+		return header->capacity;
+	}
+	case __DSTR_BIG: {
 		const struct _dstr_big *header = (const struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
 											    characters));
 		return header->capacity;
 	}
+	}
+	unreachable();
 }
 
 static _attr_unused void _dstr_set_length(dstr_t dstr, size_t length)
@@ -481,27 +533,43 @@ static _attr_unused void _dstr_set_length(dstr_t dstr, size_t length)
 		return;
 	}
 	dstr[length] = '\0';
-	if (likely(_dstr_is_small(dstr))) {
+	switch (_dstr_get_type(dstr)) {
+	case __DSTR_SMALL: {
 		struct _dstr_small *header = (struct _dstr_small *)dstr - 1;
 		header->length = length;
-	} else {
+		break;
+	}
+	case __DSTR_MEDIUM: {
+		struct _dstr_medium *header = (struct _dstr_medium *)dstr - 1;
+		header->length = length;
+		break;
+	}
+	case __DSTR_BIG: {
 		struct _dstr_big *header = (struct _dstr_big *)(dstr - offsetof(struct _dstr_big,
 										characters));
 		header->length = length;
+		break;
+	}
 	}
 }
 
-static _attr_unused size_t _dstr_header_size(bool is_small)
+static _attr_unused size_t _dstr_header_size(enum _dstr_type type)
 {
-	return is_small ? sizeof(struct _dstr_small) : offsetof(struct _dstr_big, characters);
+	switch (type) {
+	case __DSTR_SMALL:  return sizeof(struct _dstr_small);
+	case __DSTR_MEDIUM: return sizeof(struct _dstr_medium);
+	case __DSTR_BIG:    return offsetof(struct _dstr_big, characters);
+	}
+	assert(false);
+	unreachable();
 }
 
 __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 {
 	if (unlikely(new_capacity == 0)) {
 		if (likely(*dstrp != _dstr_empty_dstr)) {
-			size_t old_header_size = _dstr_header_size(_dstr_is_small(*dstrp));
-			free((uint8_t *)(*dstrp) - old_header_size);
+			size_t header_size = _dstr_header_size(_dstr_get_type(*dstrp));
+			free((*dstrp) - header_size);
 			*dstrp = _dstr_empty_dstr;
 		}
 		return;
@@ -512,59 +580,75 @@ __AD_LINKAGE void dstr_resize(dstr_t *dstrp, size_t new_capacity)
 	}
 
 	size_t old_length = dstr_length(*dstrp);
-	size_t new_length = old_length <= new_capacity ? old_length : new_capacity;
-	bool new_is_small = likely(new_capacity <= UINT8_MAX && new_length < UINT8_MAX);
-	size_t new_header_size = _dstr_header_size(new_is_small);
-	size_t new_alloc_size = new_header_size + new_capacity + 1; // +1 for the null byte
-	if (unlikely(*dstrp == _dstr_empty_dstr)) {
-		void *p = malloc(new_alloc_size);
-		if (unlikely(!p)) {
-			abort();
-		}
-		if (new_is_small) {
-			struct _dstr_small *header = p;
-			header->length = 0;
-			header->capacity = (uint8_t)new_capacity;
-			*dstrp = header->characters;
-		} else {
-			struct _dstr_big *header = p;
-			header->length = 0;
-			header->capacity = new_capacity;
-			header->_small_length = UINT8_MAX;
-			*dstrp = header->characters;
-		}
-		(*dstrp)[0] = '\0';
-		return;
+	size_t new_length = old_length;
+	if (unlikely(old_length > new_capacity)) {
+		// this currently only happens when a user calls this function directly to truncate the string
+		new_length = new_capacity;
+		(*dstrp)[new_length] = '\0';
 	}
 
-	bool old_is_small = _dstr_is_small(*dstrp);
-	size_t old_header_size = _dstr_header_size(old_is_small);
-	uint8_t *p = (uint8_t *)(*dstrp) - old_header_size;
-	if (unlikely(!old_is_small && new_is_small)) {
-		uint8_t *src = p + old_header_size;
-		uint8_t *dst = p + new_header_size;
-		memmove(dst, src, new_length + 1); // +1 for the null byte
+	enum _dstr_type new_type = __DSTR_SMALL;
+	if (unlikely(new_length >= UINT8_MAX || new_capacity > UINT8_MAX)) {
+		new_type = __DSTR_MEDIUM;
+		if (unlikely(new_length > UINT16_MAX || new_capacity > UINT16_MAX)) {
+			new_type = __DSTR_BIG;
+		}
 	}
-	p = realloc(p, new_alloc_size);
-	if (unlikely(!p)) {
-		abort();
-	}
-	if (unlikely(old_is_small && !new_is_small)) {
-		uint8_t *src = p + old_header_size;
-		uint8_t *dst = p + new_header_size;
-		memmove(dst, src, new_length + 1); // +1 for the null byte
-	}
-	if (new_is_small) {
-		struct _dstr_small *header = (struct _dstr_small *)p;
-		header->length = (uint8_t)new_length;
-		header->capacity = (uint8_t)new_capacity;
-		*dstrp = header->characters;
+
+	size_t new_header_size = _dstr_header_size(new_type);
+	size_t new_alloc_size = new_header_size + new_capacity + 1; // +1 for the null byte
+	uint8_t *h;
+	if (*dstrp == _dstr_empty_dstr) {
+		h = malloc(new_alloc_size);
+		if (unlikely(!h)) {
+			abort();
+		}
+		h[new_header_size] = '\0';
 	} else {
-		struct _dstr_big *header = (struct _dstr_big *)p;
+		size_t old_header_size = _dstr_header_size(_dstr_get_type(*dstrp));
+		h = (uint8_t *)(*dstrp) - old_header_size;
+		if (unlikely(old_header_size > new_header_size)) {
+			uint8_t *src = h + old_header_size;
+			uint8_t *dst = h + new_header_size;
+			memmove(dst, src, new_length + 1); // +1 for the null byte
+		}
+		h = realloc(h, new_alloc_size);
+		if (unlikely(!h)) {
+			abort();
+		}
+		if (unlikely(old_header_size < new_header_size)) {
+			uint8_t *src = h + old_header_size;
+			uint8_t *dst = h + new_header_size;
+			memmove(dst, src, new_length + 1); // +1 for the null byte
+		}
+	}
+
+	switch (new_type) {
+	case __DSTR_SMALL: {
+		struct _dstr_small *header = (struct _dstr_small *)h;
 		header->length = new_length;
 		header->capacity = new_capacity;
+		*dstrp = header->characters;
+		break;
+	}
+	case __DSTR_MEDIUM: {
+		struct _dstr_medium *header = (struct _dstr_medium *)h;
+		header->length = new_length;
+		header->capacity = new_capacity;
+		header->is_big = false;
 		header->_small_length = UINT8_MAX;
 		*dstrp = header->characters;
+		break;
+	}
+	case __DSTR_BIG: {
+		struct _dstr_big *header = (struct _dstr_big *)h;
+		header->length = new_length;
+		header->capacity = new_capacity;
+		header->is_big = true;
+		header->_small_length = UINT8_MAX;
+		*dstrp = header->characters;
+		break;
+	}
 	}
 }
 
@@ -625,7 +709,7 @@ char *_dstr_replace(dstr_t *dstrp, size_t pos, size_t len, size_t n)
 		len = length - pos;
 	}
 	assert(pos + len <= length);
-	if (n == len) { // not sure whether this check is worth doing
+	if (n == len) {
 		return &(*dstrp)[pos];
 	}
 	if (n > len) {
@@ -937,7 +1021,7 @@ __AD_LINKAGE dstr_t dstr_copy(const dstr_t dstr)
 __AD_LINKAGE char *dstr_to_cstr(dstr_t *dstrp)
 {
 	size_t length = dstr_length(*dstrp);
-	size_t header_size = _dstr_header_size(_dstr_is_small(*dstrp));
+	size_t header_size = _dstr_header_size(_dstr_get_type(*dstrp));
 	char *p = *dstrp - header_size;
 	*dstrp = NULL;
 	memmove(p, p + header_size, length + 1);
@@ -1263,5 +1347,5 @@ __AD_LINKAGE void *_dstr_debug_get_head_ptr(const dstr_t dstr)
 	if (dstr == _dstr_empty_dstr) {
 		return NULL;
 	}
-	return dstr - _dstr_header_size(_dstr_is_small(dstr));
+	return dstr - _dstr_header_size(_dstr_get_type(dstr));
 }

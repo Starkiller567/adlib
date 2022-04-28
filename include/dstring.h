@@ -20,8 +20,10 @@
 #ifndef __DSTRING_INCLUDE__
 #define __DSTRING_INCLUDE__
 
-// TODO dstr_from_int/uint/ulong/..., join/concat/append with varargs, upper/lower?, casecmp?
+// TODO dstr_from_int/uint/ulong/..., join/concat/append with varargs, to_upper/lower?, casecmp?
 // TODO dstr_with_capacity
+// TODO add 'restrict' in the appropriate places?
+//      (since currently many dstr functions implicitly disallow aliased arguments)
 
 #include <stdarg.h> // va_list
 #include <stdbool.h> // bool
@@ -34,6 +36,8 @@
  // TODO make this an (un)signed char * so that _Generic can differentiate between char * and dstr_t?
 typedef char * dstr_t;
 
+// TODO a strview is theoretically allowed to contain null bytes and the strview functions were implemented
+// accordingly, but this functionality is currently untested
 struct strview {
 	const char *characters;
 	size_t length;
