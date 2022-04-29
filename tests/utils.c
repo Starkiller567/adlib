@@ -44,8 +44,6 @@ static bool test_ilog10(uint64_t start, uint64_t end)
 		double lg10 = log10(x != 0 ? (double)x : 1.0);
 		if (ilog10((uint32_t)x) != (unsigned int)lg10 ||
 		    ilog10((int32_t)x) != ilog10((uint64_t)x)) {
-			printf("%lu %u %u %u\n",
-			       x, ilog10((uint32_t)x), ilog10((uint64_t)x), (unsigned int)lg10);
 			return false;
 		}
 	}
