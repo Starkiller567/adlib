@@ -36,6 +36,7 @@ endif()
 check_c_source_compiles("int main() { typeof(int) x = 0; return x; }" HAVE_TYPEOF)
 check_c_source_compiles("int main() { if (__builtin_expect(0, 0)); return 0; }" HAVE_BUILTIN_EXPECT)
 check_c_source_compiles("int main() { if (0) __builtin_unreachable(); return 0; }" HAVE_BUILTIN_UNREACHABLE)
+check_c_source_compiles("int main() { __builtin_clz(1); return 0; }" HAVE_BUILTIN_CLZ)
 check_symbol_exists(malloc_usable_size "malloc.h" HAVE_MALLOC_USABLE_SIZE)
 if(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
   check_symbol_exists(strnlen "string.h" HAVE_STRNLEN)
@@ -83,6 +84,7 @@ set(SOURCES
   macros.c
   random.c
   rb_tree.c
+  utils.c
 )
 
 foreach(SOURCE IN LISTS SOURCES)

@@ -15,6 +15,7 @@ set(TESTS
   random
   random_benchmark
   rb_tree
+  utils
 )
 
 foreach(TEST IN LISTS TESTS)
@@ -30,3 +31,4 @@ endforeach()
 
 target_link_libraries(hash m)
 target_link_libraries(random m)
+target_link_libraries(utils m)

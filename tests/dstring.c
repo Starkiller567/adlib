@@ -26,8 +26,10 @@ int main(void)
 {
 	const char *abc = "abcdefghijklmnopqrstuvwxyz";
 	const char *a256 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~!@#$%^&*()-=_+[]\\;',./{}|:\"<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~!@#$%^&*()-=_+[]\\;',./{}|:\"<>?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~!@#$";
-	assert(strlen(abc) == 26);
-	assert(strlen(a256) == 256);
+	size_t abc_len = strlen(abc);
+	size_t a256_len = strlen(a256);
+	assert(abc_len == 26);
+	assert(a256_len == 256);
 
 	dstr_t dstr = dstr_from_cstr("abc");
 	sanity_check(dstr);
@@ -78,33 +80,45 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_from_chars(abc, strlen(abc));
-	assert(dstr_length(dstr) == strlen(abc));
+	dstr = dstr_with_capacity(0);
+	assert(dstr_is_empty(dstr));
+	assert(dstr_capacity(dstr) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	dstr = dstr_from_chars(a256, strlen(a256));
-	assert(dstr_length(dstr) == strlen(a256));
+	dstr = dstr_with_capacity(123);
+	assert(dstr_is_empty(dstr));
+	assert(dstr_capacity(dstr) >= 123);
+	sanity_check(dstr);
+	dstr_free(&dstr);
+
+	dstr = dstr_from_chars(abc, abc_len);
+	assert(dstr_length(dstr) == abc_len);
+	sanity_check(dstr);
+	dstr_free(&dstr);
+
+	dstr = dstr_from_chars(a256, a256_len);
+	assert(dstr_length(dstr) == a256_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(abc);
-	assert(dstr_length(dstr) == strlen(abc));
+	assert(dstr_length(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	assert(dstr_length(dstr) == strlen(a256));
+	assert(dstr_length(dstr) == a256_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_view(strview_from_cstr(abc));
-	assert(dstr_length(dstr) == strlen(abc));
+	assert(dstr_length(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_view(strview_from_cstr(a256));
-	assert(dstr_length(dstr) == strlen(a256));
+	assert(dstr_length(dstr) == a256_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -114,12 +128,12 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_fmt("%s", abc);
-	assert(dstr_length(dstr) == strlen(abc));
+	assert(dstr_length(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_fmt("%s", a256);
-	assert(dstr_length(dstr) == strlen(a256));
+	assert(dstr_length(dstr) == a256_len);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -139,19 +153,19 @@ int main(void)
 	assert(dstr_is_empty(dstr));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
-	dstr_resize(&dstr, strlen(abc) / 2);
-	assert(dstr_equal_view(dstr, strview_from_chars(abc, strlen(abc) / 2)));
+	dstr_resize(&dstr, abc_len / 2);
+	assert(dstr_equal_view(dstr, strview_from_chars(abc, abc_len / 2)));
 	sanity_check(dstr);
 	dstr_clear(&dstr);
 	dstr_append_cstr(&dstr, a256);
-	dstr_resize(&dstr, strlen(a256) / 2);
-	assert(dstr_equal_view(dstr, strview_from_chars(a256, strlen(a256) / 2)));
+	dstr_resize(&dstr, a256_len / 2);
+	assert(dstr_equal_view(dstr, strview_from_chars(a256, a256_len / 2)));
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
 	dstr_append_cstr(&dstr, abc);
-	dstr_resize(&dstr, strlen(abc));
+	dstr_resize(&dstr, abc_len);
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT8_MAX + 1);
@@ -159,36 +173,36 @@ int main(void)
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(strcmp(dstr + strlen(abc), abc) == 0);
+	assert(strcmp(dstr + abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT16_MAX + 1);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(strcmp(dstr + strlen(abc), abc) == 0);
+	assert(strcmp(dstr + abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), abc) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT16_MAX - 1);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), abc) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT8_MAX - 1);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), abc) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT16_MAX + 1);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), abc) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, UINT8_MAX - 1);
 	assert(dstr_startswith_cstr(dstr, abc));
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), abc) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, abc) == 0);
 	sanity_check(dstr);
 	dstr_resize(&dstr, 0);
 	assert(dstr_is_empty(dstr));
@@ -214,29 +228,29 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
-	dstr_reserve(&dstr, strlen(abc));
-	assert(dstr_capacity(dstr) - dstr_length(dstr) >= strlen(abc));
+	dstr_reserve(&dstr, abc_len);
+	assert(dstr_capacity(dstr) - dstr_length(dstr) >= abc_len);
 	sanity_check(dstr);
-	dstr_reserve(&dstr, strlen(abc));
-	assert(dstr_capacity(dstr) - dstr_length(dstr) >= strlen(abc));
+	dstr_reserve(&dstr, abc_len);
+	assert(dstr_capacity(dstr) - dstr_length(dstr) >= abc_len);
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
 	sanity_check(dstr);
-	dstr_reserve(&dstr, strlen(abc));
-	assert(dstr_capacity(dstr) - dstr_length(dstr) >= strlen(abc));
-	assert(dstr_capacity(dstr) >= 2 * strlen(abc));
+	dstr_reserve(&dstr, abc_len);
+	assert(dstr_capacity(dstr) - dstr_length(dstr) >= abc_len);
+	assert(dstr_capacity(dstr) >= 2 * abc_len);
 	sanity_check(dstr);
 	dstr_shrink_to_fit(&dstr);
-	assert(dstr_length(dstr) == strlen(abc));
-	assert(dstr_capacity(dstr) == strlen(abc));
+	assert(dstr_length(dstr) == abc_len);
+	assert(dstr_capacity(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_clear(&dstr);
 	assert(dstr_is_empty(dstr));
-	assert(dstr_capacity(dstr) == strlen(abc));
+	assert(dstr_capacity(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_clear(&dstr);
 	assert(dstr_is_empty(dstr));
-	assert(dstr_capacity(dstr) == strlen(abc));
+	assert(dstr_capacity(dstr) == abc_len);
 	sanity_check(dstr);
 	dstr_shrink_to_fit(&dstr);
 	assert(dstr_capacity(dstr) == 0);
@@ -257,7 +271,7 @@ int main(void)
 	dstr_append_cstr(&dstr2, abc);
 	dstr_free(&dstr);
 	dstr = dstr_copy(dstr2);
-	assert(dstr_length(dstr) == strlen(abc));
+	assert(dstr_length(dstr) == abc_len);
 	assert(strcmp(dstr, abc) == 0);
 	sanity_check(dstr);
 	for (size_t i = 0; i < 99; i++) {
@@ -265,7 +279,7 @@ int main(void)
 	}
 	dstr_free(&dstr2);
 	dstr2 = dstr_copy(dstr);
-	assert(dstr_length(dstr2) == 100 * strlen(abc));
+	assert(dstr_length(dstr2) == 100 * abc_len);
 	assert(dstr_equal_dstr(dstr, dstr2));
 	sanity_check(dstr);
 	sanity_check(dstr2);
@@ -301,14 +315,14 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
-	dstr_append_chars(&dstr, abc, strlen(abc));
-	assert(dstr_length(dstr) == strlen(abc));
+	dstr_append_chars(&dstr, abc, abc_len);
+	assert(dstr_length(dstr) == abc_len);
 	sanity_check(dstr);
-	dstr_append_chars(&dstr, a256, strlen(a256));
-	assert(dstr_length(dstr) == strlen(abc) + strlen(a256));
+	dstr_append_chars(&dstr, a256, a256_len);
+	assert(dstr_length(dstr) == abc_len + a256_len);
 	sanity_check(dstr);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
@@ -317,8 +331,8 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	dstr_append_cstr(&dstr, a256);
 	sanity_check(dstr);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
@@ -327,8 +341,8 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	dstr_append_view(&dstr, strview_from_cstr(a256));
 	sanity_check(dstr);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
@@ -337,8 +351,8 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	dstr_append_fmt(&dstr, "%s", a256);
 	sanity_check(dstr);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
@@ -351,32 +365,32 @@ int main(void)
 	dstr_append_dstr(&dstr, dstr2);
 	dstr_free(&dstr2);
 	sanity_check(dstr);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, abc);
 	sanity_check(dstr);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), abc) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, abc) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_view(strview_from_cstr(a256));
 	sanity_check(dstr);
 	dstr_append_view(&dstr, strview_from_cstr(abc));
 	sanity_check(dstr);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), abc) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, abc) == 0);
 	dstr_free(&dstr);
 
-	dstr = dstr_from_chars(a256, strlen(a256));
+	dstr = dstr_from_chars(a256, a256_len);
 	sanity_check(dstr);
-	dstr_append_chars(&dstr, abc, strlen(abc));
+	dstr_append_chars(&dstr, abc, abc_len);
 	sanity_check(dstr);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), abc) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, abc) == 0);
 	dstr_free(&dstr);
 
 	dstr2 = dstr_from_cstr(a256);
@@ -387,16 +401,16 @@ int main(void)
 	dstr_append_dstr(&dstr, dstr2);
 	dstr_free(&dstr2);
 	sanity_check(dstr);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), abc) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, abc) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_fmt("%s", a256);
 	sanity_check(dstr);
 	dstr_append_fmt(&dstr, "%s", abc);
 	sanity_check(dstr);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), abc) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, abc) == 0);
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr("");
@@ -412,12 +426,12 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, "");
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -434,12 +448,12 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_append_view(&dstr, strview_from_cstr(""));
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -457,12 +471,12 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_append_dstr(&dstr, dstr2);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr2);
 	dstr_free(&dstr);
@@ -480,12 +494,12 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_append_chars(&dstr, "", 0);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -502,55 +516,55 @@ int main(void)
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_append_fmt(&dstr, "%s", "");
-	assert(strncmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(strncmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
 	dstr = dstr_new();
-	char *m = dstr_append_uninitialized(&dstr, strlen(abc));
+	char *m = dstr_append_uninitialized(&dstr, abc_len);
 	strcpy(m, abc);
 	assert(dstr_equal_cstr(dstr, abc));
 	sanity_check(dstr);
-	m = dstr_append_uninitialized(&dstr, strlen(a256));
+	m = dstr_append_uninitialized(&dstr, a256_len);
 	strcpy(m, a256);
-	assert(memcmp(dstr, abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + strlen(abc), a256) == 0);
+	assert(memcmp(dstr, abc, abc_len) == 0);
+	assert(strcmp(dstr + abc_len, a256) == 0);
 	sanity_check(dstr);
 	assert(*dstr_append_uninitialized(&dstr, 0) == '\0'); // TODO should this return NULL?
 	sanity_check(dstr);
 	assert(*dstr_insert_uninitialized(&dstr, 0, 0) == abc[0]); // TODO should this return NULL?
 	sanity_check(dstr);
-	assert(*dstr_insert_uninitialized(&dstr, strlen(abc), 0) == a256[0]); // TODO should this return NULL?
+	assert(*dstr_insert_uninitialized(&dstr, abc_len, 0) == a256[0]); // TODO should this return NULL?
 	sanity_check(dstr);
-	m = dstr_insert_uninitialized(&dstr, strlen(abc), strlen(abc));
-	memcpy(m, abc, strlen(abc));
-	assert(memcmp(dstr, abc, strlen(abc)) == 0);
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc), a256) == 0);
+	m = dstr_insert_uninitialized(&dstr, abc_len, abc_len);
+	memcpy(m, abc, abc_len);
+	assert(memcmp(dstr, abc, abc_len) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len, a256) == 0);
 	sanity_check(dstr);
-	m = dstr_insert_uninitialized(&dstr, 2 * strlen(abc), strlen(a256));
-	memcpy(m, a256, strlen(a256));
-	assert(memcmp(dstr, abc, strlen(abc)) == 0);
-	assert(memcmp(dstr + strlen(abc), abc, strlen(abc)) == 0);
-	assert(memcmp(dstr + 2 * strlen(abc), a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + 2 * strlen(abc) + strlen(a256), a256) == 0);
+	m = dstr_insert_uninitialized(&dstr, 2 * abc_len, a256_len);
+	memcpy(m, a256, a256_len);
+	assert(memcmp(dstr, abc, abc_len) == 0);
+	assert(memcmp(dstr + abc_len, abc, abc_len) == 0);
+	assert(memcmp(dstr + 2 * abc_len, a256, a256_len) == 0);
+	assert(strcmp(dstr + 2 * abc_len + a256_len, a256) == 0);
 	sanity_check(dstr);
-	m = dstr_replace_uninitialized(&dstr, 2 * strlen(abc), strlen(a256), 0);
+	m = dstr_replace_uninitialized(&dstr, 2 * abc_len, a256_len, 0);
 	assert(strcmp(m, a256) == 0);
 	sanity_check(dstr);
-	m = dstr_replace_uninitialized(&dstr, strlen(abc), strlen(abc), strlen(a256));
-	memcpy(m, a256, strlen(a256));
-	assert(memcmp(dstr, abc, strlen(abc)) == 0);
-	assert(memcmp(dstr + strlen(abc), a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(abc) + strlen(a256), a256) == 0);
+	m = dstr_replace_uninitialized(&dstr, abc_len, abc_len, a256_len);
+	memcpy(m, a256, a256_len);
+	assert(memcmp(dstr, abc, abc_len) == 0);
+	assert(memcmp(dstr + abc_len, a256, a256_len) == 0);
+	assert(strcmp(dstr + abc_len + a256_len, a256) == 0);
 	sanity_check(dstr);
-	m = dstr_replace_uninitialized(&dstr, 0, DSTR_NPOS, strlen(abc));
-	memcpy(m, abc, strlen(abc));
+	m = dstr_replace_uninitialized(&dstr, 0, DSTR_NPOS, abc_len);
+	memcpy(m, abc, abc_len);
 	assert(strcmp(dstr, abc) == 0);
 	sanity_check(dstr);
 	dstr_replace_uninitialized(&dstr, 0, DSTR_NPOS, 0);
@@ -578,23 +592,23 @@ int main(void)
 	dstr_insert_char(&dstr, 2, 'f');
 	assert(strcmp(dstr, "cdfaeb") == 0);
 	sanity_check(dstr);
-	dstr_insert_chars(&dstr, 0, a256, strlen(a256));
+	dstr_insert_chars(&dstr, 0, a256, a256_len);
 	assert(dstr_endswith_cstr(dstr, "cdfaeb"));
 	sanity_check(dstr);
-	dstr_insert_char(&dstr, strlen(a256), 'g');
+	dstr_insert_char(&dstr, a256_len, 'g');
 	assert(dstr_endswith_cstr(dstr, "gcdfaeb"));
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	for (size_t i = 0; i <= strlen(abc); i++) {
+	for (size_t i = 0; i <= abc_len; i++) {
 		dstr = dstr_new();
 		dstr_insert_cstr(&dstr, 0, abc);
 		sanity_check(dstr);
 		dstr_insert_cstr(&dstr, i, a256);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
-		assert(strncmp(dstr + i, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr + i, a256, a256_len) == 0);
+		assert(strcmp(dstr + i + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -603,18 +617,18 @@ int main(void)
 		dstr_insert_view(&dstr, i, strview_from_cstr(a256));
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
-		assert(strncmp(dstr + i, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr + i, a256, a256_len) == 0);
+		assert(strcmp(dstr + i + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
-		dstr_insert_chars(&dstr, 0, abc, strlen(abc));
+		dstr_insert_chars(&dstr, 0, abc, abc_len);
 		sanity_check(dstr);
-		dstr_insert_chars(&dstr, i, a256, strlen(a256));
+		dstr_insert_chars(&dstr, i, a256, a256_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
-		assert(strncmp(dstr + i, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr + i, a256, a256_len) == 0);
+		assert(strcmp(dstr + i + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -627,8 +641,8 @@ int main(void)
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
-		assert(strncmp(dstr + i, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr + i, a256, a256_len) == 0);
+		assert(strcmp(dstr + i + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -637,20 +651,20 @@ int main(void)
 		dstr_insert_fmt(&dstr, i, "%s", a256);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
-		assert(strncmp(dstr + i, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr + i, a256, a256_len) == 0);
+		assert(strcmp(dstr + i + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 	}
 
-	for (size_t i = 0; i <= strlen(a256); i++) {
+	for (size_t i = 0; i <= a256_len; i++) {
 		dstr = dstr_new();
 		dstr_insert_cstr(&dstr, 0, a256);
 		sanity_check(dstr);
 		dstr_insert_cstr(&dstr, i, abc);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
-		assert(strncmp(dstr + i, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr + i, abc, abc_len) == 0);
+		assert(strcmp(dstr + i + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -659,18 +673,18 @@ int main(void)
 		dstr_insert_view(&dstr, i, strview_from_cstr(abc));
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
-		assert(strncmp(dstr + i, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr + i, abc, abc_len) == 0);
+		assert(strcmp(dstr + i + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
-		dstr_insert_chars(&dstr, 0, a256, strlen(a256));
+		dstr_insert_chars(&dstr, 0, a256, a256_len);
 		sanity_check(dstr);
-		dstr_insert_chars(&dstr, i, abc, strlen(abc));
+		dstr_insert_chars(&dstr, i, abc, abc_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
-		assert(strncmp(dstr + i, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr + i, abc, abc_len) == 0);
+		assert(strcmp(dstr + i + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -683,8 +697,8 @@ int main(void)
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
-		assert(strncmp(dstr + i, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr + i, abc, abc_len) == 0);
+		assert(strcmp(dstr + i + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -693,13 +707,13 @@ int main(void)
 		dstr_insert_fmt(&dstr, i, "%s", abc);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
-		assert(strncmp(dstr + i, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr + i, abc, abc_len) == 0);
+		assert(strcmp(dstr + i + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 	}
 
 	dstr = dstr_from_cstr(abc);
-	for (size_t i = 0; i <= strlen(abc); i++) {
+	for (size_t i = 0; i <= abc_len; i++) {
 		dstr_insert_chars(&dstr, i, "", 0);
 		dstr_insert_cstr(&dstr, i, "");
 		dstr_insert_view(&dstr, i, strview_from_cstr(""));
@@ -710,7 +724,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i <= strlen(a256); i++) {
+	for (size_t i = 0; i <= a256_len; i++) {
 		dstr_insert_chars(&dstr, i, "", 0);
 		dstr_insert_cstr(&dstr, i, "");
 		dstr_insert_view(&dstr, i, strview_from_cstr(""));
@@ -720,7 +734,7 @@ int main(void)
 	}
 	dstr_free(&dstr);
 
-	for (size_t i = 0; i <= strlen(abc); i++) {
+	for (size_t i = 0; i <= abc_len; i++) {
 		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, abc);
 		sanity_check(dstr);
@@ -734,17 +748,17 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, 0, i, a256);
 		sanity_check(dstr);
-		assert(strncmp(dstr, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr, a256, a256_len) == 0);
+		assert(strcmp(dstr + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, abc);
 		sanity_check(dstr);
-		dstr_replace_cstr(&dstr, i / 2, strlen(abc) - i, a256);
+		dstr_replace_cstr(&dstr, i / 2, abc_len - i, a256);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
+		assert(strncmp(dstr + i / 2, a256, a256_len) == 0);
+		assert(strcmp(dstr + i / 2 + a256_len, abc + i / 2 + (abc_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -760,43 +774,43 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, 0, i, strview_from_cstr(a256));
 		sanity_check(dstr);
-		assert(strncmp(dstr, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr, a256, a256_len) == 0);
+		assert(strcmp(dstr + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(abc));
 		sanity_check(dstr);
-		dstr_replace_view(&dstr, i / 2, strlen(abc) - i, strview_from_cstr(a256));
+		dstr_replace_view(&dstr, i / 2, abc_len - i, strview_from_cstr(a256));
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
+		assert(strncmp(dstr + i / 2, a256, a256_len) == 0);
+		assert(strcmp(dstr + i / 2 + a256_len, abc + i / 2 + (abc_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
+		dstr_replace_chars(&dstr, 0, 0, abc, abc_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, i, DSTR_NPOS, a256, strlen(a256));
+		dstr_replace_chars(&dstr, i, DSTR_NPOS, a256, a256_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, a256) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
+		dstr_replace_chars(&dstr, 0, 0, abc, abc_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, 0, i, a256, strlen(a256));
+		dstr_replace_chars(&dstr, 0, i, a256, a256_len);
 		sanity_check(dstr);
-		assert(strncmp(dstr, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr, a256, a256_len) == 0);
+		assert(strcmp(dstr + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, abc, strlen(abc));
+		dstr_replace_chars(&dstr, 0, 0, abc, abc_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, i / 2, strlen(abc) - i, a256, strlen(a256));
+		dstr_replace_chars(&dstr, i / 2, abc_len - i, a256, a256_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
+		assert(strncmp(dstr + i / 2, a256, a256_len) == 0);
+		assert(strcmp(dstr + i / 2 + a256_len, abc + i / 2 + (abc_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -820,8 +834,8 @@ int main(void)
 		dstr_replace_dstr(&dstr, 0, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
-		assert(strncmp(dstr, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr, a256, a256_len) == 0);
+		assert(strcmp(dstr + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(abc);
@@ -829,12 +843,12 @@ int main(void)
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(a256);
-		dstr_replace_dstr(&dstr, i / 2, strlen(abc) - i, dstr2);
+		dstr_replace_dstr(&dstr, i / 2, abc_len - i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
+		assert(strncmp(dstr + i / 2, a256, a256_len) == 0);
+		assert(strcmp(dstr + i / 2 + a256_len, abc + i / 2 + (abc_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -850,21 +864,21 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, 0, i, "%s", a256);
 		sanity_check(dstr);
-		assert(strncmp(dstr, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + strlen(a256), abc + i) == 0);
+		assert(strncmp(dstr, a256, a256_len) == 0);
+		assert(strcmp(dstr + a256_len, abc + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", abc);
 		sanity_check(dstr);
-		dstr_replace_fmt(&dstr, i / 2, strlen(abc) - i, "%s", a256);
+		dstr_replace_fmt(&dstr, i / 2, abc_len - i, "%s", a256);
 		sanity_check(dstr);
 		assert(strncmp(dstr, abc, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, a256, strlen(a256)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(a256), abc + i / 2 + (strlen(abc) - i)) == 0);
+		assert(strncmp(dstr + i / 2, a256, a256_len) == 0);
+		assert(strcmp(dstr + i / 2 + a256_len, abc + i / 2 + (abc_len - i)) == 0);
 		dstr_free(&dstr);
 	}
 
-	for (size_t i = 0; i <= strlen(a256); i++) {
+	for (size_t i = 0; i <= a256_len; i++) {
 		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, a256);
 		sanity_check(dstr);
@@ -878,17 +892,17 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_cstr(&dstr, 0, i, abc);
 		sanity_check(dstr);
-		assert(strncmp(dstr, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr, abc, abc_len) == 0);
+		assert(strcmp(dstr + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_cstr(&dstr, 0, 0, a256);
 		sanity_check(dstr);
-		dstr_replace_cstr(&dstr, i / 2, strlen(a256) - i, abc);
+		dstr_replace_cstr(&dstr, i / 2, a256_len - i, abc);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
+		assert(strncmp(dstr + i / 2, abc, abc_len) == 0);
+		assert(strcmp(dstr + i / 2 + abc_len, a256 + i / 2 + (a256_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -904,43 +918,43 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_view(&dstr, 0, i, strview_from_cstr(abc));
 		sanity_check(dstr);
-		assert(strncmp(dstr, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr, abc, abc_len) == 0);
+		assert(strcmp(dstr + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_view(&dstr, 0, 0, strview_from_cstr(a256));
 		sanity_check(dstr);
-		dstr_replace_view(&dstr, i / 2, strlen(a256) - i, strview_from_cstr(abc));
+		dstr_replace_view(&dstr, i / 2, a256_len - i, strview_from_cstr(abc));
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
+		assert(strncmp(dstr + i / 2, abc, abc_len) == 0);
+		assert(strcmp(dstr + i / 2 + abc_len, a256 + i / 2 + (a256_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
+		dstr_replace_chars(&dstr, 0, 0, a256, a256_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, i, DSTR_NPOS, abc, strlen(abc));
+		dstr_replace_chars(&dstr, i, DSTR_NPOS, abc, abc_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, abc) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
+		dstr_replace_chars(&dstr, 0, 0, a256, a256_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, 0, i, abc, strlen(abc));
+		dstr_replace_chars(&dstr, 0, i, abc, abc_len);
 		sanity_check(dstr);
-		assert(strncmp(dstr, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr, abc, abc_len) == 0);
+		assert(strcmp(dstr + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
-		dstr_replace_chars(&dstr, 0, 0, a256, strlen(a256));
+		dstr_replace_chars(&dstr, 0, 0, a256, a256_len);
 		sanity_check(dstr);
-		dstr_replace_chars(&dstr, i / 2, strlen(a256) - i, abc, strlen(abc));
+		dstr_replace_chars(&dstr, i / 2, a256_len - i, abc, abc_len);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
+		assert(strncmp(dstr + i / 2, abc, abc_len) == 0);
+		assert(strcmp(dstr + i / 2 + abc_len, a256 + i / 2 + (a256_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -964,8 +978,8 @@ int main(void)
 		dstr_replace_dstr(&dstr, 0, i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
-		assert(strncmp(dstr, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr, abc, abc_len) == 0);
+		assert(strcmp(dstr + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr2 = dstr_from_cstr(a256);
@@ -973,12 +987,12 @@ int main(void)
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		dstr2 = dstr_from_cstr(abc);
-		dstr_replace_dstr(&dstr, i / 2, strlen(a256) - i, dstr2);
+		dstr_replace_dstr(&dstr, i / 2, a256_len - i, dstr2);
 		dstr_free(&dstr2);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
+		assert(strncmp(dstr + i / 2, abc, abc_len) == 0);
+		assert(strcmp(dstr + i / 2 + abc_len, a256 + i / 2 + (a256_len - i)) == 0);
 		dstr_free(&dstr);
 
 		dstr = dstr_new();
@@ -994,22 +1008,22 @@ int main(void)
 		sanity_check(dstr);
 		dstr_replace_fmt(&dstr, 0, i, "%s", abc);
 		sanity_check(dstr);
-		assert(strncmp(dstr, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + strlen(abc), a256 + i) == 0);
+		assert(strncmp(dstr, abc, abc_len) == 0);
+		assert(strcmp(dstr + abc_len, a256 + i) == 0);
 		dstr_free(&dstr);
 		dstr = dstr_new();
 		dstr_replace_fmt(&dstr, 0, 0, "%s", a256);
 		sanity_check(dstr);
-		dstr_replace_fmt(&dstr, i / 2, strlen(a256) - i, "%s", abc);
+		dstr_replace_fmt(&dstr, i / 2, a256_len - i, "%s", abc);
 		sanity_check(dstr);
 		assert(strncmp(dstr, a256, i / 2) == 0);
-		assert(strncmp(dstr + i / 2, abc, strlen(abc)) == 0);
-		assert(strcmp(dstr + i / 2 + strlen(abc), a256 + i / 2 + (strlen(a256) - i)) == 0);
+		assert(strncmp(dstr + i / 2, abc, abc_len) == 0);
+		assert(strcmp(dstr + i / 2 + abc_len, a256 + i / 2 + (a256_len - i)) == 0);
 		dstr_free(&dstr);
 	}
 
 	dstr = dstr_from_cstr(abc);
-	for (size_t i = 0; i < strlen(abc); i++) {
+	for (size_t i = 0; i < abc_len; i++) {
 		dstr_replace_cstr(&dstr, i % dstr_length(dstr), 1, "");
 		sanity_check(dstr);
 	}
@@ -1017,7 +1031,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(a256); i++) {
+	for (size_t i = 0; i < a256_len; i++) {
 		dstr_replace_view(&dstr, i % dstr_length(dstr), 1, strview_from_cstr(""));
 		sanity_check(dstr);
 	}
@@ -1025,7 +1039,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(abc);
-	for (size_t i = 0; i < strlen(abc); i++) {
+	for (size_t i = 0; i < abc_len; i++) {
 		dstr_replace_chars(&dstr, i % dstr_length(dstr), 1, "", 0);
 		sanity_check(dstr);
 	}
@@ -1033,7 +1047,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(a256); i++) {
+	for (size_t i = 0; i < a256_len; i++) {
 		dstr_replace_fmt(&dstr, i % dstr_length(dstr), 1, "%s", "");
 		sanity_check(dstr);
 	}
@@ -1051,23 +1065,23 @@ int main(void)
 	sanity_check(dstr);
 	dstr_append_cstr(&dstr, a256);
 	dstr_append_cstr(&dstr, a256);
-	assert(strncmp(dstr, a256, strlen(a256)) == 0);
-	assert(strcmp(dstr + strlen(a256), a256) == 0);
+	assert(strncmp(dstr, a256, a256_len) == 0);
+	assert(strcmp(dstr + a256_len, a256) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, 0, strlen(a256) / 4);
-	assert(dstr_length(dstr) == 7 * strlen(a256) / 4);
-	assert(strncmp(dstr, a256 + strlen(a256) / 4, 3 * (strlen(a256) / 4)) == 0);
-	assert(strcmp(dstr + 3 * (strlen(a256) / 4), a256) == 0);
+	dstr_erase(&dstr, 0, a256_len / 4);
+	assert(dstr_length(dstr) == 7 * a256_len / 4);
+	assert(strncmp(dstr, a256 + a256_len / 4, 3 * (a256_len / 4)) == 0);
+	assert(strcmp(dstr + 3 * (a256_len / 4), a256) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, dstr_length(dstr) - strlen(a256) / 4, strlen(a256) / 4);
-	assert(dstr_length(dstr) == 3 * strlen(a256) / 2);
-	assert(strncmp(dstr, a256 + strlen(a256) / 4, 3 * (strlen(a256) / 4)) == 0);
-	assert(strncmp(dstr + 3 * (strlen(a256) / 4), a256, 3 * (strlen(a256) / 4)) == 0);
+	dstr_erase(&dstr, dstr_length(dstr) - a256_len / 4, a256_len / 4);
+	assert(dstr_length(dstr) == 3 * a256_len / 2);
+	assert(strncmp(dstr, a256 + a256_len / 4, 3 * (a256_len / 4)) == 0);
+	assert(strncmp(dstr + 3 * (a256_len / 4), a256, 3 * (a256_len / 4)) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, strlen(a256) / 2, strlen(a256) / 2);
-	assert(dstr_length(dstr) == strlen(a256));
-	assert(strncmp(dstr, a256 + strlen(a256) / 4, strlen(a256) / 2) == 0);
-	assert(strncmp(dstr + strlen(a256) / 2, a256 + strlen(a256) / 4, strlen(a256) / 2) == 0);
+	dstr_erase(&dstr, a256_len / 2, a256_len / 2);
+	assert(dstr_length(dstr) == a256_len);
+	assert(strncmp(dstr, a256 + a256_len / 4, a256_len / 2) == 0);
+	assert(strncmp(dstr + a256_len / 2, a256 + a256_len / 4, a256_len / 2) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -1075,18 +1089,18 @@ int main(void)
 	dstr_append_cstr(&dstr, a256);
 	assert(strcmp(dstr, a256) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, 0, strlen(a256) / 8);
-	assert(dstr_length(dstr) == 7 * strlen(a256) / 8);
-	assert(strncmp(dstr, a256 + strlen(a256) / 8, 7 * strlen(a256) / 8) == 0);
+	dstr_erase(&dstr, 0, a256_len / 8);
+	assert(dstr_length(dstr) == 7 * a256_len / 8);
+	assert(strncmp(dstr, a256 + a256_len / 8, 7 * a256_len / 8) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, dstr_length(dstr) - strlen(a256) / 8, strlen(a256) / 8);
-	assert(dstr_length(dstr) == 3 * strlen(a256) / 4);
-	assert(strncmp(dstr, a256 + strlen(a256) / 8, 3 * strlen(a256) / 4) == 0);
+	dstr_erase(&dstr, dstr_length(dstr) - a256_len / 8, a256_len / 8);
+	assert(dstr_length(dstr) == 3 * a256_len / 4);
+	assert(strncmp(dstr, a256 + a256_len / 8, 3 * a256_len / 4) == 0);
 	sanity_check(dstr);
-	dstr_erase(&dstr, strlen(a256) / 4, strlen(a256) / 4);
-	assert(dstr_length(dstr) == strlen(a256) / 2);
-	assert(strncmp(dstr, a256 + strlen(a256) / 8, strlen(a256) / 4) == 0);
-	assert(strncmp(dstr + strlen(a256) / 4, a256 + 5 * strlen(a256) / 8, strlen(a256) / 4) == 0);
+	dstr_erase(&dstr, a256_len / 4, a256_len / 4);
+	assert(dstr_length(dstr) == a256_len / 2);
+	assert(strncmp(dstr, a256 + a256_len / 8, a256_len / 4) == 0);
+	assert(strncmp(dstr + a256_len / 4, a256 + 5 * a256_len / 8, a256_len / 4) == 0);
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
@@ -1109,20 +1123,20 @@ int main(void)
 	sanity_check(dstr);
 	dstr_free(&dstr);
 
-	for (size_t i = 0; i + 3 <= strlen(abc); i++) {
+	for (size_t i = 0; i + 3 <= abc_len; i++) {
 		dstr = dstr_from_cstr(abc);
 		dstr_erase(&dstr, i, 3);
-		assert(dstr_length(dstr) == strlen(abc) - 3);
+		assert(dstr_length(dstr) == abc_len - 3);
 		assert(strncmp(dstr, abc, i) == 0);
 		assert(strcmp(dstr + i, abc + i + 3) == 0);
 		sanity_check(dstr);
 		dstr_free(&dstr);
 	}
 
-	for (size_t i = 0; i + 2 <= strlen(a256); i++) {
+	for (size_t i = 0; i + 2 <= a256_len; i++) {
 		dstr = dstr_from_cstr(a256);
 		dstr_erase(&dstr, i, 2);
-		assert(dstr_length(dstr) == strlen(a256) - 2);
+		assert(dstr_length(dstr) == a256_len - 2);
 		assert(strncmp(dstr, a256, i) == 0);
 		assert(strcmp(dstr + i, a256 + i + 2) == 0);
 		sanity_check(dstr);
@@ -1130,7 +1144,7 @@ int main(void)
 	}
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(a256); i++) {
+	for (size_t i = 0; i < a256_len; i++) {
 		dstr_erase(&dstr, i % dstr_length(dstr), 1);
 		sanity_check(dstr);
 	}
@@ -1141,7 +1155,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(abc);
-	for (size_t i = 0; i < strlen(abc); i++) {
+	for (size_t i = 0; i < abc_len; i++) {
 		dstr_erase(&dstr, i, 0);
 		sanity_check(dstr);
 	}
@@ -1149,7 +1163,7 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(a256); i++) {
+	for (size_t i = 0; i < a256_len; i++) {
 		dstr_erase(&dstr, i, 0);
 		sanity_check(dstr);
 	}
@@ -1251,50 +1265,50 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(abc);
-	for (size_t i = 0; i < strlen(abc) / 2; i++) {
-		view = dstr_substring_view(dstr, i, strlen(abc) - 2 * i);
-		dstr2 = dstr_substring_copy(dstr, i, strlen(abc) - 2 * i);
+	for (size_t i = 0; i < abc_len / 2; i++) {
+		view = dstr_substring_view(dstr, i, abc_len - 2 * i);
+		dstr2 = dstr_substring_copy(dstr, i, abc_len - 2 * i);
 		sanity_check(dstr2);
 		assert(strview_equal(view,
-				     strview_substring(strview_from_cstr(abc), i, strlen(abc) - 2 * i)));
+				     strview_substring(strview_from_cstr(abc), i, abc_len - 2 * i)));
 		assert(dstr_equal_view(dstr2, view));
 		dstr_free(&dstr2);
 	}
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(a256); i++) {
-		view = dstr_substring_view(dstr, i, strlen(a256) - 2 * i);
-		dstr2 = dstr_substring_copy(dstr, i, strlen(a256) - 2 * i);
+	for (size_t i = 0; i < a256_len; i++) {
+		view = dstr_substring_view(dstr, i, a256_len - 2 * i);
+		dstr2 = dstr_substring_copy(dstr, i, a256_len - 2 * i);
 		sanity_check(dstr2);
 		assert(strview_equal(view,
-				     strview_substring(strview_from_cstr(a256), i, strlen(a256) - 2 * i)));
+				     strview_substring(strview_from_cstr(a256), i, a256_len - 2 * i)));
 		assert(dstr_equal_view(dstr2, view));
 		dstr_free(&dstr2);
 	}
 	dstr_free(&dstr);
 
-	for (size_t i = 0; i < strlen(abc) / 2; i++) {
+	for (size_t i = 0; i < abc_len / 2; i++) {
 		dstr = dstr_from_cstr(abc);
-		dstr2 = dstr_substring_copy(dstr, i, strlen(abc) - 2 * i);
-		dstr_substring(&dstr, i, strlen(abc) - 2 * i);
+		dstr2 = dstr_substring_copy(dstr, i, abc_len - 2 * i);
+		dstr_substring(&dstr, i, abc_len - 2 * i);
 		sanity_check(dstr);
 		sanity_check(dstr2);
 		assert(dstr_equal_view(dstr,
-				       strview_substring(strview_from_cstr(abc), i, strlen(abc) - 2 * i)));
+				       strview_substring(strview_from_cstr(abc), i, abc_len - 2 * i)));
 		assert(dstr_equal_dstr(dstr, dstr2));
 		dstr_free(&dstr2);
 		dstr_free(&dstr);
 	}
 
-	for (size_t i = 0; i < strlen(a256); i++) {
+	for (size_t i = 0; i < a256_len; i++) {
 		dstr = dstr_from_cstr(a256);
-		dstr2 = dstr_substring_copy(dstr, i, strlen(a256) - 2 * i);
-		dstr_substring(&dstr, i, strlen(a256) - 2 * i);
+		dstr2 = dstr_substring_copy(dstr, i, a256_len - 2 * i);
+		dstr_substring(&dstr, i, a256_len - 2 * i);
 		sanity_check(dstr);
 		sanity_check(dstr2);
 		assert(dstr_equal_view(dstr,
-				       strview_substring(strview_from_cstr(a256), i, strlen(a256) - 2 * i)));
+				       strview_substring(strview_from_cstr(a256), i, a256_len - 2 * i)));
 		assert(dstr_equal_dstr(dstr, dstr2));
 		dstr_free(&dstr2);
 		dstr_free(&dstr);
@@ -3010,14 +3024,14 @@ int main(void)
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = 0; i < strlen(abc); i++) {
+	for (size_t i = 0; i < abc_len; i++) {
 		assert(dstr_find_first_of(dstr, a256, i) == i);
 		assert(dstr_find_first_not_of(dstr, a256, i) == DSTR_NPOS);
 	}
 	dstr_free(&dstr);
 
 	dstr = dstr_from_cstr(a256);
-	for (size_t i = strlen(abc) - 1; i-- > 0;) {
+	for (size_t i = abc_len - 1; i-- > 0;) {
 		assert(dstr_find_last_of(dstr, a256, i) == i);
 		assert(dstr_find_last_not_of(dstr, a256, i) == DSTR_NPOS);
 	}
@@ -3094,25 +3108,25 @@ int main(void)
 	assert(!dstr_startswith_view(dstr, strview_from_cstr("-")));
 	assert(!dstr_endswith_cstr(dstr, "-"));
 	assert(!dstr_endswith_view(dstr, strview_from_cstr("-")));
-	dstr2 = dstr_substring_copy(dstr, strlen(abc), DSTR_NPOS);
+	dstr2 = dstr_substring_copy(dstr, abc_len, DSTR_NPOS);
 	assert(dstr_startswith_cstr(dstr2, "-"));
 	assert(dstr_startswith_view(dstr2, strview_from_cstr("-")));
 	assert(!dstr_startswith_cstr(dstr2, abc));
 	assert(!dstr_startswith_view(dstr2, strview_from_cstr(abc)));
 	dstr_free(&dstr2);
-	dstr2 = dstr_substring_copy(dstr, strlen(abc) + 1, DSTR_NPOS);
+	dstr2 = dstr_substring_copy(dstr, abc_len + 1, DSTR_NPOS);
 	assert(dstr_startswith_cstr(dstr2, abc));
 	assert(dstr_startswith_view(dstr2, strview_from_cstr(abc)));
 	assert(!dstr_startswith_cstr(dstr2, "-"));
 	assert(!dstr_startswith_view(dstr2, strview_from_cstr("-")));
 	dstr_free(&dstr2);
-	dstr2 = dstr_substring_copy(dstr, 0, strlen(abc) + 1);
+	dstr2 = dstr_substring_copy(dstr, 0, abc_len + 1);
 	assert(dstr_endswith_cstr(dstr2, "-"));
 	assert(dstr_endswith_view(dstr2, strview_from_cstr("-")));
 	assert(!dstr_endswith_cstr(dstr2, abc));
 	assert(!dstr_endswith_view(dstr2, strview_from_cstr(abc)));
 	dstr_free(&dstr2);
-	dstr2 = dstr_substring_copy(dstr, 0, strlen(abc));
+	dstr2 = dstr_substring_copy(dstr, 0, abc_len);
 	assert(dstr_endswith_cstr(dstr2, abc));
 	assert(dstr_endswith_view(dstr2, strview_from_cstr(abc)));
 	assert(!dstr_endswith_cstr(dstr2, "-"));
@@ -3736,13 +3750,13 @@ int main(void)
 
 	struct strview view2;
 	view = strview_from_cstr(abc);
-	view2 = strview_from_chars(abc, strlen(abc));
+	view2 = strview_from_chars(abc, abc_len);
 	assert(strview_equal_cstr(view, abc));
 	assert(strview_equal_cstr(view2, abc));
 	assert(strview_equal(view, view2));
 
 	view = strview_from_cstr(a256);
-	view2 = strview_from_chars(a256, strlen(a256));
+	view2 = strview_from_chars(a256, a256_len);
 	assert(strview_equal_cstr(view, a256));
 	assert(strview_equal_cstr(view2, a256));
 	assert(strview_equal(view, view2));
@@ -4428,13 +4442,13 @@ int main(void)
 	assert(strview_find_last_not_of(view, "abc123def456ghi789", STRVIEW_NPOS) == 4);
 
 	view = strview_from_cstr(a256);
-	for (size_t i = 0; i < strlen(abc); i++) {
+	for (size_t i = 0; i < abc_len; i++) {
 		assert(strview_find_first_of(view, a256, i) == i);
 		assert(strview_find_first_not_of(view, a256, i) == STRVIEW_NPOS);
 	}
 
 	view = strview_from_cstr(a256);
-	for (size_t i = strlen(abc) - 1; i-- > 0;) {
+	for (size_t i = abc_len - 1; i-- > 0;) {
 		assert(strview_find_last_of(view, a256, i) == i);
 		assert(strview_find_last_not_of(view, a256, i) == STRVIEW_NPOS);
 	}
@@ -4527,7 +4541,7 @@ int main(void)
 	assert(!strview_endswith_cstr(view, "ax"));
 	assert(!strview_endswith(view, strview_from_cstr("ax")));
 
-	view = strview_from_chars(abc, strlen(abc) - 1);
+	view = strview_from_chars(abc, abc_len - 1);
 	assert(!strview_startswith_cstr(view, abc));
 	assert(!strview_startswith(view, strview_from_cstr(abc)));
 
@@ -4549,22 +4563,22 @@ int main(void)
 	assert(!strview_startswith(view, strview_from_cstr("-")));
 	assert(!strview_endswith_cstr(view, "-"));
 	assert(!strview_endswith(view, strview_from_cstr("-")));
-	view2 = strview_substring(view, strlen(abc), STRVIEW_NPOS);
+	view2 = strview_substring(view, abc_len, STRVIEW_NPOS);
 	assert(strview_startswith_cstr(view2, "-"));
 	assert(strview_startswith(view2, strview_from_cstr("-")));
 	assert(!strview_startswith_cstr(view2, abc));
 	assert(!strview_startswith(view2, strview_from_cstr(abc)));
-	view2 = strview_substring(view, strlen(abc) + 1, STRVIEW_NPOS);
+	view2 = strview_substring(view, abc_len + 1, STRVIEW_NPOS);
 	assert(strview_startswith_cstr(view2, abc));
 	assert(strview_startswith(view2, strview_from_cstr(abc)));
 	assert(!strview_startswith_cstr(view2, "-"));
 	assert(!strview_startswith(view2, strview_from_cstr("-")));
-	view2 = strview_substring(view, 0, strlen(abc) + 1);
+	view2 = strview_substring(view, 0, abc_len + 1);
 	assert(strview_endswith_cstr(view2, "-"));
 	assert(strview_endswith(view2, strview_from_cstr("-")));
 	assert(!strview_endswith_cstr(view2, abc));
 	assert(!strview_endswith(view2, strview_from_cstr(abc)));
-	view2 = strview_substring(view, 0, strlen(abc));
+	view2 = strview_substring(view, 0, abc_len);
 	assert(strview_endswith_cstr(view2, abc));
 	assert(strview_endswith(view2, strview_from_cstr(abc)));
 	assert(!strview_endswith_cstr(view2, "-"));

@@ -700,6 +700,13 @@ __AD_LINKAGE dstr_t dstr_new(void)
 	return _dstr_empty_dstr;
 }
 
+__AD_LINKAGE dstr_t dstr_with_capacity(size_t capacity)
+{
+	dstr_t dstr = dstr_new();
+	dstr_reserve(&dstr, capacity);
+	return dstr;
+}
+
 static _attr_unused _attr_always_inline
 char *_dstr_replace(dstr_t *dstrp, size_t pos, size_t len, size_t n)
 {

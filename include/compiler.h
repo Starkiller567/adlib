@@ -73,6 +73,9 @@
 #if __has_attribute(noinline)
 # define HAVE_ATTR_NOINLINE 1
 #endif
+#if !defined(HAVE_BUILTIN_CLZ) && __has_builtin(__builtin_clz)
+# define HAVE_BUILTIN_CLZ 1
+#endif
 #if !defined(HAVE_BUILTIN_EXPECT) && __has_builtin(__builtin_expect)
 # define HAVE_BUILTIN_EXPECT 1
 #endif

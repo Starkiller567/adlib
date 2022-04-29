@@ -21,7 +21,6 @@
 #define __DSTRING_INCLUDE__
 
 // TODO dstr_from_int/uint/ulong/..., join/concat/append with varargs, to_upper/lower?, casecmp?
-// TODO dstr_with_capacity
 // TODO add 'restrict' in the appropriate places?
 //      (since currently many dstr functions implicitly disallow aliased arguments)
 
@@ -54,6 +53,7 @@ struct strview_list {
 };
 
 __AD_LINKAGE dstr_t dstr_new(void) _attr_unused _attr_nodiscard;
+__AD_LINKAGE dstr_t dstr_with_capacity(size_t capacity) _attr_unused _attr_nodiscard;
 __AD_LINKAGE dstr_t dstr_from_chars(const char *chars, size_t n) _attr_unused _attr_nodiscard;
 __AD_LINKAGE dstr_t dstr_from_cstr(const char *cstr) _attr_unused _attr_nodiscard;
 __AD_LINKAGE dstr_t dstr_from_view(struct strview view) _attr_unused _attr_nodiscard;
