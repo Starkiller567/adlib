@@ -73,6 +73,15 @@
 #if __has_attribute(noinline)
 # define HAVE_ATTR_NOINLINE 1
 #endif
+#if __has_attribute(constructor)
+# define HAVE_ATTR_CONSTRUCTOR 1
+#endif
+#if __has_attribute(destructor)
+# define HAVE_ATTR_DESTRUCTOR 1
+#endif
+#if __has_attribute(cleanup)
+# define HAVE_ATTR_CLEANUP 1
+#endif
 #if !defined(HAVE_BUILTIN_CLZ) && __has_builtin(__builtin_clz)
 # define HAVE_BUILTIN_CLZ 1
 #endif
@@ -164,6 +173,18 @@
 # define _attr_noinline                      __attribute__((noinline))
 #else
 # define _attr_noinline
+#endif
+
+#ifdef HAVE_ATTR_CONSTRUCTOR
+# define _attr_constructor                   __attribute__((constructor))
+#endif
+
+#ifdef HAVE_ATTR_DESTRUCTOR
+# define _attr_destructor                    __attribute__((destructor))
+#endif
+
+#ifdef HAVE_ATTR_CLEANUP
+# define _attr_cleanup(f)                    __attribute__((cleanup(f)))
 #endif
 
 #ifdef HAVE_BUILTIN_EXPECT

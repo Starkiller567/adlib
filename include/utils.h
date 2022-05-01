@@ -55,7 +55,6 @@ __AD_LINKAGE unsigned int _ilog10(unsigned int x) _attr_const _attr_unused;
 __AD_LINKAGE unsigned int _ilog10l(unsigned long x) _attr_const _attr_unused;
 __AD_LINKAGE unsigned int _ilog10ll(unsigned long long x) _attr_const _attr_unused;
 
-// TODO this is rounded up while ilog2 is rounded down which is confusing...
 #define ilog10(x) _bitutils_dispatch(x, _ilog10)
 
 #endif

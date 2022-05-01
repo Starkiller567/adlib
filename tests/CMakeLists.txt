@@ -6,6 +6,7 @@ set(TESTS
   avl_tree
   dbuf
   dstring
+  dstring_number_conversion
   hash
   hash_benchmark
   hashmap
@@ -15,7 +16,6 @@ set(TESTS
   random
   random_benchmark
   rb_tree
-  utils
 )
 
 foreach(TEST IN LISTS TESTS)
@@ -31,4 +31,12 @@ endforeach()
 
 target_link_libraries(hash m)
 target_link_libraries(random m)
-target_link_libraries(utils m)
+
+add_executable(tests testing.c utils.c)
+if(${TESTS_USE_SINGLE_HEADERS})
+  target_include_directories(tests PRIVATE ${SINGLE_HEADERS_DIR})
+  add_dependencies(tests single_header_library)
+else()
+  target_link_libraries(tests ad-static)
+endif()
+target_link_libraries(tests m)
