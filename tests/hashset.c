@@ -6,6 +6,8 @@
 #include <time.h>
 #include "array.h"
 #include "hashtable.h"
+#include "random.h"
+#include "testing.h"
 
 static inline uint32_t integer_hash(uint32_t x)
 {
@@ -24,19 +26,19 @@ static int cmp_int(const void *a, const void *b)
 
 DEFINE_HASHTABLE(itable, int, int, 8, (*key == *entry))
 
-int main(int argc, char **argv)
+RANDOM_TEST(hashset, 2, 0, UINT64_MAX)
 {
 	struct itable itable;
 	itable_init(&itable, 16);
 	int *arr = NULL;
-	unsigned int seed = argc > 1 ? atoi(argv[1]) : time(NULL);
-	printf("seed: %u\n", seed);
-	srand(seed);
+
+	struct random_state rng;
+	random_state_init(&rng, random);
 
 	for (unsigned long counter = 0; counter < 100000; counter++) {
-		int r = rand() % 128;
+		int r = random_next_u32(&rng) % 128;
 		if (r < 100) {
-			int x = rand() % (1 << 20);
+			int x = random_next_u32(&rng) % (1 << 20);
 			bool found = false;
 			array_foreach_value(arr, it) {
 				if (it == x) {
@@ -46,26 +48,26 @@ int main(int argc, char **argv)
 			}
 			int *entry = itable_lookup(&itable, x, integer_hash(x));
 			if (entry) {
-				assert(found);
-				assert(*entry == x);
+				CHECK(found);
+				CHECK(*entry == x);
 			} else {
-				assert(!found);
+				CHECK(!found);
 				entry = itable_insert(&itable, x, integer_hash(x));
 				*entry = x;
 				array_add(arr, x);
 			}
 		} else if (array_length(arr) != 0) {
 			int key;
-			int idx = rand() % array_length(arr);
+			int idx = random_next_u32(&rng) % array_length(arr);
 			int x = arr[idx];
 			bool removed = itable_remove(&itable, x, integer_hash(x), &key);
-			assert(removed);
+			CHECK(removed);
 			array_fast_delete(arr, idx);
 		}
 
 		if (counter % 4096 == 0) {
 			array_foreach_value(arr, i) {
-				assert(itable_lookup(&itable, i, integer_hash(i)));
+				CHECK(itable_lookup(&itable, i, integer_hash(i)));
 			}
 			int *arr2 = NULL;
 			array_reserve(arr2, array_length(arr));
@@ -76,12 +78,14 @@ int main(int argc, char **argv)
 			}
 			array_sort(arr, cmp_int);
 			array_sort(arr2, cmp_int);
-			assert(array_equal(arr, arr2));
+			CHECK(array_equal(arr, arr2));
 			array_free(arr2);
-			fprintf(stderr, "%zu %lu\r", array_length(arr), counter);
+			// fprintf(stderr, "%zu %lu\r", array_length(arr), counter);
 		}
 	}
 
 	itable_destroy(&itable);
 	array_free(arr);
+
+	return true;
 }

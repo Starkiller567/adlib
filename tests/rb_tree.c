@@ -4,8 +4,10 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <time.h>
+#include "random.h"
 #include "rb_tree.h"
 #include "macros.h"
+#include "testing.h"
 
 static inline bool rb_is_red(const struct rb_node *node)
 {
@@ -96,57 +98,134 @@ static void rb_destroy_tree(struct rb_root *root)
 	root->node = NULL;
 }
 
-static int black_depth;
-static int max_depth;
-static int num_nodes;
-static void debug_recursive_check_tree(struct rb_node *node, int cur_black_depth, int depth)
+static bool check_tree_recursive(struct rb_node *node, int cur_black_depth, int *black_depth)
 {
 	if (!node) {
-		if (black_depth == -1) {
-			black_depth = cur_black_depth;
+		if (*black_depth == -1) {
+			*black_depth = cur_black_depth;
 		}
-		if (max_depth < depth) {
-			max_depth = depth;
-		}
-		assert(black_depth == cur_black_depth);
-		return;
+		CHECK(*black_depth == cur_black_depth);
+		return true;
 	}
-	num_nodes++;
 	if (rb_is_black(node)) {
 		cur_black_depth++;
 	}
 	if (node->children[RB_LEFT]) {
-		assert(rb_parent(node->children[RB_LEFT]) == node);
-		assert(!(rb_is_red(node) && rb_is_red(node->children[RB_LEFT])));
-		assert(to_thing(node->children[RB_LEFT])->key < to_thing(node)->key);
+		CHECK(rb_parent(node->children[RB_LEFT]) == node);
+		CHECK(!(rb_is_red(node) && rb_is_red(node->children[RB_LEFT])));
+		CHECK(to_thing(node->children[RB_LEFT])->key < to_thing(node)->key);
 	}
 	if (node->children[RB_RIGHT]) {
-		assert(rb_parent(node->children[RB_RIGHT]) == node);
-		assert(!(rb_is_red(node) && rb_is_red(node->children[RB_RIGHT])));
-		assert(to_thing(node->children[RB_RIGHT])->key > to_thing(node)->key);
+		CHECK(rb_parent(node->children[RB_RIGHT]) == node);
+		CHECK(!(rb_is_red(node) && rb_is_red(node->children[RB_RIGHT])));
+		CHECK(to_thing(node->children[RB_RIGHT])->key > to_thing(node)->key);
 	}
-	debug_recursive_check_tree(node->children[RB_LEFT], cur_black_depth, depth + 1);
-	debug_recursive_check_tree(node->children[RB_RIGHT], cur_black_depth, depth + 1);
+	CHECK(check_tree_recursive(node->children[RB_LEFT], cur_black_depth, black_depth));
+	CHECK(check_tree_recursive(node->children[RB_RIGHT], cur_black_depth, black_depth));
+	return true;
 }
 
-static void debug_check_tree(struct rb_root *root)
+static bool check_tree(struct rb_root *root)
 {
-	black_depth = -1;
-	max_depth = -1;
-	num_nodes = 0;
-	if (!root->node) {
-		printf("empty\n");
-		return;
-	}
-	assert(rb_is_black(root->node));
-	assert(!rb_parent(root->node));
-	debug_recursive_check_tree(root->node, 0, 0);
+	int black_depth = -1;
+	CHECK(rb_is_black(root->node));
+	CHECK(!rb_parent(root->node));
+	return check_tree_recursive(root->node, 0, &black_depth);
 }
 
-int main(void)
+RANDOM_TEST(insert_find_remove, 2, 0, UINT64_MAX)
 {
-	unsigned int seed = 123456789;
+	const unsigned int N = 200000;
 	struct rb_root root = RB_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		rb_insert_key(&root, key);
+	}
+	CHECK(check_tree(&root));
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		struct rb_node *node = rb_find(&root, key);
+		CHECK(node && to_thing(node)->key == key);
+	}
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		struct rb_node *node = rb_remove_key(&root, key);
+		if (node) {
+			CHECK(to_thing(node)->key == key);
+			free(to_thing(node));
+		}
+		if (i % 1024 == 0) {
+			CHECK(check_tree(&root));
+		}
+	}
+	CHECK(root.node == NULL);
+	return true;
+}
+
+RANDOM_TEST(foreach, 2, 0, UINT64_MAX)
+{
+	struct rb_root root = RB_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < 200000; i++) {
+		int key = random_next_u32(&rng);
+		rb_insert_key(&root, key);
+	}
+	CHECK(check_tree(&root));
+	struct thing *prev = NULL;
+	rb_foreach(&root, cur) {
+		struct thing *thing = to_thing(cur);
+		if (prev) {
+			CHECK(prev->key < thing->key);
+		}
+		prev = thing;
+	}
+	rb_destroy_tree(&root);
+	return true;
+}
+
+RANDOM_TEST(random_insert_find_remove, 2, 0, UINT64_MAX)
+{
+	struct rb_root root = RB_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < 200000; i++) {
+		const int max_key = 1024;
+		{
+			int key = random_next_u32(&rng) % max_key;
+			bool success = rb_insert_key(&root, key);
+			if (!success) {
+				struct rb_node *node = rb_remove_key(&root, key);
+				CHECK(node);
+				free(to_thing(node));
+				success = rb_insert_key(&root, key);
+				CHECK(success);
+			}
+			CHECK(to_thing(rb_find(&root, key))->key == key);
+		}
+		{
+			int key = random_next_u32(&rng) % max_key;
+			struct rb_node *node = rb_find(&root, key);
+			if (node) {
+				rb_remove_node(&root, node);
+				CHECK(!rb_find(&root, key));
+				free(to_thing(node));
+			}
+		}
+
+		if (i % 1024 == 0) {
+			CHECK(check_tree(&root));
+		}
+	}
+	CHECK(check_tree(&root));
+	rb_destroy_tree(&root);
+	return true;
+}
+
 #if 0
 	char buf[128];
 	while (fgets(buf, sizeof(buf), stdin)) {
@@ -172,86 +251,3 @@ int main(void)
 		debug_check_tree(&root);
 	}
 #endif
-
-#if 1
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		rb_insert_key(&root, key);
-	}
-	debug_check_tree(&root);
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		struct rb_node *node = rb_find(&root, key);
-		assert(node && to_thing(node)->key == key);
-	}
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		struct rb_node *node = rb_remove_key(&root, key);
-		if (node) {
-			assert(to_thing(node)->key == key);
-			free(to_thing(node));
-		}
-		if (i % 1024 == 0) {
-			debug_check_tree(&root);
-		}
-	}
-	assert(root.node == NULL);
-#endif
-
-#if 1
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		rb_insert_key(&root, key);
-	}
-	debug_check_tree(&root);
-	struct thing *prev = NULL;
-	rb_foreach(&root, cur) {
-		struct thing *thing = to_thing(cur);
-		if (prev) {
-			assert(prev->key < thing->key);
-		}
-		prev = thing;
-	}
-	rb_destroy_tree(&root);
-#endif
-
-#if 1
-	srand(seed);
-	const int max_key = 1024;
-	for (unsigned int i = 0; i < 200000; i++) {
-		{
-			int key = rand() % max_key;
-			bool success = rb_insert_key(&root, key);
-			if (!success) {
-				struct rb_node *node = rb_remove_key(&root, key);
-				assert(node);
-				free(to_thing(node));
-				success = rb_insert_key(&root, key);
-				assert(success);
-			}
-			assert(to_thing(rb_find(&root, key))->key == key);
-		}
-		{
-			int key = rand() % max_key;
-			struct rb_node *node = rb_find(&root, key);
-			if (node) {
-				rb_remove_node(&root, node);
-				assert(!rb_find(&root, key));
-				free(to_thing(node));
-			}
-		}
-
-		if (i % 1024 == 0) {
-			debug_check_tree(&root);
-			// printf("black depth: %d\n", black_depth);
-			// printf("max depth: %d\n", max_depth);
-			// printf("num nodes: %d\n", num_nodes);
-		}
-	}
-	rb_destroy_tree(&root);
-#endif
-}

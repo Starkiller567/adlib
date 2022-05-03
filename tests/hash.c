@@ -6,10 +6,11 @@
 #include <string.h>
 #include "hash.h"
 #include "random.h"
+#include "testing.h"
 
 // TODO test this on a big-endian machine
 
-const uint8_t vectors_sip24_64[64][8] = {
+static const uint8_t vectors_sip24_64[64][8] = {
 	{ 0x31, 0x0e, 0x0e, 0xdd, 0x47, 0xdb, 0x6f, 0x72, },
 	{ 0xfd, 0x67, 0xdc, 0x93, 0xc5, 0x39, 0xf8, 0x74, },
 	{ 0x5a, 0x4f, 0xa9, 0xd9, 0x09, 0x80, 0x6c, 0x0d, },
@@ -76,7 +77,7 @@ const uint8_t vectors_sip24_64[64][8] = {
 	{ 0x72, 0x45, 0x06, 0xeb, 0x4c, 0x32, 0x8a, 0x95, },
 };
 
-const uint8_t vectors_sip24_128[64][16] = {
+static const uint8_t vectors_sip24_128[64][16] = {
 	{ 0xa3, 0x81, 0x7f, 0x04, 0xba, 0x25, 0xa8, 0xe6, 0x6d, 0xf6, 0x72, 0x14, 0xc7, 0x55, 0x02, 0x93, },
 	{ 0xda, 0x87, 0xc1, 0xd8, 0x6b, 0x99, 0xaf, 0x44, 0x34, 0x76, 0x59, 0x11, 0x9b, 0x22, 0xfc, 0x45, },
 	{ 0x81, 0x77, 0x22, 0x8d, 0xa4, 0xa4, 0x5d, 0xc7, 0xfc, 0xa3, 0x8b, 0xde, 0xf6, 0x0a, 0xff, 0xe4, },
@@ -143,7 +144,7 @@ const uint8_t vectors_sip24_128[64][16] = {
 	{ 0x51, 0x50, 0xd1, 0x77, 0x2f, 0x50, 0x83, 0x4a, 0x50, 0x3e, 0x06, 0x9a, 0x97, 0x3f, 0xbd, 0x7c, },
 };
 
-const uint8_t vectors_hsip24_32[64][4] = {
+static const uint8_t vectors_hsip24_32[64][4] = {
 	{ 0xa9, 0x35, 0x9f, 0x5b, },
 	{ 0x27, 0x47, 0x5a, 0xb8, },
 	{ 0xfa, 0x62, 0xa6, 0x03, },
@@ -210,7 +211,7 @@ const uint8_t vectors_hsip24_32[64][4] = {
 	{ 0x59, 0xea, 0x4a, 0x74, },
 };
 
-const uint8_t vectors_hsip24_64[64][8] = {
+static const uint8_t vectors_hsip24_64[64][8] = {
 	{ 0x21, 0x8d, 0x1f, 0x59, 0xb9, 0xb8, 0x3c, 0xc8, },
 	{ 0xbe, 0x55, 0x24, 0x12, 0xf8, 0x38, 0x73, 0x15, },
 	{ 0x06, 0x4f, 0x39, 0xef, 0x7c, 0x50, 0xeb, 0x57, },
@@ -277,7 +278,7 @@ const uint8_t vectors_hsip24_64[64][8] = {
 	{ 0x2e, 0xa6, 0x3c, 0x71, 0xbf, 0x32, 0x60, 0x87, },
 };
 
-const uint8_t vectors_sip13_64[64][8] = {
+static const uint8_t vectors_sip13_64[64][8] = {
     { 0xdc, 0xc4, 0x0f, 0x05, 0x58, 0x01, 0xac, 0xab, },
     { 0x93, 0xca, 0x57, 0x7d, 0xf3, 0x9b, 0xf4, 0xc9, },
     { 0x4d, 0xd4, 0xc7, 0x4d, 0x02, 0x9b, 0xcb, 0x82, },
@@ -344,7 +345,7 @@ const uint8_t vectors_sip13_64[64][8] = {
     { 0xa8, 0xb3, 0xbb, 0xb7, 0x62, 0x90, 0x19, 0x9d, },
 };
 
-const uint8_t vectors_sip13_128[64][16] = {
+static const uint8_t vectors_sip13_128[64][16] = {
     { 0xe7, 0x7e, 0xbc, 0xb2, 0x27, 0x88, 0xa5, 0xbe, 0xfd, 0x62, 0xdb, 0x6a, 0xdd, 0x30, 0x30, 0x01, },
     { 0xfc, 0x6f, 0x37, 0x04, 0x60, 0xd3, 0xed, 0xa8, 0x5e, 0x05, 0x73, 0xcc, 0x2b, 0x2f, 0xf0, 0x63, },
     { 0x75, 0x78, 0x7f, 0x09, 0x05, 0x69, 0x83, 0x9b, 0x85, 0x5b, 0xc9, 0x54, 0x8c, 0x6a, 0xea, 0x95, },
@@ -411,7 +412,7 @@ const uint8_t vectors_sip13_128[64][16] = {
     { 0x4c, 0x58, 0x00, 0xe3, 0x4e, 0xfe, 0x42, 0x6f, 0x07, 0x9f, 0x6b, 0x0a, 0xa7, 0x52, 0x60, 0xad, },
 };
 
-const uint8_t vectors_hsip13_32[64][4] = {
+static const uint8_t vectors_hsip13_32[64][4] = {
     { 0x96, 0xc8, 0x14, 0x58, },
     { 0xca, 0x64, 0xe8, 0xe7, },
     { 0x30, 0x0e, 0x4b, 0xbc, },
@@ -478,7 +479,7 @@ const uint8_t vectors_hsip13_32[64][4] = {
     { 0x04, 0x83, 0x17, 0x87, },
 };
 
-const uint8_t vectors_hsip13_64[64][8] = {
+static const uint8_t vectors_hsip13_64[64][8] = {
     { 0x76, 0xa5, 0xd0, 0x21, 0x23, 0x20, 0xf7, 0x2a, },
     { 0x87, 0xe8, 0x74, 0x8d, 0x6f, 0xd3, 0x33, 0x97, },
     { 0x78, 0xee, 0x1f, 0xe1, 0x5d, 0x3c, 0xd7, 0x32, },
@@ -545,7 +546,7 @@ const uint8_t vectors_hsip13_64[64][8] = {
     { 0x3c, 0x12, 0xc4, 0x20, 0x19, 0x14, 0xc5, 0xc1, },
 };
 
-static void test_siphash24_64(void)
+SIMPLE_TEST(siphash24_64)
 {
 	uint8_t key[16];
 	for (uint8_t i = 0; i < 16; i++) {
@@ -556,11 +557,12 @@ static void test_siphash24_64(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash64_t out = siphash24_64(in, i, key);
-	    assert(memcmp(out.bytes, vectors_sip24_64[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_sip24_64[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_siphash24_128(void)
+SIMPLE_TEST(siphash24_128)
 {
 	uint8_t key[16];
 	for (uint8_t i = 0; i < 16; i++) {
@@ -571,11 +573,12 @@ static void test_siphash24_128(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash128_t out = siphash24_128(in, i, key);
-	    assert(memcmp(out.bytes, vectors_sip24_128[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_sip24_128[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_siphash13_64(void)
+SIMPLE_TEST(siphash13_64)
 {
 	uint8_t key[16];
 	for (uint8_t i = 0; i < 16; i++) {
@@ -586,11 +589,12 @@ static void test_siphash13_64(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash64_t out = siphash13_64(in, i, key);
-	    assert(memcmp(out.bytes, vectors_sip13_64[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_sip13_64[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_siphash13_128(void)
+SIMPLE_TEST(siphash13_128)
 {
 	uint8_t key[16];
 	for (uint8_t i = 0; i < 16; i++) {
@@ -601,11 +605,12 @@ static void test_siphash13_128(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash128_t out = siphash13_128(in, i, key);
-	    assert(memcmp(out.bytes, vectors_sip13_128[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_sip13_128[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_halfsiphash24_32(void)
+SIMPLE_TEST(halfsiphash24_32)
 {
 	uint8_t key[8];
 	for (uint8_t i = 0; i < 8; i++) {
@@ -616,11 +621,12 @@ static void test_halfsiphash24_32(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash32_t out = halfsiphash24_32(in, i, key);
-	    assert(memcmp(out.bytes, vectors_hsip24_32[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_hsip24_32[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_halfsiphash24_64(void)
+SIMPLE_TEST(halfsiphash24_64)
 {
 	uint8_t key[8];
 	for (uint8_t i = 0; i < 8; i++) {
@@ -631,11 +637,12 @@ static void test_halfsiphash24_64(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash64_t out = halfsiphash24_64(in, i, key);
-	    assert(memcmp(out.bytes, vectors_hsip24_64[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_hsip24_64[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_halfsiphash13_32(void)
+SIMPLE_TEST(halfsiphash13_32)
 {
 	uint8_t key[8];
 	for (uint8_t i = 0; i < 8; i++) {
@@ -646,11 +653,12 @@ static void test_halfsiphash13_32(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash32_t out = halfsiphash13_32(in, i, key);
-	    assert(memcmp(out.bytes, vectors_hsip13_32[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_hsip13_32[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_halfsiphash13_64(void)
+SIMPLE_TEST(halfsiphash13_64)
 {
 	uint8_t key[8];
 	for (uint8_t i = 0; i < 8; i++) {
@@ -661,11 +669,12 @@ static void test_halfsiphash13_64(void)
 	for (uint8_t i = 0; i < 64; i++) {
             in[i] = i;
 	    hash64_t out = halfsiphash13_64(in, i, key);
-	    assert(memcmp(out.bytes, vectors_hsip13_64[i], sizeof(out)) == 0);
+	    CHECK(memcmp(out.bytes, vectors_hsip13_64[i], sizeof(out)) == 0);
 	}
+	return true;
 }
 
-static void test_murmurhash3_x86_32(void)
+SIMPLE_TEST(murmurhash3_x86_32)
 {
 	uint8_t hashes[256][4];
 	uint8_t in[256] = {0};
@@ -675,10 +684,11 @@ static void test_murmurhash3_x86_32(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash32_t hash = murmurhash3_x86_32(hashes, sizeof(hashes), 0);
-	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB0F57EE3);
+	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB0F57EE3);
+	return true;
 }
 
-static void test_murmurhash3_x86_128(void)
+SIMPLE_TEST(murmurhash3_x86_128)
 {
 	uint8_t hashes[256][16];
 	uint8_t in[256] = {0};
@@ -688,10 +698,11 @@ static void test_murmurhash3_x86_128(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x86_128(hashes, sizeof(hashes), 0);
-	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB3ECE62A);
+	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB3ECE62A);
+	return true;
 }
 
-static void test_murmurhash3_x64_128(void)
+SIMPLE_TEST(murmurhash3_x64_128)
 {
 	uint8_t hashes[256][16];
 	uint8_t in[256] = {0};
@@ -701,7 +712,8 @@ static void test_murmurhash3_x64_128(void)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x64_128(hashes, sizeof(hashes), 0);
-	assert((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0x6384BA69);
+	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0x6384BA69);
+	return true;
 }
 
 #if 0
@@ -757,7 +769,7 @@ static void test_avalanche(void)
 #endif
 
 // TODO copy pasted from random
-static void check(double *numbers, size_t n, double min, double max)
+static bool check_statistics(double *numbers, size_t n, double min, double max)
 {
 	double mean = 0;
 	for (size_t i = 0; i < n; i++) {
@@ -778,82 +790,68 @@ static void check(double *numbers, size_t n, double min, double max)
 	double dev_mean = fabs(target_mean - mean) / target_mean;
 	double dev_stddev = fabs(target_stddev - stddev) / target_stddev;
 
-	printf("  target: mean = %g, stddev = %g\n", target_mean, target_stddev);
-	printf("  actual: mean = %g, stddev = %g\n", mean, stddev);
-	printf("  deviation: mean = %g%%, stddev = %g%%\n", dev_mean, dev_stddev);
+	// printf("  target: mean = %g, stddev = %g\n", target_mean, target_stddev);
+	// printf("  actual: mean = %g, stddev = %g\n", mean, stddev);
+	// printf("  deviation: mean = %g%%, stddev = %g%%\n", dev_mean, dev_stddev);
 
-	assert(dev_mean < 0.001);
-	assert(dev_stddev < 0.02);
+	CHECK(dev_mean < 0.001);
+	CHECK(dev_stddev < 0.02);
+	return true;
 }
 
-static void test_integer_hashes(void)
+SIMPLE_TEST(integer_hashes)
 {
 #define N (32 * 1024 * 1024)
 	double *numbers = calloc(N, sizeof(numbers[0]));
 
-	puts("hash_int32(i)");
+	// puts("hash_int32(i)");
 	for (uint32_t i = 0; i < N; i++) {
 		numbers[i] = hash_int32(i).u32;
 	}
-	check(numbers, N, 0, (double)UINT32_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT32_MAX));
 
-	puts("hash_int64(i)");
+	// puts("hash_int64(i)");
 	for (uint64_t i = 0; i < N; i++) {
 		numbers[i] = hash_int64(i).u64;
 	}
-	check(numbers, N, 0, (double)UINT64_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT64_MAX));
 
-	puts("fibonacci_hash32(i, 24)");
+	// puts("fibonacci_hash32(i, 24)");
 	for (uint32_t i = 0; i < N; i++) {
 		numbers[i] = fibonacci_hash32(i, 24).u32;
 	}
-	check(numbers, N, 0, 0x1.0p24);
+	CHECK(check_statistics(numbers, N, 0, 0x1.0p24));
 
-	puts("fibonacci_hash64(i, 48)");
+	// puts("fibonacci_hash64(i, 48)");
 	for (uint64_t i = 0; i < N; i++) {
 		numbers[i] = fibonacci_hash64(i, 48).u64;
 	}
-	check(numbers, N, 0, 0x1.0p48f);
+	CHECK(check_statistics(numbers, N, 0, 0x1.0p48f));
 
-	puts("hash_combine_int32(i, i + 1)");
+	// puts("hash_combine_int32(i, i + 1)");
 	for (uint32_t i = 0; i < N; i++) {
 		numbers[i] = hash_combine_int32(i, i + 1).u32;
 	}
-	check(numbers, N, 0, (double)UINT32_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT32_MAX));
 
-	puts("hash_combine_int32(i, i)");
+	// puts("hash_combine_int32(i, i)");
 	for (uint32_t i = 0; i < N; i++) {
 		numbers[i] = hash_combine_int32(i, i).u32;
 	}
-	check(numbers, N, 0, (double)UINT32_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT32_MAX));
 
-	puts("hash_combine_int64(i, i + 1)");
+	// puts("hash_combine_int64(i, i + 1)");
 	for (uint64_t i = 0; i < N; i++) {
 		numbers[i] = hash_combine_int64(i, i + 1).u64;
 	}
-	check(numbers, N, 0, (double)UINT64_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT64_MAX));
 
-	puts("hash_combine_int64(i, i)");
+	// puts("hash_combine_int64(i, i)");
 	for (uint64_t i = 0; i < N; i++) {
 		numbers[i] = hash_combine_int64(i, i).u64;
 	}
-	check(numbers, N, 0, (double)UINT64_MAX);
+	CHECK(check_statistics(numbers, N, 0, (double)UINT64_MAX));
 
 	free(numbers);
-}
-
-int main(void)
-{
-	test_siphash24_64();
-	test_siphash24_128();
-	test_siphash13_64();
-	test_siphash13_128();
-	test_halfsiphash24_32();
-	test_halfsiphash24_64();
-	test_halfsiphash13_32();
-	test_halfsiphash13_64();
-	test_murmurhash3_x86_32();
-	test_murmurhash3_x86_128();
-	test_murmurhash3_x64_128();
-	test_integer_hashes();
+	return true;
 }

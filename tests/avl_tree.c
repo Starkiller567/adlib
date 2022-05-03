@@ -6,6 +6,8 @@
 #include <time.h>
 #include "avl_tree.h"
 #include "macros.h"
+#include "random.h"
+#include "testing.h"
 
 static inline int avl_balance(const struct avl_node *node)
 {
@@ -83,42 +85,132 @@ static void avl_destroy_tree(struct avl_root *root)
 	root->node = NULL;
 }
 
-static int num_nodes;
-static int debug_recursive_check_tree(struct avl_node *node)
+static bool check_tree_recursive(struct avl_node *node, int *depth)
 {
 	if (!node) {
-		return 0;
+		*depth = 0;
+		return true;
 	}
-	num_nodes++;
 	if (node->children[AVL_LEFT]) {
-		assert(avl_parent(node->children[AVL_LEFT]) == node);
-		assert(to_thing(node)->key > to_thing(node->children[AVL_LEFT])->key);
+		CHECK(avl_parent(node->children[AVL_LEFT]) == node);
+		CHECK(to_thing(node)->key > to_thing(node->children[AVL_LEFT])->key);
 	}
 	if (node->children[AVL_RIGHT]) {
-		assert(avl_parent(node->children[AVL_RIGHT]) == node);
-		assert(to_thing(node)->key < to_thing(node->children[AVL_RIGHT])->key);
+		CHECK(avl_parent(node->children[AVL_RIGHT]) == node);
+		CHECK(to_thing(node)->key < to_thing(node->children[AVL_RIGHT])->key);
 	}
-	assert(!node->children[AVL_LEFT] || node->children[AVL_LEFT] != node->children[AVL_RIGHT]);
-	assert(node != node->children[AVL_LEFT]);
-	assert(node != node->children[AVL_RIGHT]);
-	int ld = debug_recursive_check_tree(node->children[AVL_LEFT]);
-	int rd = debug_recursive_check_tree(node->children[AVL_RIGHT]);
+	CHECK(!node->children[AVL_LEFT] || node->children[AVL_LEFT] != node->children[AVL_RIGHT]);
+	CHECK(node != node->children[AVL_LEFT]);
+	CHECK(node != node->children[AVL_RIGHT]);
+	int ld, rd;
+	CHECK(check_tree_recursive(node->children[AVL_LEFT], &ld));
+	CHECK(check_tree_recursive(node->children[AVL_RIGHT], &rd));
 	int balance = rd - ld;
-	assert(-1 <= balance && balance <= 1);
-	assert(balance == avl_balance(node));
-	return (rd > ld ? rd : ld) + 1;
+	CHECK(-1 <= balance && balance <= 1);
+	CHECK(balance == avl_balance(node));
+	*depth = (rd > ld ? rd : ld) + 1;
+	return true;
 }
 
-static int debug_check_tree(struct avl_root *root)
+static bool check_tree(struct avl_root *root)
 {
-	num_nodes = 0;
-	return debug_recursive_check_tree(root->node);
+	int depth;
+	return check_tree_recursive(root->node, &depth);
 }
 
-int main(void)
+RANDOM_TEST(insert_find_remove, 2, 0, UINT64_MAX)
 {
-	unsigned int seed = 123456789;
+	const unsigned int N = 200000;
 	struct avl_root root = AVL_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		avl_insert_key(&root, key);
+	}
+	CHECK(check_tree(&root));
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		struct avl_node *node = avl_find(&root, key);
+		CHECK(node && to_thing(node)->key == key);
+	}
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < N; i++) {
+		int key = random_next_u32(&rng);
+		struct avl_node *node = avl_remove_key(&root, key);
+		if (node) {
+			CHECK(to_thing(node)->key == key);
+			free(to_thing(node));
+		}
+		if (i % 1024 == 0) {
+			CHECK(check_tree(&root));
+		}
+	}
+	CHECK(root.node == NULL);
+	return true;
+}
+
+RANDOM_TEST(foreach, 2, 0, UINT64_MAX)
+{
+	struct avl_root root = AVL_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < 200000; i++) {
+		int key = random_next_u32(&rng);
+		avl_insert_key(&root, key);
+	}
+	CHECK(check_tree(&root));
+	struct thing *prev = NULL;
+	avl_foreach(&root, cur) {
+		struct thing *thing = to_thing(cur);
+		if (prev) {
+			CHECK(prev->key < thing->key);
+		}
+		prev = thing;
+	}
+	avl_destroy_tree(&root);
+	return true;
+}
+
+RANDOM_TEST(random_insert_find_remove, 2, 0, UINT64_MAX)
+{
+	struct avl_root root = AVL_EMPTY_ROOT;
+	struct random_state rng;
+	random_state_init(&rng, random);
+	for (unsigned int i = 0; i < 200000; i++) {
+		const int max_key = 1024;
+		{
+			int key = random_next_u32(&rng) % max_key;
+			bool success = avl_insert_key(&root, key);
+			if (!success) {
+				struct avl_node *node = avl_remove_key(&root, key);
+				CHECK(node);
+				free(to_thing(node));
+				success = avl_insert_key(&root, key);
+				CHECK(success);
+			}
+			CHECK(to_thing(avl_find(&root, key))->key == key);
+		}
+		{
+			int key = random_next_u32(&rng) % max_key;
+			struct avl_node *node = avl_find(&root, key);
+			if (node) {
+				avl_remove_node(&root, node);
+				CHECK(!avl_find(&root, key));
+				free(to_thing(node));
+			}
+		}
+
+		if (i % 1024 == 0) {
+			CHECK(check_tree(&root));
+		}
+	}
+	CHECK(check_tree(&root));
+	avl_destroy_tree(&root);
+	return true;
+}
+
 #if 0
 	char buf[128];
 	while (fgets(buf, sizeof(buf), stdin)) {
@@ -141,88 +233,6 @@ int main(void)
 				assert(avl_find(&root, key) == NULL);
 			}
 		}
-		debug_check_tree(&root);
+		assert(check_tree(&root));
 	}
 #endif
-
-#if 1
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		avl_insert_key(&root, key);
-	}
-	debug_check_tree(&root);
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		struct avl_node *node = avl_find(&root, key);
-		assert(node && to_thing(node)->key == key);
-	}
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		struct avl_node *node = avl_remove_key(&root, key);
-		if (node) {
-			assert(to_thing(node)->key == key);
-			free(to_thing(node));
-		}
-		if (i % 1024 == 0) {
-			debug_check_tree(&root);
-		}
-	}
-	assert(root.node == NULL);
-#endif
-
-#if 1
-	srand(seed);
-	for (unsigned int i = 0; i < 200000; i++) {
-		int key = rand();
-		avl_insert_key(&root, key);
-	}
-	debug_check_tree(&root);
-	struct thing *prev = NULL;
-	avl_foreach(&root, cur) {
-		struct thing *thing = to_thing(cur);
-		if (prev) {
-			assert(prev->key < thing->key);
-		}
-		prev = thing;
-	}
-	avl_destroy_tree(&root);
-#endif
-
-#if 1
-	srand(seed);
-	const int max_key = 1024;
-	for (unsigned int i = 0; i < 200000; i++) {
-		{
-			int key = rand() % max_key;
-			bool success = avl_insert_key(&root, key);
-			if (!success) {
-				struct avl_node *node = avl_remove_key(&root, key);
-				assert(node);
-				free(to_thing(node));
-				success = avl_insert_key(&root, key);
-				assert(success);
-			}
-			assert(to_thing(avl_find(&root, key))->key == key);
-		}
-		{
-			int key = rand() % max_key;
-			struct avl_node *node = avl_find(&root, key);
-			if (node) {
-				avl_remove_node(&root, node);
-				assert(!avl_find(&root, key));
-				free(to_thing(node));
-			}
-		}
-
-		if (i % 1024 == 0) {
-			debug_check_tree(&root);
-			// printf("max depth: %d\n", depth);
-			// printf("num nodes: %d\n", num_nodes);
-		}
-	}
-	avl_destroy_tree(&root);
-#endif
-}

@@ -1,24 +1,14 @@
 project(adlib-tests)
 
-set(TESTS
-  array
+set(STANDALONE_TESTS
   array_benchmark
-  avl_tree
-  dbuf
-  dstring
-  dstring_number_conversion
-  hash
   hash_benchmark
-  hashmap
-  hashset
   hashtable_benchmark
-  json
   random
   random_benchmark
-  rb_tree
 )
 
-foreach(TEST IN LISTS TESTS)
+foreach(TEST IN LISTS STANDALONE_TESTS)
   add_executable(${TEST} ${TEST}.c)
   if(${TESTS_USE_SINGLE_HEADERS})
     target_include_directories(${TEST} PRIVATE ${SINGLE_HEADERS_DIR})
@@ -29,14 +19,32 @@ foreach(TEST IN LISTS TESTS)
   add_test(${TEST} ${TEST})
 endforeach()
 
-target_link_libraries(hash m)
 target_link_libraries(random m)
 
-add_executable(tests testing.c utils.c)
+set(TEST_SOURCES
+  array.c
+  avl_tree.c
+  dbuf.c
+  dstring.c
+  dstring_number_conversion.c
+  hash.c
+  hashmap.c
+  hashset.c
+  json.c
+  rb_tree.c
+  utils.c
+)
+
+add_executable(tests testing.c ${TEST_SOURCES})
 if(${TESTS_USE_SINGLE_HEADERS})
   target_include_directories(tests PRIVATE ${SINGLE_HEADERS_DIR})
   add_dependencies(tests single_header_library)
 else()
   target_link_libraries(tests ad-static)
 endif()
-target_link_libraries(tests m)
+
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+
+target_link_libraries(tests Threads::Threads m)

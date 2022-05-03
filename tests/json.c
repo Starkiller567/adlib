@@ -10,6 +10,7 @@
 #include "dstring.h"
 #include "hashtable.h"
 #include "macros.h"
+#include "testing.h"
 
 // TODO put some hash functions into the library
 // https://github.com/PeterScott/murmur3
@@ -655,24 +656,25 @@ static dstr_t json_value_to_string(struct json_value *value)
 	return dstr;
 }
 
-static void test(struct strview json_string)
+static bool test(struct strview json_string)
 {
-	fwrite(json_string.characters, 1, json_string.length, stdout);
+	// fwrite(json_string.characters, 1, json_string.length, stdout);
 	struct json_value *value = json_parse_value(&json_string);
-	assert(value);
+	CHECK(value);
 	dstr_t str = json_value_to_string(value);
-	putchar('\n');
-	puts(str);
+	// putchar('\n');
+	// puts(str);
 	struct strview json_string2 = dstr_view(str);
 	struct json_value *value2 = json_parse_value(&json_string2);
-	assert(value2);
-	assert(json_value_equal(value, value2));
+	CHECK(value2);
+	CHECK(json_value_equal(value, value2));
 	dstr_free(&str);
 	json_value_delete(value);
 	json_value_delete(value2);
+	return true;
 }
 
-int main(int argc, char **argv)
+SIMPLE_TEST(json)
 {
-	test(strview_from_cstr("[\n\t{\n\t\t\"a\": [false, \"a\", -1234.5678e-09],\n\t\t\"b\": null,\n\t\t\"c\": true\n\t}\n]\n"));
+	return test(strview_from_cstr("[\n\t{\n\t\t\"a\": [false, \"a\", -1234.5678e-09],\n\t\t\"b\": null,\n\t\t\"c\": true\n\t}\n]\n"));
 }

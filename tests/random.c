@@ -6,8 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/random.h>
-
 #include "random.h"
+
+// TODO port this to the testing framework
 
 static struct random_state g_random_state;
 

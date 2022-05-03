@@ -1,12 +1,16 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/sysinfo.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <threads.h>
+#include <unistd.h>
 #include "macros.h"
 #include "random.h"
 #include "testing.h"
@@ -36,14 +40,17 @@ struct test {
 		TEST_TYPE_RANGE,
 		TEST_TYPE_RANDOM,
 	} type;
-	atomic_bool failed;
-	bool visited;
+	bool should_succeed;
+	bool need_subprocess;
+	const char *file;
 	const char *name;
 	union {
 		struct simple_test simple_test;
 		struct range_test range_test;
 		struct random_test random_test;
 	};
+	struct test_work *work;
+	size_t num_work;
 };
 
 static struct test *tests;
@@ -63,26 +70,37 @@ static void add_test(struct test test)
 			abort();
 		}
 	}
+	const char *file = strrchr(test.file, '/');
+	if (file) {
+		test.file = file + 1;
+	}
 	tests[num_tests++] = test;
 }
 
-void register_simple_test(const char *name, bool (*f)(void))
+void register_simple_test(const char *file, const char *name,
+			  bool (*f)(void), bool should_succeed, bool need_subprocess)
 {
 	add_test((struct test){
 			.type = TEST_TYPE_SIMPLE,
+			.file = file,
 			.name = name,
+			.should_succeed = should_succeed,
+			.need_subprocess = need_subprocess,
 			.simple_test = (struct simple_test){
 				.f = f,
 			}
 		});
 }
 
-void register_range_test(const char *name, uint64_t start, uint64_t end,
-			 bool (*f)(uint64_t start, uint64_t end))
+void register_range_test(const char *file, const char *name, uint64_t start, uint64_t end,
+			 bool (*f)(uint64_t start, uint64_t end), bool should_succeed, bool need_subprocess)
 {
 	add_test((struct test){
 			.type = TEST_TYPE_RANGE,
+			.file = file,
 			.name = name,
+			.should_succeed = should_succeed,
+			.need_subprocess = need_subprocess,
 			.range_test = (struct range_test){
 				.start = start,
 				.end = end,
@@ -91,12 +109,16 @@ void register_range_test(const char *name, uint64_t start, uint64_t end,
 		});
 }
 
-void register_random_test(const char *name, uint64_t num_values, uint64_t min_value, uint64_t max_value,
-			  bool (*f)(uint64_t random))
+void register_random_test(const char *file, const char *name, uint64_t num_values, uint64_t min_value,
+			  uint64_t max_value, bool (*f)(uint64_t random), bool should_succeed,
+			  bool need_subprocess)
 {
 	add_test((struct test){
 			.type = TEST_TYPE_RANDOM,
+			.file = file,
 			.name = name,
+			.should_succeed = should_succeed,
+			.need_subprocess = need_subprocess,
 			.random_test = (struct random_test){
 				.num_values = num_values,
 				.min_value = min_value,
@@ -113,81 +135,177 @@ struct work {
 
 struct test_work {
 	struct work work;
-	struct test *test;
-	bool success;
+	const struct test *test;
+	bool passed;
+	bool completed;
+	mtx_t mutex;
+	cnd_t cond;
+	union {
+		struct {
+			uint64_t start;
+			uint64_t end;
+		} range;
+		struct {
+			uint64_t num_values;
+			uint64_t failed_value;
+		} random;
+	};
 };
 
-struct range_test_work {
-	struct test_work test_work;
-	uint64_t start;
-	uint64_t end;
-};
-
-struct random_test_work {
-	struct test_work test_work;
-	uint64_t num_values;
-	uint64_t failed_value;
-};
-
-static void run_simple_test(struct work *_work)
+static bool run_simple_test(bool (*f)(void))
 {
-	struct test_work *work = container_of(_work, struct test_work, work);
-	work->success = work->test->simple_test.f();
-	if (!work->success) {
-		work->test->failed = true;
-	}
+	return f();
 }
 
-static void run_range_test(struct work *_work)
+static bool run_range_test(bool (*f)(uint64_t start, uint64_t end), uint64_t start, uint64_t end)
 {
-	struct test_work *work = container_of(_work, struct test_work, work);
-	struct range_test_work *range_work = container_of(work, struct range_test_work, test_work);
-	work->success = work->test->range_test.f(range_work->start, range_work->end);
-	if (!work->success) {
-		work->test->failed = true;
-	}
+	return f(start, end);
 }
 
-static void run_random_test(struct work *_work)
+static bool run_random_test(bool (*f)(uint64_t random), uint64_t num_values, uint64_t min_value,
+			    uint64_t max_value, uint64_t *failed_value)
 {
-	struct test_work *work = container_of(_work, struct test_work, work);
-	struct random_test_work *random_work = container_of(work, struct random_test_work, test_work);
-	uint64_t min_value = work->test->random_test.min_value;
-	uint64_t max_value = work->test->random_test.max_value;
 	struct random_state rng;
-	random_state_init(&rng, random_work->num_values ^ global_seed);
-	for (uint64_t i = 0; i < random_work->num_values; i++) {
+	random_state_init(&rng, num_values ^ global_seed);
+	for (uint64_t i = 0; i < num_values; i++) {
 		uint64_t r = random_next_u64_in_range(&rng, min_value, max_value);
-		if (!work->test->random_test.f(r)) {
-			work->success = false;
-			work->test->failed = true;
-			random_work->failed_value = r;
-			return;
+		if (!f(r)) {
+			*failed_value = r;
+			return false;
 		}
 	}
-	work->success = true;
+	return true;
 }
 
-struct queue {
+static bool run_test_helper(struct test_work *work)
+{
+	const struct test *test = work->test;
+	bool success;
+	switch (work->test->type) {
+	case TEST_TYPE_SIMPLE:
+		success = run_simple_test(test->simple_test.f);
+		break;
+	case TEST_TYPE_RANGE:
+		success = run_range_test(test->range_test.f, work->range.start, work->range.end);
+		break;
+	case TEST_TYPE_RANDOM:
+		success = run_random_test(test->random_test.f, work->random.num_values,
+					  test->random_test.min_value, test->random_test.max_value,
+					  &work->random.failed_value);
+		break;
+	}
+	return success;
+}
+
+static void run_test(struct work *_work)
+{
+	struct test_work *work = container_of(_work, struct test_work, work);
+	const struct test *test = work->test;
+
+	pid_t pid = 0;
+	if (test->need_subprocess) {
+		pid = fork();
+		if (pid == -1) {
+			fputs("fork failed\n", stderr);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	bool success;
+	if (pid == 0) {
+		success = run_test_helper(work);
+		if (test->need_subprocess) {
+			exit(success ? EXIT_SUCCESS : EXIT_FAILURE);
+		}
+	} else {
+		int status;
+		if (waitpid(pid, &status, 0) != pid) {
+			fputs("waitpid failed\n", stderr);
+			exit(EXIT_FAILURE);
+		}
+		success = status == EXIT_SUCCESS;
+	}
+	work->passed = test->should_succeed ? success : !success;
+
+	// TODO error checking
+	mtx_lock(&work->mutex);
+	work->completed = true;
+	cnd_signal(&work->cond);
+	mtx_unlock(&work->mutex);
+}
+
+struct work_queue {
 	struct work *first;
 	struct work **pnext;
+	mtx_t mutex;
+	cnd_t cond;
 };
 
-static void queue_work(struct queue *queue, struct work *work)
+static void work_queue_init(struct work_queue *queue)
 {
+	queue->first = NULL;
+	queue->pnext = &queue->first;
+	if (mtx_init(&queue->mutex, mtx_plain) != thrd_success) {
+		fputs("mtx_init failed\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+	if (cnd_init(&queue->cond) != thrd_success) {
+		fputs("cnd_init failed\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void work_queue_push_work(struct work_queue *queue, struct work *work)
+{
+	mtx_lock(&queue->mutex); // TODO error checking
 	*queue->pnext = work;
-	queue->pnext = &(*queue->pnext)->next;
+	queue->pnext = &work->next;
+	cnd_signal(&queue->cond);
+	mtx_unlock(&queue->mutex);
 }
 
-static void queue_simple_test_work(struct queue *queue, struct test *test, unsigned int nthreads)
+static struct work *work_queue_pop_work(struct work_queue *queue)
 {
-	struct test_work *test_work = calloc(1, sizeof(*test_work));
-	test_work->test = test;
-	test_work->work.run = run_simple_test;
-	queue_work(queue, &test_work->work);
+	mtx_lock(&queue->mutex); // TODO error checking
+	while (!queue->first) {
+		cnd_wait(&queue->cond, &queue->mutex);
+	}
+	struct work *work = queue->first;
+	queue->first = work->next;
+	if (!queue->first) {
+		queue->pnext = &queue->first;
+	}
+	mtx_unlock(&queue->mutex);
+	return work;
 }
 
-static void queue_range_test_work(struct queue *queue, struct test *test, unsigned int nthreads)
+static struct test_work *test_add_work(struct test *test, size_t n)
+{
+	struct test_work *test_work = calloc(n, sizeof(*test_work));
+	test->work = test_work;
+	test->num_work = n;
+	for (size_t i = 0; i < n; i++) {
+		test_work[i].test = test;
+		test_work[i].work.run = run_test;
+		if (mtx_init(&test_work[i].mutex, mtx_plain) != thrd_success) {
+			fputs("mtx_init failed\n", stderr);
+			exit(EXIT_FAILURE);
+		}
+		if (cnd_init(&test_work[i].cond) != thrd_success) {
+			fputs("cnd_init failed\n", stderr);
+			exit(EXIT_FAILURE);
+		}
+	}
+	return test_work;
+}
+
+static void queue_simple_test_work(struct work_queue *queue, struct test *test, unsigned int nthreads)
+{
+	struct test_work *test_work = test_add_work(test, 1);
+	work_queue_push_work(queue, &test_work->work);
+}
+
+static void queue_range_test_work(struct work_queue *queue, struct test *test, unsigned int nthreads)
 {
 	uint64_t start = test->range_test.start;
 	uint64_t end = test->range_test.end;
@@ -198,23 +316,21 @@ static void queue_range_test_work(struct queue *queue, struct test *test, unsign
 	uint64_t per_thread = n / nthreads;
 	uint64_t rem = n % nthreads + 1;
 	uint64_t cur = start - 1;
+	struct test_work *test_work = test_add_work(test, nthreads);
 	for (unsigned int t = 0; t < nthreads; t++) {
-		struct range_test_work *range_test_work = calloc(1, sizeof(*range_test_work));
-		range_test_work->test_work.test = test;
-		range_test_work->test_work.work.run = run_range_test;
-		range_test_work->start = cur + 1;
+		test_work[t].range.start = cur + 1;
 		cur += per_thread;
 		if (rem) {
 			cur++;
 			rem--;
 		}
-		range_test_work->end = cur;
-		queue_work(queue, &range_test_work->test_work.work);
+		test_work[t].range.end = cur;
+		work_queue_push_work(queue, &test_work[t].work);
 	}
 	assert(cur == end);
 }
 
-static void queue_random_test_work(struct queue *queue, struct test *test, unsigned int nthreads)
+static void queue_random_test_work(struct work_queue *queue, struct test *test, unsigned int nthreads)
 {
 	uint64_t n = test->random_test.num_values;
 	if (nthreads > n) {
@@ -223,22 +339,20 @@ static void queue_random_test_work(struct queue *queue, struct test *test, unsig
 	uint64_t per_thread = n / nthreads;
 	uint64_t rem = n % nthreads;
 	uint64_t total = 0;
+	struct test_work *test_work = test_add_work(test, nthreads);
 	for (unsigned int t = 0; t < nthreads; t++) {
-		struct random_test_work *random_test_work = calloc(1, sizeof(*random_test_work));
-		random_test_work->test_work.test = test;
-		random_test_work->test_work.work.run = run_random_test;
-		random_test_work->num_values = per_thread;
+		test_work[t].random.num_values = per_thread;
 		if (rem) {
-			random_test_work->num_values++;
+			test_work[t].random.num_values++;
 			rem--;
 		}
-		total += random_test_work->num_values;
-		queue_work(queue, &random_test_work->test_work.work);
+		total += test_work[t].random.num_values;
+		work_queue_push_work(queue, &test_work[t].work);
 	}
 	assert(total == n);
 }
 
-static void queue_test_work(struct queue *queue, struct test *test, unsigned int nthreads)
+static void queue_test_work(struct work_queue *queue, struct test *test, unsigned int nthreads)
 {
 	switch (test->type) {
 	case TEST_TYPE_SIMPLE:
@@ -253,97 +367,141 @@ static void queue_test_work(struct queue *queue, struct test *test, unsigned int
 	}
 }
 
+static struct work poison_work;
+
 static int do_work(void *arg)
 {
-	struct work **queue = arg;
+	struct work_queue *queue = arg;
 	for (;;) {
-		struct work *work;
-		struct work *next;
-		do {
-			work = atomic_load(queue);
-			if (!work) {
-				return 0;
-			}
-			next = work->next;
-		} while (!atomic_compare_exchange_strong(queue, &work, next));
+		struct work *work = work_queue_pop_work(queue);
+		if (work == &poison_work) {
+			work_queue_push_work(queue, work);
+			break;
+		}
 		work->run(work);
 	}
 	return 0;
 }
 
-static void run_tests(struct queue queue, unsigned int nthreads)
+struct thread_pool {
+	thrd_t *threads;
+	size_t nthreads;
+	struct work_queue *queue;
+};
+
+static void thread_pool_start(struct thread_pool *pool, struct work_queue *queue, size_t nthreads)
 {
 	assert(nthreads > 0);
-	thrd_t *threads = alloca((nthreads - 1) * sizeof(threads[0]));
-	for (unsigned int t = 0; t < nthreads - 1; t++) {
-		if (thrd_create(&threads[t], do_work, &queue) != thrd_success) {
+	thrd_t *threads = malloc(nthreads * sizeof(threads[0]));
+	for (unsigned int t = 0; t < nthreads; t++) {
+		if (thrd_create(&threads[t], do_work, queue) != thrd_success) {
 			fputs("thrd_create failed\n", stderr);
 			exit(EXIT_FAILURE);
 		}
 	}
-	do_work(&queue);
-	for (unsigned int t = 0; t < nthreads - 1; t++) {
-		if (thrd_join(threads[t], NULL) != thrd_success) {
+	pool->threads = threads;
+	pool->nthreads = nthreads;
+	pool->queue = queue;
+}
+
+static void thread_pool_stop(struct thread_pool *pool)
+{
+	work_queue_push_work(pool->queue, &poison_work);
+	for (unsigned int t = 0; t < pool->nthreads; t++) {
+		if (thrd_join(pool->threads[t], NULL) != thrd_success) {
 			fputs("thrd_join failed\n", stderr);
 			exit(EXIT_FAILURE);
 		}
 	}
+	free(pool->threads);
+	memset(pool, 0, sizeof(*pool));
 }
 
-static void print_results(struct queue queue)
+static void print_results(void)
 {
-	for (struct work *work = queue.first; work; work = work->next) {
-		struct test_work *test_work = container_of(work, struct test_work, work);
-		struct test *test = test_work->test;
-		if (test->visited) {
+#define GREEN "\033[32m"
+#define RED "\033[31m"
+#define RESET "\033[0m"
+	const char *passed = GREEN "passed" RESET;
+	const char *failed = RED "failed" RESET;
+	size_t num_passed = 0;
+	size_t num_failed = 0;
+	for (size_t i = 0; i < num_tests; i++) {
+		struct test *test = &tests[i];
+		if (test->num_work == 0) {
 			continue;
 		}
-		const char *passed = "\033[32mpassed\033[0m";
-		const char *failed = "\033[31mfailed\033[0m";
-		if (!test->failed) {
-			printf("[%s] %s\n", test->name, passed);
-			test->visited = true;
-			continue;
+		bool test_failed = false;
+		for (size_t j = 0; j < test->num_work; j++) {
+			struct test_work *work = &test->work[j];
+			// TODO error checking
+			mtx_lock(&work->mutex);
+			while (!work->completed) {
+				cnd_wait(&work->cond, &work->mutex);
+			}
+			mtx_unlock(&work->mutex);
+
+			if (work->passed) {
+				continue;
+			}
+			test_failed = true;
+			printf("[%s/%s] %s", test->file, test->name, work->passed ? passed : failed);
+			switch (test->type) {
+			case TEST_TYPE_SIMPLE:
+				break;
+			case TEST_TYPE_RANGE: {
+				printf(" (range: [%" PRIu64 ", %" PRIu64 "])",
+				       work->range.start, work->range.end);
+				break;
+			}
+			case TEST_TYPE_RANDOM: {
+				printf("(value: %" PRIu64 ")", work->random.failed_value);
+				break;
+			}
+			}
+			putchar('\n');
 		}
-		printf("[%s] %s", test->name, test_work->success ? passed : failed);
-		switch (test->type) {
-		case TEST_TYPE_SIMPLE:
-			assert(!test_work->success);
-			break;
-		case TEST_TYPE_RANGE: {
-			struct range_test_work *range_test_work = container_of(test_work,
-									       struct range_test_work,
-									       test_work);
-			printf(" (range: [%" PRIu64 ", %" PRIu64 "])",
-			       range_test_work->start, range_test_work->end);
-			break;
+		if (test_failed) {
+			num_failed++;
+		} else {
+			num_passed++;
+			printf("[%s/%s] %s\n", test->file, test->name, passed);
 		}
-		case TEST_TYPE_RANDOM: {
-			struct random_test_work *random_test_work = container_of(test_work,
-										 struct random_test_work,
-										 test_work);
-			printf("(value: %" PRIu64 ")", random_test_work->failed_value);
-			break;
-		}
-		}
-		putchar('\n');
 	}
+	printf("Summary: %s%zu/%zu failed\n" RESET,
+	       num_failed == 0 ? GREEN : RED, num_failed, num_failed + num_passed);
+}
+
+NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest)
+{
+	raise(SIGSEGV);
+	return true;
+}
+
+NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest2)
+{
+	return false;
 }
 
 int main(int argc, char **argv)
 {
 	unsigned int nthreads = get_nprocs();
 
-	struct queue queue = {
-		.first = NULL,
-		.pnext = &queue.first,
-	};
+	struct work_queue queue;
+	work_queue_init(&queue);
+
 	for (size_t i = 0; i < num_tests; i++) {
-		if (argc > 1 && !strstr(tests[i].name, argv[1])) {
+		if (argc > 1 && !strstr(tests[i].file, argv[1]) && !strstr(tests[i].name, argv[1])) {
 			continue;
 		}
 		queue_test_work(&queue, &tests[i], nthreads);
 	}
-	run_tests(queue, nthreads);
-	print_results(queue);
+	struct thread_pool thread_pool;
+	thread_pool_start(&thread_pool, &queue, nthreads);
+	print_results();
+	thread_pool_stop(&thread_pool);
+	for (size_t i = 0; i < num_tests; i++) {
+		free(tests[i].work);
+	}
+	free(tests);
 }

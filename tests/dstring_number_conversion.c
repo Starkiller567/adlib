@@ -6,8 +6,9 @@
 #include <dstring.h>
 #include <string.h>
 #include "random.h"
+#include "testing.h"
 
-static bool test_from_number_binary(uint64_t x)
+static bool check_from_number_binary(uint64_t x)
 {
 	// printf doesn't support binary yet...
 	dstr_t dstr = dstr_from_number((uint64_t)x, DSTR_FMT_BINARY);
@@ -76,12 +77,12 @@ static bool test_from_number_binary(uint64_t x)
 	return true;
 }
 
-static bool test_from_number(uint64_t x)
+static bool check_from_number(uint64_t x)
 {
 	uint32_t u32 = x;
+	int32_t  s32 = x;
 	uint64_t u64 = x;
-	int32_t s32 = x;
-	int64_t s64 = x;
+	int64_t  s64 = x;
 	char buf[4096];
 	sprintf(buf,
 		"x" // dummy for strtok
@@ -121,7 +122,8 @@ static bool test_from_number(uint64_t x)
 		" %016" PRIx64,
 		u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32,
 		u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64);
-	strtok(buf, " ");
+	char *save_ptr = NULL;
+	strtok_r(buf, " ", &save_ptr);
 
 	const struct {
 		bool is_64bit;
@@ -178,116 +180,111 @@ static bool test_from_number(uint64_t x)
 				dstr = dstr_from_number(u32, tests[i].flags);
 			}
 		}
-		char *reference = strtok(NULL, " ");
+		char *reference = strtok_r(NULL, " ", &save_ptr);
 		assert(reference);
 		if (!dstr_equal_cstr(dstr, reference)) {
-			printf("[%zu] %s != %s (%d %d %u)\n", i + 1, dstr, reference,
-			       tests[i].is_64bit, tests[i].is_signed, tests[i].flags);
+			unsigned long long ull = tests[i].is_64bit ? u64 : u32;
+			long long ll = tests[i].is_64bit ? s64 : s32;
+			printf("[%zu] %s != %s (%llu %lld %d %d %u)\n", i + 1, dstr, reference,
+			       ull, ll, tests[i].is_64bit, tests[i].is_signed, tests[i].flags);
 			return false;
 		}
 		dstr_free(&dstr);
 	}
-	assert(!strtok(NULL, " "));
-	return test_from_number_binary(x);
+	assert(!strtok_r(NULL, " ", &save_ptr));
+	return check_from_number_binary(x);
 }
 
-static void test_from_number_range(uint64_t start, uint64_t end)
+RANGE_TEST(from_number_range, 0, 1u << 22)
 {
-	for (uint64_t i = start; i <= end && i > start; i++) {
-		assert(test_from_number(i));
+	for (uint64_t i = start; i <= end; i++) {
+		if (!check_from_number(i)) {
+			return false;
+		}
 	}
+	return true;
 }
 
-static void test_from_number_random(uint64_t n)
+RANDOM_TEST(from_number_random, 1u << 22, 1u << 22, UINT64_MAX)
 {
-	struct random_state rng;
-	random_state_init(&rng, n);
-	for (uint64_t i = 0; i < n; i++) {
-		assert(test_from_number(random_next_u64(&rng)));
-	}
+	return check_from_number(random);
 }
 
-int main(void)
-{
-	// TODO test smaller types and edge cases
-	// TODO parallelize
-	test_from_number_range(0, 1u << 22);
-	test_from_number_random(1u << 22);
-
-	// TODO test these
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_int(-1, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_int(0, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_int(1, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_uint(0, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_uint(10, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_DEFAULT));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_2));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_2));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_2));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_2));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_2));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_2));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_2));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_2));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_8));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_8));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_8));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_8));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_8));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_8));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_8));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_8));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_16));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_16));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_16));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_16));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_16));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_16));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_16));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_16));
-	// puts("");
-	// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(-1, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(0, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(1, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(0, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(10, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
-	// puts("");
-	// puts(dstr_from_number((char)-1, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_number((unsigned char)-1, DSTR_FMT_DEFAULT));
-	// puts(dstr_from_number((signed char)-1, DSTR_FMT_DEFAULT));
-}
+// TODO test smaller types and edge cases
+// TODO parallelize
+// TODO test these
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_DEFAULT));
+// puts(dstr_from_int(-1, DSTR_FMT_DEFAULT));
+// puts(dstr_from_int(0, DSTR_FMT_DEFAULT));
+// puts(dstr_from_int(1, DSTR_FMT_DEFAULT));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_DEFAULT));
+// puts(dstr_from_uint(0, DSTR_FMT_DEFAULT));
+// puts(dstr_from_uint(10, DSTR_FMT_DEFAULT));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_DEFAULT));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_10 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_2));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_2));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_2));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_2));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_2));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_2));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_2));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_2));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_2 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_8));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_8));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_8));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_8));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_8));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_8));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_8));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_8));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_8 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_16));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_16));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_16));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_16));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_16));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_16));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_16));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_16));
+// puts("");
+// puts(dstr_from_int(INT_MIN, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(-1, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(0, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(1, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_int(INT_MAX, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(0, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(10, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts(dstr_from_uint(UINT_MAX, DSTR_FMT_BASE_16 | DSTR_FMT_LEADING_ZEROS | DSTR_FMT_SIGN_ALWAYS));
+// puts("");
+// puts(dstr_from_number((char)-1, DSTR_FMT_DEFAULT));
+// puts(dstr_from_number((unsigned char)-1, DSTR_FMT_DEFAULT));
+// puts(dstr_from_number((signed char)-1, DSTR_FMT_DEFAULT));
