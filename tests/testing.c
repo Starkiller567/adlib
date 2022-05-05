@@ -40,6 +40,7 @@ struct test {
 		TEST_TYPE_RANGE,
 		TEST_TYPE_RANDOM,
 	} type;
+	bool enabled;
 	bool should_succeed;
 	bool need_subprocess;
 	const char *file;
@@ -421,25 +422,25 @@ static void print_results(void)
 {
 #define GREEN "\033[32m"
 #define RED "\033[31m"
+#define CLEAR_LINE "\033[2K\r"
 #define RESET "\033[0m"
 	const char *passed = GREEN "passed" RESET;
 	const char *failed = RED "failed" RESET;
-	size_t num_passed = 0;
 	size_t num_failed = 0;
 	for (size_t i = 0; i < num_tests; i++) {
 		struct test *test = &tests[i];
-		if (test->num_work == 0) {
-			continue;
-		}
 		bool test_failed = false;
 		for (size_t j = 0; j < test->num_work; j++) {
 			struct test_work *work = &test->work[j];
+			fprintf(stderr, "%zu/%zu", i, num_tests);
 			// TODO error checking
 			mtx_lock(&work->mutex);
 			while (!work->completed) {
 				cnd_wait(&work->cond, &work->mutex);
 			}
 			mtx_unlock(&work->mutex);
+
+			fputs(CLEAR_LINE, stderr);
 
 			if (work->passed) {
 				continue;
@@ -464,12 +465,11 @@ static void print_results(void)
 		if (test_failed) {
 			num_failed++;
 		} else {
-			num_passed++;
 			printf("[%s/%s] %s\n", test->file, test->name, passed);
 		}
 	}
 	printf("Summary: %s%zu/%zu failed\n" RESET,
-	       num_failed == 0 ? GREEN : RED, num_failed, num_failed + num_passed);
+	       num_failed == 0 ? GREEN : RED, num_failed, num_tests);
 }
 
 NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest)
@@ -483,19 +483,93 @@ NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest2)
 	return false;
 }
 
+static int compare_tests(const void *_a, const void *_b)
+{
+	const struct test *a = _a;
+	const struct test *b = _b;
+	if (a->enabled && !b->enabled) {
+		return -1;
+	}
+	if (!a->enabled && b->enabled) {
+		return 1;
+	}
+	if (!a->enabled && !b->enabled) {
+		return 0; // whatever
+	}
+	int r = strcmp(a->file, b->file);
+	if (r != 0) {
+		return r;
+	}
+	return strcmp(a->name, b->name); // TODO maybe sort by order in file instead (using __COUNTER__)?
+}
+
 int main(int argc, char **argv)
 {
-	unsigned int nthreads = get_nprocs();
+	unsigned int nthreads = 0;
+	const char *file_substr = NULL;
+	const char *file_exact = NULL;
+	const char *name_substr = NULL;
+	const char *name_exact = NULL;
+	for (;;) {
+		int rv = getopt(argc, argv, "j:f:F:n:N:");
+		if (rv == -1) {
+			break;
+		}
+		switch (rv) {
+		case '?':
+			fprintf(stderr, "Usage: %s TODO\n", argv[0]);
+			return 1;
+		case 'j':
+			nthreads = atoi(optarg);
+			break;
+		case 'f':
+			file_substr = optarg;
+			break;
+		case 'F':
+			file_exact = optarg;
+			break;
+		case 'n':
+			name_substr = optarg;
+			break;
+		case 'N':
+			name_exact = optarg;
+			break;
+		}
+	}
+	argv += optind;
+	argc -= optind;
+
+	if (nthreads == 0) {
+		nthreads = get_nprocs();
+	}
 
 	struct work_queue queue;
 	work_queue_init(&queue);
 
+	size_t num_enabled = 0;
 	for (size_t i = 0; i < num_tests; i++) {
-		if (argc > 1 && !strstr(tests[i].file, argv[1]) && !strstr(tests[i].name, argv[1])) {
+		tests[i].enabled = false;
+		if (file_substr && !strstr(tests[i].file, file_substr)) {
 			continue;
 		}
+		if (file_exact && strcmp(tests[i].file, file_exact) != 0) {
+			continue;
+		}
+		if (name_substr && !strstr(tests[i].name, name_substr)) {
+			continue;
+		}
+		if (name_exact && strcmp(tests[i].name, name_exact) != 0) {
+			continue;
+		}
+		tests[i].enabled = true;
+		num_enabled++;
+	}
+	qsort(tests, num_tests, sizeof(tests[0]), compare_tests);
+	num_tests = num_enabled;
+	for (size_t i = 0; i < num_tests; i++) {
 		queue_test_work(&queue, &tests[i], nthreads);
 	}
+
 	struct thread_pool thread_pool;
 	thread_pool_start(&thread_pool, &queue, nthreads);
 	print_results();
