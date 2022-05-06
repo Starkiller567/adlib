@@ -6,16 +6,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/random.h>
 #include <sys/sysinfo.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <threads.h>
 #include <unistd.h>
+#include "compiler.h"
 #include "macros.h"
 #include "random.h"
 #include "testing.h"
 
-static uint64_t global_seed = 0xdeadbeef;
+static uint64_t global_seed = 0;
 
 struct simple_test {
 	bool (*f)(void);
@@ -148,6 +150,7 @@ struct test_work {
 		} range;
 		struct {
 			uint64_t num_values;
+			uint64_t seed;
 			uint64_t failed_value;
 		} random;
 	};
@@ -163,11 +166,12 @@ static bool run_range_test(bool (*f)(uint64_t start, uint64_t end), uint64_t sta
 	return f(start, end);
 }
 
-static bool run_random_test(bool (*f)(uint64_t random), uint64_t num_values, uint64_t min_value,
-			    uint64_t max_value, uint64_t *failed_value)
+static bool run_random_test(bool (*f)(uint64_t random), uint64_t num_values, uint64_t seed,
+			    uint64_t min_value, uint64_t max_value, uint64_t *failed_value)
 {
 	struct random_state rng;
-	random_state_init(&rng, num_values ^ global_seed);
+	random_state_init(&rng, seed);
+
 	for (uint64_t i = 0; i < num_values; i++) {
 		uint64_t r = random_next_u64_in_range(&rng, min_value, max_value);
 		if (!f(r)) {
@@ -190,7 +194,7 @@ static bool run_test_helper(struct test_work *work)
 		success = run_range_test(test->range_test.f, work->range.start, work->range.end);
 		break;
 	case TEST_TYPE_RANDOM:
-		success = run_random_test(test->random_test.f, work->random.num_values,
+		success = run_random_test(test->random_test.f, work->random.num_values, work->random.seed,
 					  test->random_test.min_value, test->random_test.max_value,
 					  &work->random.failed_value);
 		break;
@@ -331,6 +335,14 @@ static void queue_range_test_work(struct work_queue *queue, struct test *test, u
 	assert(cur == end);
 }
 
+static uint64_t splitmix64(uint64_t *x)
+{
+	uint64_t z = (*x += 0x9e3779b97f4a7c15);
+	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+	return z ^ (z >> 31);
+}
+
 static void queue_random_test_work(struct work_queue *queue, struct test *test, unsigned int nthreads)
 {
 	uint64_t n = test->random_test.num_values;
@@ -348,6 +360,7 @@ static void queue_random_test_work(struct work_queue *queue, struct test *test, 
 			rem--;
 		}
 		total += test_work[t].random.num_values;
+		test_work[t].random.seed = splitmix64(&global_seed);
 		work_queue_push_work(queue, &test_work[t].work);
 	}
 	assert(total == n);
@@ -472,16 +485,16 @@ static void print_results(void)
 	       num_failed == 0 ? GREEN : RED, num_failed, num_tests);
 }
 
-NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest)
-{
-	raise(SIGSEGV);
-	return true;
-}
+// NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest)
+// {
+// 	raise(SIGABRT);
+// 	return true;
+// }
 
-NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest2)
-{
-	return false;
-}
+// NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest2)
+// {
+// 	return false;
+// }
 
 static int compare_tests(const void *_a, const void *_b)
 {
@@ -506,12 +519,18 @@ static int compare_tests(const void *_a, const void *_b)
 int main(int argc, char **argv)
 {
 	unsigned int nthreads = 0;
-	const char *file_substr = NULL;
-	const char *file_exact = NULL;
-	const char *name_substr = NULL;
-	const char *name_exact = NULL;
+	const char *accept_file_substr = NULL;
+	const char *accept_file_exact = NULL;
+	const char *accept_name_substr = NULL;
+	const char *accept_name_exact = NULL;
+	const char *reject_file_substr = NULL;
+	const char *reject_file_exact = NULL;
+	const char *reject_name_substr = NULL;
+	const char *reject_name_exact = NULL;
+	bool seed_initialized = false;
+	bool reject = false;
 	for (;;) {
-		int rv = getopt(argc, argv, "j:f:F:n:N:");
+		int rv = getopt(argc, argv, "j:f:F:t:T:s:n");
 		if (rv == -1) {
 			break;
 		}
@@ -522,18 +541,44 @@ int main(int argc, char **argv)
 		case 'j':
 			nthreads = atoi(optarg);
 			break;
+		case 'n':
+			reject = true;
+			break;
 		case 'f':
-			file_substr = optarg;
+			if (reject) {
+				reject_file_substr = optarg;
+			} else {
+				accept_file_substr = optarg;
+			}
 			break;
 		case 'F':
-			file_exact = optarg;
+			if (reject) {
+				reject_file_exact = optarg;
+			} else {
+				accept_file_exact = optarg;
+			}
 			break;
-		case 'n':
-			name_substr = optarg;
+		case 't':
+			if (reject) {
+				reject_name_substr = optarg;
+			} else {
+				accept_name_substr = optarg;
+			}
 			break;
-		case 'N':
-			name_exact = optarg;
+		case 'T':
+			if (reject) {
+				reject_name_exact = optarg;
+			} else {
+				accept_name_exact = optarg;
+			}
 			break;
+		case 's':
+			global_seed = atoi(optarg);
+			seed_initialized = true;
+			break;
+		}
+		if (rv != 'n') {
+			reject = false;
 		}
 	}
 	argv += optind;
@@ -543,22 +588,41 @@ int main(int argc, char **argv)
 		nthreads = get_nprocs();
 	}
 
+	if (!seed_initialized) {
+		if (getrandom(&global_seed, sizeof(global_seed), 0) == -1) {
+			perror("getrandom failed");
+			abort();
+		}
+	}
+
 	struct work_queue queue;
 	work_queue_init(&queue);
 
 	size_t num_enabled = 0;
 	for (size_t i = 0; i < num_tests; i++) {
 		tests[i].enabled = false;
-		if (file_substr && !strstr(tests[i].file, file_substr)) {
+		if (accept_file_substr && !strstr(tests[i].file, accept_file_substr)) {
 			continue;
 		}
-		if (file_exact && strcmp(tests[i].file, file_exact) != 0) {
+		if (accept_file_exact && strcmp(tests[i].file, accept_file_exact) != 0) {
 			continue;
 		}
-		if (name_substr && !strstr(tests[i].name, name_substr)) {
+		if (accept_name_substr && !strstr(tests[i].name, accept_name_substr)) {
 			continue;
 		}
-		if (name_exact && strcmp(tests[i].name, name_exact) != 0) {
+		if (accept_name_exact && strcmp(tests[i].name, accept_name_exact) != 0) {
+			continue;
+		}
+		if (reject_file_substr && strstr(tests[i].file, reject_file_substr)) {
+			continue;
+		}
+		if (reject_file_exact && strcmp(tests[i].file, reject_file_exact) == 0) {
+			continue;
+		}
+		if (reject_name_substr && strstr(tests[i].name, reject_name_substr)) {
+			continue;
+		}
+		if (reject_name_exact && strcmp(tests[i].name, reject_name_exact) == 0) {
 			continue;
 		}
 		tests[i].enabled = true;

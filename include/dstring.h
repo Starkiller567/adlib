@@ -24,6 +24,7 @@
 // TODO dstr_append/insert/replace_number..., join/concat/append with varargs, to_upper/lower?, casecmp?
 // TODO add 'restrict' in the appropriate places?
 //      (since currently many dstr functions implicitly disallow aliased arguments)
+// TODO harden some functions with builtin_object_size?
 
 #include <stdarg.h> // va_list
 #include <stdbool.h> // bool

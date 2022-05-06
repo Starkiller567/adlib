@@ -674,6 +674,8 @@ SIMPLE_TEST(halfsiphash13_64)
 	return true;
 }
 
+#define CHECK_HASH32(hash, expected) CHECK(((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | ((uint32_t)hash.bytes[3] << 24)) == (expected))
+
 SIMPLE_TEST(murmurhash3_x86_32)
 {
 	uint8_t hashes[256][4];
@@ -684,7 +686,7 @@ SIMPLE_TEST(murmurhash3_x86_32)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash32_t hash = murmurhash3_x86_32(hashes, sizeof(hashes), 0);
-	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB0F57EE3);
+	CHECK_HASH32(hash, 0xB0F57EE3);
 	return true;
 }
 
@@ -698,7 +700,7 @@ SIMPLE_TEST(murmurhash3_x86_128)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x86_128(hashes, sizeof(hashes), 0);
-	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0xB3ECE62A);
+	CHECK_HASH32(hash, 0xB3ECE62A);
 	return true;
 }
 
@@ -712,7 +714,7 @@ SIMPLE_TEST(murmurhash3_x64_128)
 		memcpy(hashes[i], hash.bytes, sizeof(hash));
 	}
 	hash128_t hash = murmurhash3_x64_128(hashes, sizeof(hashes), 0);
-	CHECK((uint32_t)((hash.bytes[0] << 0) | (hash.bytes[1] << 8) | (hash.bytes[2] << 16) | (hash.bytes[3] << 24)) == 0x6384BA69);
+	CHECK_HASH32(hash, 0x6384BA69);
 	return true;
 }
 

@@ -43,6 +43,7 @@
 // Alignment: The first array element is aligned to 8/16 bytes on 32/64-bit architectures (2*sizeof(size_t))
 
 // TODO array_set_all, array_addn_repeat, array_at, array_map, array_filter, array_byte_size, array_copy_to/from
+// TODO harden some functions with builtin_object_size?
 
 #ifndef __ARRAY_INCLUDE__
 #define __ARRAY_INCLUDE__
@@ -586,26 +587,27 @@ static inline _attr_nonnull(1) _attr_unused void *_arr_pop_and_return_pointer(vo
 
 #define _arr_fori_reverse(a, itername) for (size_t (itername) = array_length(a); (itername)-- > 0;)
 
+#define _arr_end_ptr(a) ((a) ? (a) + array_length(a) : NULL)
+
 #define _arr_foreach(a, itername)					\
-	for (typeof((a)[0]) *(itername) = (a), *_arr_end_##__LINE__ = (itername) + array_length(itername); \
+	for (typeof((a)[0]) *(itername) = (a), *_arr_end_##__LINE__ = _arr_end_ptr(itername); \
 	     (itername) < (_arr_end_##__LINE__);			\
 	     (itername)++)
 
 #define _arr_foreach_reverse(a, itername)				\
-	for (typeof((a)[0]) *_arr_base_##__LINE__ = (a),	\
-		     *(itername) = (_arr_base_##__LINE__) + array_length(_arr_base_##__LINE__); \
-	     (itername)-- > _arr_base_##__LINE__;)
+	for (typeof((a)[0]) *_arr_base_##__LINE__ = (a), *(itername) = _arr_end_ptr(_arr_base_##__LINE__); \
+	     (itername) && (itername)-- > _arr_base_##__LINE__;)
 
 #define _arr_foreach_value(a, itername)					\
-	for (typeof((a)[0]) (itername), *_arr_iter_##__LINE__ = (a), \
-		     *_arr_iter_end_##__LINE__ = (_arr_iter_##__LINE__) + array_length(_arr_iter_##__LINE__); \
+	for (typeof((a)[0]) (itername), *_arr_iter_##__LINE__ = (a),	\
+		     *_arr_iter_end_##__LINE__ = _arr_end_ptr(_arr_iter_##__LINE__); \
 	     (_arr_iter_##__LINE__) < (_arr_iter_end_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1); \
 	     (_arr_iter_##__LINE__)++)
 
 #define _arr_foreach_value_reverse(a, itername)				\
-	for (typeof((a)[0]) (itername),	*_arr_base_##__LINE__ = (a), \
-		     *_arr_iter_##__LINE__ = (_arr_base_##__LINE__) + array_length(_arr_base_##__LINE__); \
-	     (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
+	for (typeof((a)[0]) (itername), *_arr_base_##__LINE__ = (a), \
+		     *_arr_iter_##__LINE__ = _arr_end_ptr(_arr_base_##__LINE__); \
+	     (_arr_iter_##__LINE__) && (_arr_iter_##__LINE__)-- > (_arr_base_##__LINE__) && ((itername) = *(_arr_iter_##__LINE__), 1);)
 
 #define _arr_call_foreach(a, func)		\
 	do {					\

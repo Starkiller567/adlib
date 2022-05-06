@@ -4,7 +4,6 @@ set(STANDALONE_TESTS
   array_benchmark
   hash_benchmark
   hashtable_benchmark
-  random
   random_benchmark
 )
 
@@ -19,8 +18,6 @@ foreach(TEST IN LISTS STANDALONE_TESTS)
   add_test(${TEST} ${TEST})
 endforeach()
 
-target_link_libraries(random m)
-
 set(TEST_SOURCES
   array.c
   avl_tree.c
@@ -31,6 +28,7 @@ set(TEST_SOURCES
   hashmap.c
   hashset.c
   json.c
+  random.c
   rb_tree.c
   utils.c
 )

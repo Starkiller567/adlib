@@ -508,6 +508,14 @@ SIMPLE_TEST(array)
 	arr1 = array_new(int, 0);
 	CHECK(!arr1);
 
+	arr1 = NULL;
+	array_fori(arr1, i) { assert(false); }
+	array_fori_reverse(arr1, i) { assert(false); }
+	array_foreach(arr1, i) { assert(false); }
+	array_foreach_reverse(arr1, i) { assert(false); }
+	array_foreach_value(arr1, i) { (void)i, assert(false); }
+	array_foreach_value_reverse(arr1, i) { (void)i, assert(false); }
+
 #if 0
 	array_add_arrayn(arr1, digits, sizeof(digits) / sizeof(digits[0]));
 	for (size_t i = 0; i < 5; i++) {
