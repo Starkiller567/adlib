@@ -1,16 +1,16 @@
 #ifndef __TESTING_INCLUDE__
 #define __TESTING_INCLUDE__
 
-#include "compiler.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include "compiler.h"
 
 _Static_assert(HAVE_ATTR_CONSTRUCTOR, "");
 
-#define CHECK(cond)				\
-	do {					\
-		if (!(cond)) return false;	\
-	} while (0);
+#define CHECK(cond)					\
+	do {						\
+		if (unlikely(!(cond))) return false;	\
+	} while (0)
 
 #define SIMPLE_TEST(name)			\
 	_SIMPLE_TEST(name, true, false)
