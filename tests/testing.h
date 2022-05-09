@@ -7,9 +7,13 @@
 
 _Static_assert(HAVE_ATTR_CONSTRUCTOR, "");
 
-#define CHECK(cond)					\
-	do {						\
-		if (unlikely(!(cond))) return false;	\
+// TODO find a way to not leak memory when CHECK fails (maybe use _attr_cleanup)
+#define CHECK(cond)							\
+	do {								\
+		if (unlikely(!(cond)))  {				\
+			check_failed(__func__, __FILE__, __LINE__, #cond); \
+			return false;					\
+		}							\
 	} while (0)
 
 #define SIMPLE_TEST(name)			\
@@ -72,5 +76,7 @@ void register_range_test(const char *file, const char *name, uint64_t start, uin
 void register_random_test(const char *file, const char *name, uint64_t num_values, uint64_t min_value,
 			  uint64_t max_value, bool (*f)(uint64_t random), bool should_succeed,
 			  bool need_subprocess);
+
+void check_failed(const char *func, const char *file, unsigned int line, const char *cond);
 
 #endif

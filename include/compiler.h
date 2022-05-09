@@ -82,6 +82,10 @@
 #if __has_attribute(cleanup)
 # define HAVE_ATTR_CLEANUP 1
 #endif
+#if !defined(HAVE_BUILTIN_BSWAP) && __has_builtin(__builtin_bswap16) && \
+	__has_builtin(__builtin_bswap32) && __has_builtin(__builtin_bswap64)
+# define HAVE_BUILTIN_BSWAP 1
+#endif
 #if !defined(HAVE_BUILTIN_CLZ) && __has_builtin(__builtin_clz)
 # define HAVE_BUILTIN_CLZ 1
 #endif

@@ -171,3 +171,98 @@ SIMPLE_TEST(minmax)
 
 	return true;
 }
+
+RANDOM_TEST(bswap, 1u << 16, 0, UINT64_MAX)
+{
+#define CHECK_BSWAP_SIGNEDNESS(type)					\
+	CHECK(bswap((unsigned type)random) == (unsigned type)bswap((signed type)random));
+
+	CHECK_BSWAP_SIGNEDNESS(short);
+	CHECK_BSWAP_SIGNEDNESS(int);
+	CHECK_BSWAP_SIGNEDNESS(long);
+	CHECK_BSWAP_SIGNEDNESS(long long);
+
+#define CHECK_BSWAP_TYPE(type) CHECK(_Generic(bswap((type)0), type: 1))
+	CHECK_BSWAP_TYPE(unsigned short);
+	CHECK_BSWAP_TYPE(unsigned int);
+	CHECK_BSWAP_TYPE(unsigned long);
+	CHECK_BSWAP_TYPE(unsigned long long);
+	CHECK_BSWAP_TYPE(signed short);
+	CHECK_BSWAP_TYPE(signed int);
+	CHECK_BSWAP_TYPE(signed long);
+	CHECK_BSWAP_TYPE(signed long long);
+
+#define CHECK_BSWAP(type)						\
+	do {								\
+		union {							\
+			type val;					\
+			char bytes[sizeof(type)];			\
+		} normal = {.val = (type)random};			\
+		union {							\
+			type val;					\
+			char bytes[sizeof(type)];			\
+		} reversed = {.val = bswap((type)random)};		\
+		for (unsigned int i = 0; i < sizeof(type); i++) {	\
+			CHECK(normal.bytes[i] == reversed.bytes[sizeof(type) - i - 1]);	\
+		}							\
+	} while (0)
+
+	CHECK_BSWAP(unsigned short);
+	CHECK_BSWAP(unsigned int);
+	CHECK_BSWAP(unsigned long);
+	CHECK_BSWAP(unsigned long long);
+
+	return true;
+}
+
+RANDOM_TEST(endianness, 1u << 16, 0, UINT64_MAX)
+{
+#define CHECK_CPU_TO_LE_TYPE(bits) CHECK(_Generic(cpu_to_le((uint##bits##_t)0), le##bits##_t: 1))
+	CHECK_CPU_TO_LE_TYPE(16);
+	CHECK_CPU_TO_LE_TYPE(32);
+	CHECK_CPU_TO_LE_TYPE(64);
+#define CHECK_LE_TO_CPU_TYPE(bits) CHECK(_Generic(le_to_cpu((le##bits##_t){0}), uint##bits##_t: 1))
+	CHECK_LE_TO_CPU_TYPE(16);
+	CHECK_LE_TO_CPU_TYPE(32);
+	CHECK_LE_TO_CPU_TYPE(64);
+#define CHECK_CPU_TO_BE_TYPE(bits) CHECK(_Generic(cpu_to_be((uint##bits##_t)0), be##bits##_t: 1))
+	CHECK_CPU_TO_BE_TYPE(16);
+	CHECK_CPU_TO_BE_TYPE(32);
+	CHECK_CPU_TO_BE_TYPE(64);
+#define CHECK_BE_TO_CPU_TYPE(bits) CHECK(_Generic(be_to_cpu((be##bits##_t){0}), uint##bits##_t: 1))
+	CHECK_BE_TO_CPU_TYPE(16);
+	CHECK_BE_TO_CPU_TYPE(32);
+	CHECK_BE_TO_CPU_TYPE(64);
+
+#define CHECK_BE_ROUNDTRIP(bits) CHECK(be##bits##_to_cpu(cpu_to_be##bits(random)) == (uint##bits##_t)random)
+	CHECK_BE_ROUNDTRIP(16);
+	CHECK_BE_ROUNDTRIP(32);
+	CHECK_BE_ROUNDTRIP(64);
+#define CHECK_LE_ROUNDTRIP(bits) CHECK(le##bits##_to_cpu(cpu_to_le##bits(random)) == (uint##bits##_t)random)
+	CHECK_LE_ROUNDTRIP(16);
+	CHECK_LE_ROUNDTRIP(32);
+	CHECK_LE_ROUNDTRIP(64);
+
+	const bool is_little_endian = (const union {uint16_t i; uint8_t c;}){.i = 1}.c == 1;
+	if (is_little_endian) {
+#define CHECK_LE_IDENTITY(bits) CHECK(cpu_to_le##bits(random).val == (uint##bits##_t)random)
+		CHECK_LE_IDENTITY(16);
+		CHECK_LE_IDENTITY(32);
+		CHECK_LE_IDENTITY(64);
+#define CHECK_BE_BSWAP(bits) CHECK(cpu_to_be##bits(random).val == bswap((uint##bits##_t)random))
+		CHECK_BE_BSWAP(16);
+		CHECK_BE_BSWAP(32);
+		CHECK_BE_BSWAP(64);
+	} else {
+#define CHECK_BE_IDENTITY(bits) CHECK(cpu_to_be##bits(random).val == (uint##bits##_t)random)
+		CHECK_BE_IDENTITY(16);
+		CHECK_BE_IDENTITY(32);
+		CHECK_BE_IDENTITY(64);
+#define CHECK_LE_BSWAP(bits) CHECK(cpu_to_le##bits(random).val == bswap((uint##bits##_t)random))
+		CHECK_LE_BSWAP(16);
+		CHECK_LE_BSWAP(32);
+		CHECK_LE_BSWAP(64);
+	}
+
+	return true;
+}

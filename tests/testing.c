@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bits/time.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -11,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <threads.h>
+#include <time.h>
 #include <unistd.h>
 #include "compiler.h"
 #include "macros.h"
@@ -131,6 +133,11 @@ void register_random_test(const char *file, const char *name, uint64_t num_value
 		});
 }
 
+void check_failed(const char *func, const char *file, unsigned int line, const char *cond)
+{
+	fprintf(stderr, "CHECK failed: %s:%u: %s: %s\n", file, line, func, cond);
+}
+
 struct work {
 	struct work *next;
 	void (*run)(struct work *work);
@@ -141,6 +148,7 @@ struct test_work {
 	const struct test *test;
 	bool passed;
 	bool completed;
+	uint64_t runtime;
 	mtx_t mutex;
 	cnd_t cond;
 	union {
@@ -202,10 +210,18 @@ static bool run_test_helper(struct test_work *work)
 	return success;
 }
 
+static uint64_t ns_elapsed(struct timespec start, struct timespec end)
+{
+	return (end.tv_sec * 1000000000llu + end.tv_nsec) - (start.tv_sec * 1000000000llu + start.tv_nsec);
+}
+
 static void run_test(struct work *_work)
 {
 	struct test_work *work = container_of(_work, struct test_work, work);
 	const struct test *test = work->test;
+
+	struct timespec start, end;
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
 
 	pid_t pid = 0;
 	if (test->need_subprocess) {
@@ -231,6 +247,9 @@ static void run_test(struct work *_work)
 		success = status == EXIT_SUCCESS;
 	}
 	work->passed = test->should_succeed ? success : !success;
+
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end);
+	work->runtime = ns_elapsed(start, end);
 
 	// TODO error checking
 	mtx_lock(&work->mutex);
@@ -431,6 +450,23 @@ static void thread_pool_stop(struct thread_pool *pool)
 	memset(pool, 0, sizeof(*pool));
 }
 
+static void print_time(uint64_t ns, FILE *file)
+{
+	double t = ns;
+	const char *unit = "ns";
+	if (t > 1000000000) {
+		t *= 1.0 / 1000000000;
+		unit = "s";
+	} else if (t > 1000000) {
+		t *= 1.0 / 1000000;
+		unit = "ms";
+	} else if (t > 1000) {
+		t *= 1.0 / 1000;
+		unit = "us";
+	}
+	fprintf(file, "%.1f %s", t, unit);
+}
+
 static void print_results(void)
 {
 #define GREEN "\033[32m"
@@ -439,62 +475,92 @@ static void print_results(void)
 #define RESET "\033[0m"
 	const char *passed = GREEN "passed" RESET;
 	const char *failed = RED "failed" RESET;
+
+	struct timespec start, end;
+	clock_gettime(CLOCK_REALTIME, &start);
+
 	size_t num_failed = 0;
 	for (size_t i = 0; i < num_tests; i++) {
 		struct test *test = &tests[i];
+		assert(test->enabled); // the first num_tests tests should be enabled
+		assert(test->num_work != 0); // any enabled test should have work scheduled
+		fprintf(stderr, "%zu/%zu", i, num_tests);
+		uint64_t runtime = 0;
 		bool test_failed = false;
 		for (size_t j = 0; j < test->num_work; j++) {
 			struct test_work *work = &test->work[j];
-			fprintf(stderr, "%zu/%zu", i, num_tests);
 			// TODO error checking
 			mtx_lock(&work->mutex);
 			while (!work->completed) {
 				cnd_wait(&work->cond, &work->mutex);
 			}
 			mtx_unlock(&work->mutex);
-
-			fputs(CLEAR_LINE, stderr);
-
+			runtime += work->runtime;
+			if (!work->passed) {
+				test_failed = true;
+			}
+		}
+		if (test_failed) {
+			num_failed++;
+		}
+		fputs(CLEAR_LINE, stderr);
+		printf("[%s/%s] %s (", test->file, test->name, test_failed ? failed : passed);
+		print_time(runtime, stdout);
+		puts(")");
+		if (!test_failed) {
+			continue;
+		}
+		for (size_t j = 0; j < test->num_work; j++) {
+			struct test_work *work = &test->work[j];
 			if (work->passed) {
 				continue;
 			}
-			test_failed = true;
-			printf("[%s/%s] %s", test->file, test->name, work->passed ? passed : failed);
 			switch (test->type) {
 			case TEST_TYPE_SIMPLE:
 				break;
 			case TEST_TYPE_RANGE: {
-				printf(" (range: [%" PRIu64 ", %" PRIu64 "])",
+				printf("    failed on range: [%" PRIu64 ", %" PRIu64 "]\n",
 				       work->range.start, work->range.end);
 				break;
 			}
 			case TEST_TYPE_RANDOM: {
-				printf("(value: %" PRIu64 ")", work->random.failed_value);
+				printf("    failed on value: %" PRIu64 "\n", work->random.failed_value);
 				break;
 			}
 			}
-			putchar('\n');
-		}
-		if (test_failed) {
-			num_failed++;
-		} else {
-			printf("[%s/%s] %s\n", test->file, test->name, passed);
 		}
 	}
-	printf("Summary: %s%zu/%zu failed\n" RESET,
+	clock_gettime(CLOCK_REALTIME, &end);
+
+	printf("Summary: %s%zu/%zu failed" RESET " (",
 	       num_failed == 0 ? GREEN : RED, num_failed, num_tests);
+	print_time(ns_elapsed(start, end), stdout);
+	puts(")");
 }
 
-// NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest)
-// {
-// 	raise(SIGABRT);
-// 	return true;
-// }
+NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest1)
+{
+	raise(SIGABRT);
+	return true;
+}
 
-// NEGATIVE_SIMPLE_TEST_SUBPROCESS(selftest2)
-// {
-// 	return false;
-// }
+NEGATIVE_SIMPLE_TEST(selftest2)
+{
+	return false;
+}
+
+RANDOM_TEST(selftest3, 1000, 13, 42)
+{
+	CHECK(13 <= random && random <= 42);
+	return true;
+}
+
+RANGE_TEST_SUBPROCESS(selftest4, 13, 17)
+{
+	CHECK(start <= end);
+	CHECK(13 <= start && end <= 17);
+	return true;
+}
 
 static int compare_tests(const void *_a, const void *_b)
 {
