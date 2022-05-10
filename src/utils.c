@@ -25,6 +25,55 @@ __AD_LINKAGE unsigned int _clzll(unsigned long long x)
 }
 #endif
 
+#ifndef HAVE_BUILTIN_CTZ
+__AD_LINKAGE unsigned int _ctz(unsigned int x)
+{
+	unsigned int n;
+	x = ~x & (x - 1);
+	for (n = 0; x; n++, x >>= 1);
+	return n;
+}
+
+__AD_LINKAGE unsigned int _ctzl(unsigned long x)
+{
+	unsigned int n;
+	x = ~x & (x - 1);
+	for (n = 0; x; n++, x >>= 1);
+	return n;
+}
+
+__AD_LINKAGE unsigned int _ctzll(unsigned long long x)
+{
+	unsigned int n;
+	x = ~x & (x - 1);
+	for (n = 0; x; n++, x >>= 1);
+	return n;
+}
+#endif
+
+#ifndef HAVE_BUILTIN_POPCOUNT
+__AD_LINKAGE unsigned int _popcount(unsigned int x)
+{
+	unsigned int n;
+	for (n = 0; x; n++, x = x & (x - 1));
+	return n;
+}
+
+__AD_LINKAGE unsigned int _popcountl(unsigned long x)
+{
+	unsigned int n;
+	for (n = 0; x; n++, x = x & (x - 1));
+	return n;
+}
+
+__AD_LINKAGE unsigned int _popcountll(unsigned long long x)
+{
+	unsigned int n;
+	for (n = 0; x; n++, x = x & (x - 1));
+	return n;
+}
+#endif
+
 static unsigned int _ilog10_32(uint32_t x)
 {
 	// https://lemire.me/blog/2021/06/03/computing-the-number-of-digits-of-an-integer-even-faster/

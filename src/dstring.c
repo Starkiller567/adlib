@@ -500,6 +500,7 @@ __AD_LINKAGE size_t dstr_length(const dstr_t dstr)
 	}
 	}
 	unreachable();
+	return 0;
 }
 
 __AD_LINKAGE bool dstr_is_empty(const dstr_t dstr)
@@ -525,6 +526,7 @@ __AD_LINKAGE size_t dstr_capacity(const dstr_t dstr)
 	}
 	}
 	unreachable();
+	return 0;
 }
 
 static _attr_unused void _dstr_set_length(dstr_t dstr, size_t length)

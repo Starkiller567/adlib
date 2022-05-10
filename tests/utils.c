@@ -90,7 +90,7 @@ RANGE_TEST(clz32, 0, UINT32_MAX)
 	return true;
 }
 
-RANGE_TEST(clz64, 0, UINT64_C(2) * UINT32_MAX)
+RANGE_TEST(clz64, 0, UINT32_MAX)
 {
 	for (uint64_t x = start; x <= end; x++) {
 		unsigned int reference = hackers_delight_clz64(x);
@@ -98,6 +98,126 @@ RANGE_TEST(clz64, 0, UINT64_C(2) * UINT32_MAX)
 		    clz((int64_t)x) != reference) {
 			return false;
 		}
+	}
+	return true;
+}
+
+RANDOM_TEST(clz64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
+{
+	uint64_t x = random;
+	unsigned int reference = hackers_delight_clz64(x);
+	if (clz((uint64_t)x) != reference ||
+	    clz((int64_t)x) != reference) {
+		return false;
+
+	}
+	return true;
+}
+
+static unsigned int hackers_delight_ctz32(uint32_t x)
+{
+	static const char table[64] = {
+#define u 0
+		32, 0, 1, 12, 2, 6, u, 13, 3, u, 7, u, u, u, u, 14,
+		10, 4, u, u, 8, u, u, 25, u, u, u, u, u, 21, 27, 15,
+		31, 11, 5, u, u, u, u, u, 9, u, u, 24, u, u, 20, 26,
+		30, u, u, u, u, 23, u, 19, 29, u, 22, 18, 28, 17, 16, u
+#undef u
+	};
+	x = (x & -x) * 0x0450FBAF;
+	return table[x >> 26];
+}
+
+static unsigned int hackers_delight_ctz64(uint64_t x)
+{
+	unsigned int n = hackers_delight_ctz32(x);
+	if (n == 32) {
+		n += hackers_delight_ctz32(x >> 32);
+	}
+	return n;
+}
+
+RANGE_TEST(ctz32, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = hackers_delight_ctz32(x);
+		if (ctz((uint32_t)x) != reference ||
+		    ctz((int32_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANGE_TEST(ctz64, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = hackers_delight_ctz64(x);
+		if (ctz((uint64_t)x) != reference ||
+		    ctz((int64_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANDOM_TEST(ctz64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
+{
+	uint64_t x = random;
+	unsigned int reference = hackers_delight_ctz64(x);
+	if (ctz((uint64_t)x) != reference ||
+	    ctz((int64_t)x) != reference) {
+		return false;
+	}
+	return true;
+}
+
+static unsigned int hackers_delight_popcount32(uint32_t x)
+{
+	x = x - ((x >> 1) & 0x55555555);
+	x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+	x = (x + (x >> 4)) & 0x0F0F0F0F;
+	x = x + (x >> 8);
+	x = x + (x >> 16);
+	return x & 0x0000003F;
+}
+
+static unsigned int hackers_delight_popcount64(uint64_t x)
+{
+	return hackers_delight_popcount32(x) + hackers_delight_popcount32(x >> 32);
+}
+
+RANGE_TEST(popcount32, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = hackers_delight_popcount32(x);
+		if (popcount((uint32_t)x) != reference ||
+		    popcount((int32_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANGE_TEST(popcount64, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = hackers_delight_popcount64(x);
+		if (popcount((uint64_t)x) != reference ||
+		    popcount((int64_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANDOM_TEST(popcount64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
+{
+	uint64_t x = random;
+	unsigned int reference = hackers_delight_popcount64(x);
+	if (popcount((uint64_t)x) != reference ||
+	    popcount((int64_t)x) != reference) {
+		return false;
 	}
 	return true;
 }

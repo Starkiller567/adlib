@@ -10,6 +10,7 @@
 
 _Static_assert(CHAR_BIT == 8, "this implementation assumes 8-bit chars");
 
+// TODO allow all types for clz, ctz, popcount, ilog
 #define _utils_dispatch_builtin(x, f) _Generic((x),			\
 					       unsigned int : f(x),	\
 					       unsigned long : f##l(x), \
@@ -62,6 +63,46 @@ __AD_LINKAGE unsigned int _ilog10l(unsigned long x) _attr_const _attr_unused;
 __AD_LINKAGE unsigned int _ilog10ll(unsigned long long x) _attr_const _attr_unused;
 
 #define ilog10(x) _utils_dispatch_builtin(x, _ilog10)
+
+#ifdef HAVE_BUILTIN_CTZ
+static _attr_always_inline _attr_const _attr_unused unsigned int _ctz(unsigned int x)
+{
+	return unlikely(x == 0) ? (8 * sizeof(x)) : __builtin_ctz(x);
+}
+static _attr_always_inline _attr_const _attr_unused unsigned int _ctzl(unsigned long x)
+{
+	return unlikely(x == 0) ? (8 * sizeof(x)) : __builtin_ctzl(x);
+}
+static _attr_always_inline _attr_const _attr_unused unsigned int _ctzll(unsigned long long x)
+{
+	return unlikely(x == 0) ? (8 * sizeof(x)) : __builtin_ctzll(x);
+}
+#else
+__AD_LINKAGE unsigned int _ctz(unsigned int x) _attr_const _attr_unused;
+__AD_LINKAGE unsigned int _ctzl(unsigned long x) _attr_const _attr_unused;
+__AD_LINKAGE unsigned int _ctzll(unsigned long long x) _attr_const _attr_unused;
+#endif
+#define ctz(x) _utils_dispatch_builtin(x, _ctz)
+
+#ifdef HAVE_BUILTIN_POPCOUNT
+static _attr_always_inline _attr_const _attr_unused unsigned int _popcount(unsigned int x)
+{
+	return __builtin_popcount(x);
+}
+static _attr_always_inline _attr_const _attr_unused unsigned int _popcountl(unsigned long x)
+{
+	return __builtin_popcountl(x);
+}
+static _attr_always_inline _attr_const _attr_unused unsigned int _popcountll(unsigned long long x)
+{
+	return __builtin_popcountll(x);
+}
+#else
+__AD_LINKAGE unsigned int _popcount(unsigned int x) _attr_const _attr_unused;
+__AD_LINKAGE unsigned int _popcountl(unsigned long x) _attr_const _attr_unused;
+__AD_LINKAGE unsigned int _popcountll(unsigned long long x) _attr_const _attr_unused;
+#endif
+#define popcount(x) _utils_dispatch_builtin(x, _popcount)
 
 #if USHRT_MAX == UINT16_MAX
 # define _SHORT_BITS 16

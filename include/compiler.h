@@ -27,7 +27,7 @@
   #define __has_attribute(x) 0
 #endif
 
-#ifndef __has_builtin
+#if !defined(__has_builtin)
   #define __has_builtin(x) 0
 #endif
 
@@ -82,6 +82,9 @@
 #if __has_attribute(cleanup)
 # define HAVE_ATTR_CLEANUP 1
 #endif
+
+#ifndef __DISABLE_FUNCTION_DETECTION
+
 #if !defined(HAVE_BUILTIN_BSWAP) && __has_builtin(__builtin_bswap16) && \
 	__has_builtin(__builtin_bswap32) && __has_builtin(__builtin_bswap64)
 # define HAVE_BUILTIN_BSWAP 1
@@ -89,12 +92,20 @@
 #if !defined(HAVE_BUILTIN_CLZ) && __has_builtin(__builtin_clz)
 # define HAVE_BUILTIN_CLZ 1
 #endif
+#if !defined(HAVE_BUILTIN_CTZ) && __has_builtin(__builtin_ctz)
+# define HAVE_BUILTIN_CTZ 1
+#endif
 #if !defined(HAVE_BUILTIN_EXPECT) && __has_builtin(__builtin_expect)
 # define HAVE_BUILTIN_EXPECT 1
+#endif
+#if !defined(HAVE_BUILTIN_POPCOUNT) && __has_builtin(__builtin_popcount)
+# define HAVE_BUILTIN_POPCOUNT 1
 #endif
 #if !defined(HAVE_BUILTIN_UNREACHABLE) && __has_builtin(__builtin_unreachable)
 # define HAVE_BUILTIN_UNREACHABLE 1
 #endif
+
+#endif // __DISABLE_FUNCTION_DETECTION
 
 #ifdef HAVE_ATTR_NONNULL
 # define _attr_nonnull(...)                  __attribute__((nonnull (__VA_ARGS__)))
