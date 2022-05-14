@@ -27,7 +27,7 @@
   #define __has_attribute(x) 0
 #endif
 
-#if !defined(__has_builtin)
+#ifndef __has_builtin
   #define __has_builtin(x) 0
 #endif
 
@@ -97,6 +97,9 @@
 #endif
 #if !defined(HAVE_BUILTIN_EXPECT) && __has_builtin(__builtin_expect)
 # define HAVE_BUILTIN_EXPECT 1
+#endif
+#if !defined(HAVE_BUILTIN_OBJECT_SIZE) && __has_builtin(__builtin_object_size)
+# define HAVE_BUILTIN_OBJECT_SIZE 1
 #endif
 #if !defined(HAVE_BUILTIN_POPCOUNT) && __has_builtin(__builtin_popcount)
 # define HAVE_BUILTIN_POPCOUNT 1
@@ -214,6 +217,12 @@
 # define unreachable()                       __builtin_unreachable()
 #else
 # define unreachable()                       do {} while (0)
+#endif
+
+#ifdef HAVE_BUILTIN_OBJECT_SIZE
+# define _bos(ptr, type)                     __builtin_object_size(ptr, type)
+#else
+# define _bos(ptr, type)                     ((size_t)-1)
 #endif
 
 #endif

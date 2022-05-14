@@ -172,6 +172,53 @@ RANDOM_TEST(ctz64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
 	return true;
 }
 
+static unsigned int reference_ffs32(uint32_t x)
+{
+	unsigned int ctz = ctz(x);
+	return ctz == 32 ? 0 : ctz + 1;
+}
+
+static unsigned int reference_ffs64(uint64_t x)
+{
+	unsigned int ctz = ctz(x);
+	return ctz == 64 ? 0 : ctz + 1;
+}
+
+RANGE_TEST(ffs32, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = reference_ffs32(x);
+		if (ffs((uint32_t)x) != reference ||
+		    ffs((int32_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANGE_TEST(ffs64, 0, UINT32_MAX)
+{
+	for (uint64_t x = start; x <= end; x++) {
+		unsigned int reference = reference_ffs64(x);
+		if (ffs((uint64_t)x) != reference ||
+		    ffs((int64_t)x) != reference) {
+			return false;
+		}
+	}
+	return true;
+}
+
+RANDOM_TEST(ffs64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
+{
+	uint64_t x = random;
+	unsigned int reference = reference_ffs64(x);
+	if (ffs((uint64_t)x) != reference ||
+	    ffs((int64_t)x) != reference) {
+		return false;
+	}
+	return true;
+}
+
 static unsigned int hackers_delight_popcount32(uint32_t x)
 {
 	x = x - ((x >> 1) & 0x55555555);

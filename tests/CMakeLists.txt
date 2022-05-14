@@ -21,9 +21,9 @@ endforeach()
 set(TEST_SOURCES
   array.c
   avl_tree.c
+  charconv.c
   dbuf.c
   dstring.c
-  dstring_number_conversion.c
   hash.c
   hashmap.c
   hashset.c

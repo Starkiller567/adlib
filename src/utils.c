@@ -28,25 +28,60 @@ __AD_LINKAGE unsigned int _clzll(unsigned long long x)
 #ifndef HAVE_BUILTIN_CTZ
 __AD_LINKAGE unsigned int _ctz(unsigned int x)
 {
-	unsigned int n;
 	x = ~x & (x - 1);
+	unsigned int n;
 	for (n = 0; x; n++, x >>= 1);
 	return n;
 }
 
 __AD_LINKAGE unsigned int _ctzl(unsigned long x)
 {
-	unsigned int n;
 	x = ~x & (x - 1);
+	unsigned int n;
 	for (n = 0; x; n++, x >>= 1);
 	return n;
 }
 
 __AD_LINKAGE unsigned int _ctzll(unsigned long long x)
 {
-	unsigned int n;
 	x = ~x & (x - 1);
+	unsigned int n;
 	for (n = 0; x; n++, x >>= 1);
+	return n;
+}
+#endif
+
+#ifndef HAVE_BUILTIN_FFS
+__AD_LINKAGE unsigned int _ffs(unsigned int x)
+{
+	if (x == 0) {
+		return 0;
+	}
+	x = ~x & (x - 1);
+	unsigned int n;
+	for (n = 1; x; n++, x >>= 1);
+	return n;
+}
+
+__AD_LINKAGE unsigned int _ffsl(unsigned long x)
+{
+	if (x == 0) {
+		return 0;
+	}
+	x = ~x & (x - 1);
+	unsigned int n;
+	for (n = 1; x; n++, x >>= 1);
+	return n;
+}
+
+__AD_LINKAGE unsigned int _ffsll(unsigned long long x)
+{
+	if (x == 0) {
+		return 0;
+	}
+	x = ~x & (x - 1);
+	unsigned int n;
+	for (n = 1; x; n++, x >>= 1);
 	return n;
 }
 #endif

@@ -44,12 +44,13 @@ check_symbol_exists(malloc_usable_size "malloc.h" HAVE_MALLOC_USABLE_SIZE)
 if(${DISABLE_FUNCTION_DETECTION})
   set(__DISABLE_FUNCTION_DETECTION ON)
 else()
+  check_c_source_compiles("int main() { __builtin_bswap16(1); __builtin_bswap32(1); __builtin_bswap64(1); return 0; }" HAVE_BUILTIN_BSWAP)
   check_c_source_compiles("int main() { if (__builtin_expect(0, 0)); return 0; }" HAVE_BUILTIN_EXPECT)
-  check_c_source_compiles("int main() { if (0) __builtin_unreachable(); return 0; }" HAVE_BUILTIN_UNREACHABLE)
   check_c_source_compiles("int main() { __builtin_clz(1); return 0; }" HAVE_BUILTIN_CLZ)
   check_c_source_compiles("int main() { __builtin_ctz(1); return 0; }" HAVE_BUILTIN_CTZ)
+  check_c_source_compiles("int main() { char buf[1]; __builtin_object_size(buf, 0); return 0; }" HAVE_BUILTIN_OBJECT_SIZE)
   check_c_source_compiles("int main() { __builtin_popcount(1); return 0; }" HAVE_BUILTIN_POPCOUNT)
-  check_c_source_compiles("int main() { __builtin_bswap16(1); __builtin_bswap32(1); __builtin_bswap64(1); return 0; }" HAVE_BUILTIN_BSWAP)
+  check_c_source_compiles("int main() { if (0) __builtin_unreachable(); return 0; }" HAVE_BUILTIN_UNREACHABLE)
   check_symbol_exists(strnlen "string.h" HAVE_STRNLEN)
   list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
   check_symbol_exists(memmem "string.h" HAVE_MEMMEM)
@@ -103,6 +104,7 @@ configure_file(include/config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h)
 set(SOURCES
   array.c
   avl_tree.c
+  charconv.c
   config.c
   dbuf.c
   dstring.c

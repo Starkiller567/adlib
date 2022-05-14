@@ -170,41 +170,6 @@ __AD_LINKAGE struct strview_list strview_rsplit(struct strview view, char c, siz
 __AD_LINKAGE void strview_list_free(struct strview_list *list) _attr_unused;
 
 
-enum dstr_number_format_flags {
-	DSTR_FMT_DEFAULT = 0, // equivalent to DSTR_FMT_DECIMAL, allows passing literal 0 for convenience
-
-	DSTR_FMT_BINARY = 2, // %b
-	DSTR_FMT_OCTAL = 8, // %o
-	DSTR_FMT_DECIMAL = 10, // %d, %u
-	DSTR_FMT_HEXADECIMAL = 16, // %x
-
-	__DSTR_FMT_BASE_MASK = 31,
-
-	DSTR_FMT_LEADING_ZEROS = 128, // %0n with n=maxlen for the specified conversion
-	DSTR_FMT_PLUS_SIGN = 256, // %+
-	DSTR_FMT_UPPERCASE = 512, // %x -> %X
-};
-
-__AD_LINKAGE dstr_t dstr_from_int(int val, unsigned int flags) _attr_unused _attr_nodiscard;
-__AD_LINKAGE dstr_t dstr_from_uint(unsigned int val, unsigned int flags) _attr_unused _attr_nodiscard;
-__AD_LINKAGE dstr_t dstr_from_long(long val, unsigned int flags) _attr_unused _attr_nodiscard;
-__AD_LINKAGE dstr_t dstr_from_ulong(unsigned long val, unsigned int flags) _attr_unused _attr_nodiscard;
-__AD_LINKAGE dstr_t dstr_from_llong(long long val, unsigned int flags) _attr_unused _attr_nodiscard;
-__AD_LINKAGE dstr_t dstr_from_ullong(unsigned long long val, unsigned int flags) _attr_unused _attr_nodiscard;
-#define dstr_from_number(x, f) _Generic((x),				\
-					_Bool : dstr_from_uint(x, f),	\
-					char : ((char)-1 < 0) ? dstr_from_int(x, f) : dstr_from_uint(x, f), \
-					unsigned char : dstr_from_uint(x, f), \
-					unsigned short : dstr_from_uint(x, f), \
-					unsigned int : dstr_from_uint(x, f), \
-					unsigned long : dstr_from_ulong(x, f), \
-					unsigned long long : dstr_from_ullong(x, f), \
-					signed char : dstr_from_int(x, f),	\
-					signed short : dstr_from_int(x, f), \
-					signed int : dstr_from_int(x, f),	\
-					signed long : dstr_from_long(x, f), \
-					signed long long : dstr_from_llong(x, f))
-
 __AD_LINKAGE void *_dstr_debug_get_head_ptr(const dstr_t dstr) _attr_unused _attr_pure;
 
 #endif
