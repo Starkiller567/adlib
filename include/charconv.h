@@ -11,7 +11,7 @@ enum to_chars_flags {
 	TO_CHARS_DECIMAL = 10, // %d, %u
 	TO_CHARS_HEXADECIMAL = 16, // %x
 
-	__TO_CHARS_BASE_MASK = 31,
+	__TO_CHARS_BASE_MASK = 63, // base must be between 2 and 36 inclusive
 
 	TO_CHARS_LEADING_ZEROS = 128, // %0n with n=maxlen for the specified conversion
 	TO_CHARS_PLUS_SIGN = 256, // %+

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "charconv.h"
+#include "compiler.h"
 #include "random.h"
 #include "testing.h"
 
@@ -187,6 +188,8 @@ SIMPLE_TEST(to_chars)
 		CHECK_TO_CHARS("1");					\
 		len = to_chars(str, (type)10, TO_CHARS_DEFAULT);	\
 		CHECK_TO_CHARS("10");					\
+		len = to_chars(str, (type)100, TO_CHARS_DEFAULT);	\
+		CHECK_TO_CHARS("100");					\
 		len = to_chars(str, (type)123, TO_CHARS_DECIMAL | TO_CHARS_PLUS_SIGN); \
 		CHECK_TO_CHARS("123");					\
 		len = to_chars(str, (type)-1, TO_CHARS_DEFAULT);	\
@@ -212,6 +215,8 @@ SIMPLE_TEST(to_chars)
 		CHECK_TO_CHARS("1");					\
 		len = to_chars(str, (type)10, TO_CHARS_DEFAULT);	\
 		CHECK_TO_CHARS("10");					\
+		len = to_chars(str, (type)100, TO_CHARS_DEFAULT);	\
+		CHECK_TO_CHARS("100");					\
 		len = to_chars(str, (type)123, TO_CHARS_DEFAULT);	\
 		CHECK_TO_CHARS("123");					\
 		len = to_chars(str, (type)0, TO_CHARS_DECIMAL | TO_CHARS_PLUS_SIGN); \
@@ -255,6 +260,20 @@ SIMPLE_TEST(to_chars)
 		CHECK_TO_CHARS("0");					\
 		len = to_chars(str, (type)1, TO_CHARS_BINARY);		\
 		CHECK_TO_CHARS("1");					\
+		len = to_chars(str, (type)2, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("10");					\
+		len = to_chars(str, (type)4, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("100");					\
+		len = to_chars(str, (type)8, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("1000");					\
+		len = to_chars(str, (type)16, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("10000");				\
+		len = to_chars(str, (type)32, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("100000");				\
+		len = to_chars(str, (type)64, TO_CHARS_BINARY);		\
+		CHECK_TO_CHARS("1000000");				\
+		len = to_chars(str, (type)128, TO_CHARS_BINARY);	\
+		CHECK_TO_CHARS("10000000");				\
 		len = to_chars(str, (type)10, TO_CHARS_BINARY);		\
 		CHECK_TO_CHARS("1010");					\
 		len = to_chars(str, (type)123, TO_CHARS_BINARY | TO_CHARS_PLUS_SIGN); \
@@ -302,6 +321,10 @@ SIMPLE_TEST(to_chars)
 		CHECK_TO_CHARS("0");					\
 		len = to_chars(str, (type)1, TO_CHARS_OCTAL);		\
 		CHECK_TO_CHARS("1");					\
+		len = to_chars(str, (type)010, TO_CHARS_OCTAL);		\
+		CHECK_TO_CHARS("10");					\
+		len = to_chars(str, (type)0100, TO_CHARS_OCTAL);	\
+		CHECK_TO_CHARS("100");					\
 		len = to_chars(str, (type)10, TO_CHARS_OCTAL);		\
 		CHECK_TO_CHARS("12");					\
 		len = to_chars(str, (type)123, TO_CHARS_OCTAL | TO_CHARS_PLUS_SIGN); \
@@ -341,6 +364,8 @@ SIMPLE_TEST(to_chars)
 		CHECK_TO_CHARS("0");					\
 		len = to_chars(str, (type)1, TO_CHARS_HEXADECIMAL);	\
 		CHECK_TO_CHARS("1");					\
+		len = to_chars(str, (type)0x10, TO_CHARS_HEXADECIMAL);	\
+		CHECK_TO_CHARS("10");					\
 		len = to_chars(str, (type)10, TO_CHARS_HEXADECIMAL);	\
 		CHECK_TO_CHARS("a");					\
 		len = to_chars(str, (type)123, TO_CHARS_HEXADECIMAL | TO_CHARS_PLUS_SIGN); \
@@ -537,10 +562,69 @@ SIMPLE_TEST(to_chars)
 	len = to_chars(str, (int64_t)-1, TO_CHARS_BINARY | TO_CHARS_LEADING_ZEROS);
 	CHECK_TO_CHARS("1111111111111111111111111111111111111111111111111111111111111111");
 
+	for (unsigned long long i = 2; i <= 36; i++) {
+		len = to_chars(str, 0, i);
+		CHECK_TO_CHARS("0");
+		len = to_chars(str, 1, i);
+		CHECK_TO_CHARS("1");
+		len = to_chars(str, i, i);
+		CHECK_TO_CHARS("10");
+		len = to_chars(str, i * i, i);
+		CHECK_TO_CHARS("100");
+		len = to_chars(str, i * i * i, i);
+		CHECK_TO_CHARS("1000");
+		len = to_chars(str, i * i * i * i, i);
+		CHECK_TO_CHARS("10000");
+		len = to_chars(str, i * i * i * i * i, i);
+		CHECK_TO_CHARS("100000");
+		len = to_chars(str, i * i * i * i * i * i, i);
+		CHECK_TO_CHARS("1000000");
+		len = to_chars(str, i * i * i * i * i * i * i, i);
+		CHECK_TO_CHARS("10000000");
+		len = to_chars(str, i * i * i * i * i * i * i * i, i);
+		CHECK_TO_CHARS("100000000");
+	}
+
 	return true;
 }
 
 RANDOM_TEST(to_chars_random, 1u << 22, 0, UINT64_MAX)
 {
 	return check_from_number(random);
+}
+
+static bool check_base_counting(unsigned int base)
+{
+	const char *alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+	assert(base <= strlen(alphabet));
+	unsigned char digits[64] = {0};
+	char buf[64];
+	memset(buf, alphabet[0], sizeof(buf));
+	for (uint64_t i = 0; i < (1u << 20); i++) {
+		char str[64];
+		size_t len = to_chars(str, i, base);
+		CHECK(memcmp(str, &buf[sizeof(buf) - len], len) == 0);
+
+		for (unsigned int j = sizeof(digits); j-- > 0;) {
+			digits[j]++;
+			if (digits[j] == base) {
+				digits[j] = 0;
+			}
+			buf[j] = alphabet[digits[j]];
+			if (digits[j] != 0) {
+				break;
+			}
+		}
+	}
+	return true;
+}
+
+RANGE_TEST(to_chars_bases, 2, 36)
+{
+	for (unsigned int base = start; base <= end; base++) {
+		if (unlikely(!check_base_counting(base))) {
+			return false;
+		}
+	}
+	return true;
 }

@@ -65,6 +65,21 @@ static _attr_unused _hashtable_uint_t _hashtable_round_capacity(_hashtable_uint_
 	return capacity;
 }
 
+// static void check(const unsigned int t)
+// {
+// 	for (unsigned int c = 8; c != 0; c++) {
+// 		unsigned int n = (c / 10) * t + (c % 10) * t / 10;
+// 		unsigned int m = (unsigned int)((double)c * (0.1 * t));
+// 		unsigned int c2 = (n / t) * 10 + ((n % t) * 10 + t - 1) / t;
+// 		unsigned int d = ceil(10.0 / t * n);
+// 		unsigned int n2 = (c2 / 10) * t + (c2 % 10) * t / 10;
+// 		// printf("%u %u %u\n", c, c2, x); if (c == 100) break;
+// 		assert(n == m);
+// 		assert(c2 == d);
+// 		assert(n == n2);
+// 	}
+// }
+
 // static _attr_unused _hashtable_uint_t _hashtable_min_capacity(_hashtable_uint_t num_entries,
 // 							      const struct _hashtable_info *info)
 // {
