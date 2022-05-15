@@ -539,17 +539,11 @@ SIMPLE_TEST(overflow8)
 				uint8_t difference = x - y;
 				bool difference_overflow = y > x;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 				CHECK(r == difference);
 				uint8_t product = x * y;
 				uint16_t product2 = (uint16_t)x * (uint16_t)y;
 				bool product_overflow = product != product2;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(product));
-#endif
 				CHECK(r == product);
 			}
 			{
@@ -563,16 +557,10 @@ SIMPLE_TEST(overflow8)
 				int16_t difference2 = (int16_t)x - (int16_t)y;
 				bool difference_overflow = difference != difference2;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 				CHECK(r == difference);
 				int16_t product = (int16_t)x * (int16_t)y;
 				bool product_overflow = product < INT8_MIN || product > INT8_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(product));
-#endif
 				CHECK(r == (int8_t)product);
 			}
 		}
@@ -594,16 +582,10 @@ RANGE_TEST(overflow16, 0, UINT16_MAX)
 				uint16_t difference = x - y;
 				bool difference_overflow = y > x;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 				CHECK(r == difference);
 				uint32_t product = (uint32_t)x * (uint32_t)y;
 				bool product_overflow = product > UINT16_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(product));
-#endif
 				CHECK(r == (uint16_t)product);
 			}
 			{
@@ -617,16 +599,10 @@ RANGE_TEST(overflow16, 0, UINT16_MAX)
 				int32_t difference2 = (int32_t)x - (int32_t)y;
 				bool difference_overflow = difference != difference2;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 				CHECK(r == difference);
 				int32_t product = (int32_t)x * (int32_t)y;
 				bool product_overflow = product < INT16_MIN || product > INT16_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-				asm volatile ("" :: "g"(r), "g"(product));
-#endif
 				CHECK(r == (int16_t)product);
 			}
 		}
@@ -1209,17 +1185,11 @@ static bool check_overflow32(uint64_t a, uint64_t b)
 		uint32_t difference = x - y;
 		bool difference_overflow = y > x;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 		CHECK(r == difference);
 		uint32_t product = x * y;
 		uint64_t product2 = (uint64_t)x * (uint64_t)y;
 		bool product_overflow = product != product2;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(product));
-#endif
 		CHECK(r == product);
 	}
 	{
@@ -1233,16 +1203,10 @@ static bool check_overflow32(uint64_t a, uint64_t b)
 		int64_t difference2 = (int64_t)x - (int64_t)y;
 		bool difference_overflow = difference != difference2;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 		CHECK(r == difference);
 		int64_t product = (int64_t)x * (int64_t)y;
 		bool product_overflow = product < INT32_MIN || product > INT32_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(product));
-#endif
 		CHECK(r == (int32_t)product);
 	}
 	return true;
@@ -1290,17 +1254,11 @@ static bool check_overflow64(uint64_t a, uint64_t b)
 		uint64_t difference = x - y;
 		bool difference_overflow = y > x;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 		CHECK(r == difference);
 		uint64_t product = x * y;
 		uint128_t product2 = (uint128_t)x * (uint128_t)y;
 		bool product_overflow = product != product2;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(product));
-#endif
 		CHECK(r == product);
 	}
 	{
@@ -1314,16 +1272,10 @@ static bool check_overflow64(uint64_t a, uint64_t b)
 		int128_t difference2 = (int128_t)x - (int128_t)y;
 		bool difference_overflow = difference != difference2;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(difference));
-#endif
 		CHECK(r == difference);
 		int128_t product = (int128_t)x * (int128_t)y;
 		bool product_overflow = product < INT64_MIN || product > INT64_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-#ifdef __clang__
-		asm volatile ("" :: "g"(r), "g"(product));
-#endif
 		CHECK(r == (int64_t)product);
 	}
 	return true;

@@ -270,13 +270,13 @@ typedef struct { int i; } _utils_dummy_t;
 
 #ifdef HAVE_BUILTIN_ADD_OVERFLOW
 #define _utils_add_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		return __builtin_add_overflow(a, b, result);		\
 	}
 #else
 #define _utils_add_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		to_unsigned_type(type) x = a, y = b, r;			\
 		*result = r = x + y;					\
@@ -285,13 +285,13 @@ typedef struct { int i; } _utils_dummy_t;
 #endif
 #ifdef HAVE_BUILTIN_SUB_OVERFLOW
 #define _utils_sub_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		return __builtin_sub_overflow(a, b, result);		\
 	}
 #else
 #define _utils_sub_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		to_unsigned_type(type) x = a, y = b, r;			\
 		*result = r = x - y;					\
@@ -300,13 +300,13 @@ typedef struct { int i; } _utils_dummy_t;
 #endif
 #ifdef HAVE_BUILTIN_MUL_OVERFLOW
 #define _utils_mul_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		return __builtin_mul_overflow(a, b, result);		\
 	}
 #else
 #define _utils_mul_overflow_function(suffix, type, bits, ...)		\
-	static _attr_always_inline _attr_const _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
+	static _attr_always_inline _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
 	{								\
 		typedef to_unsigned_type(type) unsigned_type;		\
 		unsigned_type x = a, y = b, c;				\
