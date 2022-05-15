@@ -1,7 +1,6 @@
 #ifndef __UTILS_INCLUDE__
 #define __UTILS_INCLUDE__
 
-#include <endian.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,7 +9,57 @@
 
 _Static_assert(CHAR_BIT == 8, "this implementation assumes 8-bit chars");
 
-// TODO make a generic to_unsigned, min_value/max_value macro
+#define to_unsigned(val) _Generic(val,					\
+				  char : (unsigned char)val,		\
+				  unsigned char : (unsigned char)val,	\
+				  unsigned short : (unsigned short)val,	\
+				  unsigned int : (unsigned int)val,	\
+				  unsigned long : (unsigned long)val,	\
+				  unsigned long long : (unsigned long long)val, \
+				  signed char : (unsigned char)val,	\
+				  signed short : (unsigned short)val,	\
+				  signed int : (unsigned int)val,	\
+				  signed long : (unsigned long)val,	\
+				  signed long long : (unsigned long long)val)
+
+#define to_unsigned_type(type_or_expression) typeof(_Generic(*(typeof(type_or_expression) *)0, \
+							     char : (unsigned char)0, \
+							     unsigned char : (unsigned char)0, \
+							     unsigned short : (unsigned short)0, \
+							     unsigned int : (unsigned int)0, \
+							     unsigned long : (unsigned long)0, \
+							     unsigned long long : (unsigned long long)0, \
+							     signed char : (unsigned char)0, \
+							     signed short : (unsigned short)0, \
+							     signed int : (unsigned int)0, \
+							     signed long : (unsigned long)0, \
+							     signed long long : (unsigned long long)0))
+
+#define min_value(type_or_expression) _Generic(*(typeof(type_or_expression) *)0, \
+					       char : (char)CHAR_MIN,	\
+					       unsigned char : (unsigned char)0, \
+					       unsigned short : (unsigned short)0, \
+					       unsigned int : (unsigned int)0, \
+					       unsigned long : (unsigned long)0, \
+					       unsigned long long : (unsigned long long)0, \
+					       signed char : (signed char)SCHAR_MIN, \
+					       signed short : (signed short)SHRT_MIN, \
+					       signed int : (signed int)INT_MIN, \
+					       signed long : (signed long)LONG_MIN, \
+					       signed long long : (signed long long)LLONG_MIN)
+
+#define max_value(type_or_expression) _Generic(*(typeof(type_or_expression) *)0, \
+					       char : (char)CHAR_MAX,	\
+					       unsigned char : (unsigned char)UCHAR_MAX, \
+					       unsigned short : (unsigned short)USHRT_MAX, \
+					       unsigned int : (unsigned int)UINT_MAX, \
+					       unsigned long : (unsigned long)ULONG_MAX, \
+					       unsigned long long : (unsigned long long)ULLONG_MAX, \
+					       signed char : (signed char)SCHAR_MAX, \
+					       signed short : (signed short)SHRT_MAX, \
+					       signed int : (signed int)INT_MAX, \
+					       signed long : (signed long)LONG_MAX, \
+					       signed long long : (signed long long)LLONG_MAX)
 
 // TODO allow all types for clz, ctz, popcount, ilog
 #define _utils_dispatch_builtin(x, f) _Generic((x),			\
@@ -173,13 +222,15 @@ __AD_LINKAGE unsigned int _popcountll(unsigned long long x) _attr_const _attr_un
 		f(ullong, unsigned long long, _LLONG_BITS, __VA_ARGS__)	\
 		f(sllong, signed long long,   _LLONG_BITS, __VA_ARGS__)
 
-#define _utils_foreach_type(f, ...)					\
-		f(bool,  _Bool,         8, __VA_ARGS__)			\
+#define _utils_foreach_type_no_bool(f, ...)				\
 		f(char,  char,          8, __VA_ARGS__)			\
 		f(uchar, unsigned char, 8, __VA_ARGS__)			\
 		f(schar, signed char,   8, __VA_ARGS__)			\
 		_utils_foreach_multibyte_type(f, __VA_ARGS__)
 
+#define _utils_foreach_type(f, ...)					\
+		f(bool,  _Bool,         8, __VA_ARGS__)			\
+		_utils_foreach_type_no_bool(f, __VA_ARGS__)
 
 #define _utils_check_bits(suffix, type, bits, ...)			\
 	_Static_assert(sizeof(type) * 8 == bits, "wrong bit size for " #type);
@@ -216,6 +267,79 @@ typedef struct { int i; } _utils_dummy_t;
 
 #define min_t(type, a, b) _Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_min, a, b) _utils_dummy_t:0)
 #define max_t(type, a, b) _Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_max, a, b) _utils_dummy_t:0)
+
+#ifdef HAVE_BUILTIN_ADD_OVERFLOW
+#define _utils_add_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		return __builtin_add_overflow(a, b, result);		\
+	}
+#else
+#define _utils_add_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _add_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		to_unsigned_type(type) x = a, y = b, r;			\
+		*result = r = x + y;					\
+		return ((type)-1 < 0) ? ((r ^ x) & (r ^ y)) >> (bits - 1) : r < x; \
+	}
+#endif
+#ifdef HAVE_BUILTIN_SUB_OVERFLOW
+#define _utils_sub_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		return __builtin_sub_overflow(a, b, result);		\
+	}
+#else
+#define _utils_sub_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _sub_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		to_unsigned_type(type) x = a, y = b, r;			\
+		*result = r = x - y;					\
+		return ((type)-1 < 0) ? ((x ^ y) & (r ^ x)) >> (bits - 1) : r > x; \
+	}
+#endif
+#ifdef HAVE_BUILTIN_MUL_OVERFLOW
+#define _utils_mul_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		return __builtin_mul_overflow(a, b, result);		\
+	}
+#else
+#define _utils_mul_overflow_function(suffix, type, bits, ...)		\
+	static _attr_always_inline _attr_const _attr_unused bool _mul_overflow_##suffix(type a, type b, type *result) \
+	{								\
+		typedef to_unsigned_type(type) unsigned_type;		\
+		unsigned_type x = a, y = b, c;				\
+		/* we need to prevent uint16_t values from being converted to int in 'x * y' to prevent ub */ \
+		/* so we define mult_type to be 'unsigned int' for anything smaller than int */ \
+		typedef to_unsigned_type(x * y) mult_type;		\
+		*result = (type)((mult_type)x * (mult_type)y);		\
+		if ((type)-1 < 0) {					\
+			c = (unsigned_type)(~(a ^ b) >> (bits - 1)) + ((unsigned_type)1 << (bits - 1)); \
+			x = a < 0 ? -x : x;				\
+			y = b < 0 ? -y : y;				\
+		} else {						\
+			c = ~((type)0);					\
+		}							\
+		return y != 0 && x > c / y;				\
+	}
+#endif
+_utils_foreach_type_no_bool(_utils_add_overflow_function)
+_utils_foreach_type_no_bool(_utils_sub_overflow_function)
+_utils_foreach_type_no_bool(_utils_mul_overflow_function)
+#undef _utils_add_overflow_function
+#undef _utils_sub_overflow_function
+#undef _utils_mul_overflow_function
+
+#define _utils_dispatch_add_overflow(suffix, type, bits, a, b, r) type : _add_overflow_##suffix(a, b, (type *)r),
+#define _utils_dispatch_sub_overflow(suffix, type, bits, a, b, r) type : _sub_overflow_##suffix(a, b, (type *)r),
+#define _utils_dispatch_mul_overflow(suffix, type, bits, a, b, r) type : _mul_overflow_##suffix(a, b, (type *)r),
+#define add_overflow(a, b, r)						\
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_add_overflow, a, b, r) _utils_dummy_t:0)
+#define sub_overflow(a, b, r)						\
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_sub_overflow, a, b, r) _utils_dummy_t:0)
+#define mul_overflow(a, b, r)						\
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_mul_overflow, a, b, r) _utils_dummy_t:0)
 
 static _attr_always_inline _attr_const _attr_unused uint16_t _bswap16(uint16_t x)
 {

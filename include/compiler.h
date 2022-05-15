@@ -85,6 +85,9 @@
 
 #ifndef __DISABLE_FUNCTION_DETECTION
 
+#if !defined(HAVE_BUILTIN_ADD_OVERFLOW) && __has_builtin(__builtin_add_overflow)
+# define HAVE_BUILTIN_ADD_OVERFLOW 1
+#endif
 #if !defined(HAVE_BUILTIN_BSWAP) && __has_builtin(__builtin_bswap16) && \
 	__has_builtin(__builtin_bswap32) && __has_builtin(__builtin_bswap64)
 # define HAVE_BUILTIN_BSWAP 1
@@ -98,8 +101,14 @@
 #if !defined(HAVE_BUILTIN_EXPECT) && __has_builtin(__builtin_expect)
 # define HAVE_BUILTIN_EXPECT 1
 #endif
+#if !defined(HAVE_BUILTIN_MUL_OVERFLOW) && __has_builtin(__builtin_mul_overflow)
+# define HAVE_BUILTIN_MUL_OVERFLOW 1
+#endif
 #if !defined(HAVE_BUILTIN_OBJECT_SIZE) && __has_builtin(__builtin_object_size)
 # define HAVE_BUILTIN_OBJECT_SIZE 1
+#endif
+#if !defined(HAVE_BUILTIN_SUB_OVERFLOW) && __has_builtin(__builtin_sub_overflow)
+# define HAVE_BUILTIN_SUB_OVERFLOW 1
 #endif
 #if !defined(HAVE_BUILTIN_POPCOUNT) && __has_builtin(__builtin_popcount)
 # define HAVE_BUILTIN_POPCOUNT 1

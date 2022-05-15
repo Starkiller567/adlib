@@ -193,7 +193,7 @@ static bool run_random_test(bool (*f)(uint64_t random), uint64_t num_values, uin
 static bool run_test_helper(struct test_work *work)
 {
 	const struct test *test = work->test;
-	bool success;
+	bool success = false;
 	switch (work->test->type) {
 	case TEST_TYPE_SIMPLE:
 		success = run_simple_test(test->simple_test.f);
@@ -232,7 +232,7 @@ static void run_test(struct work *_work)
 		}
 	}
 
-	bool success;
+	bool success = false;
 	if (pid == 0) {
 		success = run_test_helper(work);
 		if (test->need_subprocess) {

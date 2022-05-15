@@ -38,7 +38,6 @@ int main(void)
 			puts(buf);
 		}
 	}
-	free(buf);
 
 	n = mbuf_pop(&mbuf, buf, len);
 	assert(n == 0);
@@ -48,6 +47,7 @@ int main(void)
 	mbuf_flush(&mbuf);
 	n = mbuf_pop(&mbuf, buf, len);
 	assert(n == 0);
+	free(buf);
 
 	buf = malloc(mbuf_avail_size(&mbuf));
 	n = mbuf_push(&mbuf, buf, mbuf_avail_size(&mbuf), false);

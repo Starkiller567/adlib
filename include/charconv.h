@@ -42,4 +42,43 @@ __AD_LINKAGE size_t to_chars_ullong(char *buf, unsigned long long val, unsigned 
 					   signed long : to_chars_long(buf, (signed long)val, flags), \
 					   signed long long : to_chars_llong(buf, (signed long long)val, flags))
 
+#if 0 // TODO implement
+enum from_chars_flags {
+	FROM_CHARS_AUTODETECT_BASE = 0, // autodetect base according to C syntax
+
+	FROM_CHARS_BINARY = 2, // %b
+	FROM_CHARS_OCTAL = 8, // %o
+	FROM_CHARS_DECIMAL = 10, // %d, %u
+	FROM_CHARS_HEXADECIMAL = 16, // %x
+
+	__FROM_CHARS_BASE_MASK = 63, // base must be between 2 and 36 inclusive
+
+	// TODO FROM_CHARS_SKIP_LEADING_WHITESPACE
+};
+
+__AD_LINKAGE size_t from_chars_char(char *chars, size_t nchars, char *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_schar(char *chars, size_t nchars, signed char *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_uchar(char *chars, size_t nchars, unsigned char *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_short(char *chars, size_t nchars, short *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_ushort(char *chars, size_t nchars, unsigned short *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_int(char *chars, size_t nchars, int *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_uint(char *chars, size_t nchars, unsigned int *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_long(char *chars, size_t nchars, long *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_ulong(char *chars, size_t nchars, unsigned long *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_llong(char *chars, size_t nchars, long long *retval, unsigned int flags) _attr_unused;
+__AD_LINKAGE size_t from_chars_ullong(char *chars, size_t nchars, unsigned long long *retval, unsigned int flags) _attr_unused;
+#define from_chars(chars, nchars, retval, flags) _Generic(retval,	\
+							  char * : from_chars_char(chars, nchars, (char *)retval, flags), \
+							  unsigned char * : from_chars_char(chars, nchars, (unsigned char *)retval, flags), \
+							  unsigned short * : from_chars_char(chars, nchars, (unsigned short *)retval, flags), \
+							  unsigned int * : from_chars_char(chars, nchars, (unsigned int *)retval, flags), \
+							  unsigned long * : from_chars_char(chars, nchars, (unsigned long *)retval, flags), \
+							  unsigned long long * : from_chars_char(chars, nchars, (unsigned long long *)retval, flags), \
+							  signed char * : from_chars_char(chars, nchars, (signed char *)retval, flags), \
+							  signed short * : from_chars_char(chars, nchars, (signed short *)retval, flags), \
+							  signed int * : from_chars_char(chars, nchars, (signed int *)retval, flags), \
+							  signed long * : from_chars_char(chars, nchars, (signed long *)retval, flags), \
+							  signed long long * : from_chars_char(chars, nchars, (signed long long *)retval, flags))
+#endif
+
 #endif

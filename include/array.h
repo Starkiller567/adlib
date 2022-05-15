@@ -359,7 +359,7 @@ typedef struct {
 #define _arr_attr_assume_aligned					\
 	_attr_assume_aligned(_Alignof(max_align_t), sizeof(_arr) % _Alignof(max_align_t))
 
-__AD_LINKAGE _attr_unused _attr_nodiscard _attr_alloc_size(2, 3) _arr_attr_assume_aligned void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity);
+__AD_LINKAGE _attr_unused _attr_nodiscard _arr_attr_assume_aligned void *_arr_resize_internal(void *arr, size_t elem_size, size_t capacity);
 __AD_LINKAGE _attr_unused _attr_nodiscard _arr_attr_assume_aligned void *_arr_copy(const void *arr, size_t elem_size);
 __AD_LINKAGE _attr_unused void _arr_grow(void **arrp, size_t elem_size, size_t n);
 __AD_LINKAGE _attr_unused void _arr_make_valid(void **arrp, size_t elem_size, size_t i);
