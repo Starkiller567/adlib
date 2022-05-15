@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,6 +65,7 @@ static void measure_overhead(void)
 	do {								\
 		const unsigned int max_shift = 24;			\
 		uint8_t *input = malloc(1u << max_shift);		\
+		assert(input);						\
 		random_fill_buffer(input, 1u << max_shift);		\
 		for (unsigned int shift = 0; shift <= max_shift; shift++) { \
 			const size_t inlen = 1u << shift;		\

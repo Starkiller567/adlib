@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -82,6 +83,7 @@ int main(int argc, char **argv)
 #else
 	size_t n = 128 * 1024 * 1024;
 	int *arr = malloc(n * sizeof(arr[0]));
+	assert(arr);
 	srand(12345);
 	for (size_t i = 0; i < n; i++) {
 		arr[i] = rand();

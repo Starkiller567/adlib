@@ -556,7 +556,7 @@ static _attr_unused void _dstr_set_length(dstr_t dstr, size_t length)
 	}
 }
 
-static _attr_unused size_t _dstr_header_size(enum _dstr_type type)
+static _attr_unused _attr_pure size_t _dstr_header_size(enum _dstr_type type)
 {
 	switch (type) {
 	case __DSTR_SMALL:  return sizeof(struct _dstr_small);

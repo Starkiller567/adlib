@@ -339,7 +339,7 @@ static _attr_unused void _hashtable_resize_common(struct _hashtable *table, _has
 	size_t max_capacity = old_capacity > table->capacity ? old_capacity : table->capacity;
 	size_t bitmap_size = (max_capacity + 31) / 32 * sizeof(uint32_t);
 	uint32_t *bitmap, *bitmap_to_free = NULL;
-	if (bitmap_size <= 0) {
+	if (bitmap_size <= 1024) {
 		bitmap = alloca(bitmap_size);
 		memset(bitmap, 0, bitmap_size);
 	} else {

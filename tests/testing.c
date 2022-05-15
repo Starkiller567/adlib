@@ -306,6 +306,10 @@ static struct work *work_queue_pop_work(struct work_queue *queue)
 static struct test_work *test_add_work(struct test *test, size_t n)
 {
 	struct test_work *test_work = calloc(n, sizeof(*test_work));
+	if (!test_work) {
+		perror("calloc");
+		exit(EXIT_FAILURE);
+	}
 	test->work = test_work;
 	test->num_work = n;
 	for (size_t i = 0; i < n; i++) {
@@ -584,6 +588,10 @@ static int compare_tests(const void *_a, const void *_b)
 
 int main(int argc, char **argv)
 {
+	if (!tests) {
+		fputs("no tests were registered", stderr);
+		return 0;
+	}
 	unsigned int nthreads = 0;
 	const char *accept_file_substr = NULL;
 	const char *accept_file_exact = NULL;
