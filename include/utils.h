@@ -94,17 +94,17 @@ __AD_LINKAGE unsigned int _clzll(unsigned long long x) _attr_const _attr_unused;
 
 static _attr_always_inline _attr_const _attr_unused unsigned int _ilog2(unsigned int x)
 {
-	return 8 * sizeof(x) - 1 - _clz(x | 1);
+	return (8 * sizeof(x) - 1) ^ _clz(x | 1);
 }
 
 static _attr_always_inline _attr_const _attr_unused unsigned int _ilog2l(unsigned long x)
 {
-	return 8 * sizeof(x) - 1 - _clzl(x | 1);
+	return (8 * sizeof(x) - 1) ^ _clzl(x | 1);
 }
 
 static _attr_always_inline _attr_const _attr_unused unsigned int _ilog2ll(unsigned long long x)
 {
-	return 8 * sizeof(x) - 1 - _clzll(x | 1);
+	return (8 * sizeof(x) - 1) ^ _clzll(x | 1);
 }
 
 #define ilog2(x) _utils_dispatch_builtin(x, _ilog2)
