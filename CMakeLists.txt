@@ -221,7 +221,6 @@ if(${ENABLE_TESTS} AND (${BUILD_STATIC_LIBRARY} OR ${BUILD_SINGLE_HEADER_LIBRARY
     endif()
   endif()
 
-  enable_testing()
   add_subdirectory(tests)
 endif()
 
