@@ -496,33 +496,31 @@ SIMPLE_TEST(overflow8)
 		for (uint64_t b = 0; b <= UINT8_MAX; b++) {
 			{
 				uint8_t x = a, y = b, r;
-				uint8_t sum = x + y;
-				uint16_t sum2 = (uint16_t)x + (uint16_t)y;
-				bool sum_overflow = sum != sum2;
+				uint16_t sum = (uint16_t)x + (uint16_t)y;
+				bool sum_overflow = sum > UINT8_MAX;
 				CHECK(add_overflow(x, y, &r) == sum_overflow);
-				CHECK(r == sum);
+				CHECK(r == (uint8_t)sum);
 				uint8_t difference = x - y;
 				bool difference_overflow = y > x;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
 				CHECK(r == difference);
-				uint8_t product = x * y;
-				uint16_t product2 = (uint16_t)x * (uint16_t)y;
-				bool product_overflow = product != product2;
+				uint16_t product = (uint16_t)x * (uint16_t)y;
+				bool product_overflow = product > UINT8_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
-				CHECK(r == product);
+				CHECK(r == (uint8_t)product);
 			}
 			{
 				int8_t x = a, y = b, r;
-				int8_t sum = x + y;
-				int16_t sum2 = (int16_t)x + (int16_t)y;
-				bool sum_overflow = sum != sum2;
+				int8_t sum8 = (uint8_t)x + (uint8_t)y;
+				int16_t sum16 = (int16_t)x + (int16_t)y;
+				bool sum_overflow = sum8 != sum16;
 				CHECK(add_overflow(x, y, &r) == sum_overflow);
-				CHECK(r == sum);
-				int8_t difference = (uint8_t)x - (uint8_t)y;
-				int16_t difference2 = (int16_t)x - (int16_t)y;
-				bool difference_overflow = difference != difference2;
+				CHECK(r == sum8);
+				int8_t difference8 = (uint8_t)x - (uint8_t)y;
+				int16_t difference16 = (int16_t)x - (int16_t)y;
+				bool difference_overflow = difference8 != difference16;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-				CHECK(r == difference);
+				CHECK(r == difference8);
 				int16_t product = (int16_t)x * (int16_t)y;
 				bool product_overflow = product < INT8_MIN || product > INT8_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
@@ -539,11 +537,10 @@ RANGE_TEST(overflow16, 0, UINT16_MAX)
 		for (uint64_t b = 0; b <= UINT16_MAX; b++) {
 			{
 				uint16_t x = a, y = b, r;
-				uint16_t sum = x + y;
-				uint32_t sum2 = (uint32_t)x + (uint32_t)y;
-				bool sum_overflow = sum != sum2;
+				uint32_t sum = (uint32_t)x + (uint32_t)y;
+				bool sum_overflow = sum > UINT16_MAX;
 				CHECK(add_overflow(x, y, &r) == sum_overflow);
-				CHECK(r == sum);
+				CHECK(r == (uint16_t)sum);
 				uint16_t difference = x - y;
 				bool difference_overflow = y > x;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
@@ -555,16 +552,16 @@ RANGE_TEST(overflow16, 0, UINT16_MAX)
 			}
 			{
 				int16_t x = a, y = b, r;
-				int16_t sum = x + y;
-				int32_t sum2 = (int32_t)x + (int32_t)y;
-				bool sum_overflow = sum != sum2;
+				int16_t sum16 = (uint16_t)x + (uint16_t)y;
+				int32_t sum32 = (int32_t)x + (int32_t)y;
+				bool sum_overflow = sum16 != sum32;
 				CHECK(add_overflow(x, y, &r) == sum_overflow);
-				CHECK(r == sum);
-				int16_t difference = (uint16_t)x - (uint16_t)y;
-				int32_t difference2 = (int32_t)x - (int32_t)y;
-				bool difference_overflow = difference != difference2;
+				CHECK(r == sum16);
+				int16_t difference16 = (uint16_t)x - (uint16_t)y;
+				int32_t difference32 = (int32_t)x - (int32_t)y;
+				bool difference_overflow = difference16 != difference32;
 				CHECK(sub_overflow(x, y, &r) == difference_overflow);
-				CHECK(r == difference);
+				CHECK(r == difference16);
 				int32_t product = (int32_t)x * (int32_t)y;
 				bool product_overflow = product < INT16_MIN || product > INT16_MAX;
 				CHECK(mul_overflow(x, y, &r) == product_overflow);
@@ -1142,33 +1139,31 @@ static bool check_overflow32(uint64_t a, uint64_t b)
 {
 	{
 		uint32_t x = a, y = b, r;
-		uint32_t sum = x + y;
-		uint64_t sum2 = (uint64_t)x + (uint64_t)y;
-		bool sum_overflow = sum != sum2;
+		uint64_t sum = (uint64_t)x + (uint64_t)y;
+		bool sum_overflow = sum > UINT32_MAX;
 		CHECK(add_overflow(x, y, &r) == sum_overflow);
-		CHECK(r == sum);
+		CHECK(r == (uint32_t)sum);
 		uint32_t difference = x - y;
 		bool difference_overflow = y > x;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
 		CHECK(r == difference);
-		uint32_t product = x * y;
-		uint64_t product2 = (uint64_t)x * (uint64_t)y;
-		bool product_overflow = product != product2;
+		uint64_t product = (uint64_t)x * (uint64_t)y;
+		bool product_overflow = product > UINT32_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-		CHECK(r == product);
+		CHECK(r == (uint32_t)product);
 	}
 	{
 		int32_t x = a, y = b, r;
-		int64_t sum = (int32_t)((uint32_t)x + (uint32_t)y);
-		int64_t sum2 = (int64_t)x + (int64_t)y;
-		bool sum_overflow = sum != sum2;
+		int32_t sum32 = (uint32_t)x + (uint32_t)y;
+		int64_t sum64 = (int64_t)x + (int64_t)y;
+		bool sum_overflow = sum32 != sum64;
 		CHECK(add_overflow(x, y, &r) == sum_overflow);
-		CHECK(r == sum);
-		int32_t difference = (uint32_t)x - (uint32_t)y;
-		int64_t difference2 = (int64_t)x - (int64_t)y;
-		bool difference_overflow = difference != difference2;
+		CHECK(r == sum32);
+		int32_t difference32 = (uint32_t)x - (uint32_t)y;
+		int64_t difference64 = (int64_t)x - (int64_t)y;
+		bool difference_overflow = difference32 != difference64;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-		CHECK(r == difference);
+		CHECK(r == difference32);
 		int64_t product = (int64_t)x * (int64_t)y;
 		bool product_overflow = product < INT32_MIN || product > INT32_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
@@ -1211,33 +1206,31 @@ static bool check_overflow64(uint64_t a, uint64_t b)
 	typedef unsigned __int128 uint128_t;
 	{
 		uint64_t x = a, y = b, r;
-		uint64_t sum = x + y;
-		uint128_t sum2 = (uint128_t)x + (uint128_t)y;
-		bool sum_overflow = sum != sum2;
+		uint128_t sum = (uint128_t)x + (uint128_t)y;
+		bool sum_overflow = sum > UINT64_MAX;
 		CHECK(add_overflow(x, y, &r) == sum_overflow);
-		CHECK(r == sum);
+		CHECK(r == (uint64_t)sum);
 		uint64_t difference = x - y;
 		bool difference_overflow = y > x;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
 		CHECK(r == difference);
-		uint64_t product = x * y;
-		uint128_t product2 = (uint128_t)x * (uint128_t)y;
-		bool product_overflow = product != product2;
+		uint128_t product = (uint128_t)x * (uint128_t)y;
+		bool product_overflow = product > UINT64_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
-		CHECK(r == product);
+		CHECK(r == (uint64_t)product);
 	}
 	{
 		int64_t x = a, y = b, r;
-		int128_t sum = (int64_t)((uint64_t)x + (uint64_t)y);
-		int128_t sum2 = (int128_t)x + (int128_t)y;
-		bool sum_overflow = sum != sum2;
+		int64_t sum64 = (uint64_t)x + (uint64_t)y;
+		int128_t sum128 = (int128_t)x + (int128_t)y;
+		bool sum_overflow = sum64 != sum128;
 		CHECK(add_overflow(x, y, &r) == sum_overflow);
-		CHECK(r == sum);
-		int64_t difference = (uint64_t)x - (uint64_t)y;
-		int128_t difference2 = (int128_t)x - (int128_t)y;
-		bool difference_overflow = difference != difference2;
+		CHECK(r == sum64);
+		int64_t difference64 = (uint64_t)x - (uint64_t)y;
+		int128_t difference128 = (int128_t)x - (int128_t)y;
+		bool difference_overflow = difference64 != difference128;
 		CHECK(sub_overflow(x, y, &r) == difference_overflow);
-		CHECK(r == difference);
+		CHECK(r == difference64);
 		int128_t product = (int128_t)x * (int128_t)y;
 		bool product_overflow = product < INT64_MIN || product > INT64_MAX;
 		CHECK(mul_overflow(x, y, &r) == product_overflow);
