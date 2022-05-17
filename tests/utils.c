@@ -272,55 +272,22 @@ RANDOM_TEST(popcount64_rand, 1u << 30, (uint64_t)UINT32_MAX + 1, UINT64_MAX)
 
 SIMPLE_TEST(minmax)
 {
-#define _CHECK_MINMAX(type, e, c)		\
-	CHECK(_Generic(e, type : e) == (type)c)
-#define CHECK_MIN(type, a, b, c) _CHECK_MINMAX(type, min_t(type, a, b), c)
-#define CHECK_MAX(type, a, b, c) _CHECK_MINMAX(type, max_t(type, a, b), c)
-
-	CHECK_MIN(bool, false, false, false);
-	CHECK_MIN(bool, false, true, false);
-	CHECK_MIN(bool, true, false, false);
-	CHECK_MIN(bool, true, true, true);
-
-	CHECK_MAX(bool, false, false, false);
-	CHECK_MAX(bool, false, true, true);
-	CHECK_MAX(bool, true, false, true);
-	CHECK_MAX(bool, true, true, true);
-
-	CHECK_MIN(signed char, 0, -1, -1);
-	CHECK_MIN(signed char, 0, 1, 0);
-	CHECK_MIN(signed char, 0, 0, 0);
-	CHECK_MIN(signed char, 1, -1, -1);
-	CHECK_MIN(signed char, -128, 127, -128);
-
-	CHECK_MAX(signed char, 0, -1, 0);
-	CHECK_MAX(signed char, 0, 1, 1);
-	CHECK_MAX(signed char, 0, 0, 0);
-	CHECK_MAX(signed char, 1, -1, 1);
-	CHECK_MAX(signed char, -128, 127, 127);
-
-	CHECK_MIN(unsigned char, 0, -1, 0);
-	CHECK_MIN(unsigned char, 0, 1, 0);
-	CHECK_MIN(unsigned char, 0, 0, 0);
-	CHECK_MIN(unsigned char, 1, -1, 1);
-	CHECK_MIN(unsigned char, 255, 0, 0);
-
-	CHECK_MAX(unsigned char, 0, -1, -1);
-	CHECK_MAX(unsigned char, 0, 1, 1);
-	CHECK_MAX(unsigned char, 0, 0, 0);
-	CHECK_MAX(unsigned char, 1, -1, -1);
-	CHECK_MAX(unsigned char, 255, 0, 255);
-
 #define MINMAX_TEST(type)						\
 	do {								\
-		for (int i = -10; i <= 10; i++) {			\
-			for (int j = -10; j <= 10; j++) {		\
+		_Static_assert(types_are_compatible(min((type)-1, (type)0), type), "");	\
+		_Static_assert(types_are_compatible(max((type)-1, (type)0), type), "");	\
+		_Static_assert(types_are_compatible(min_t(type, (type)-1, (type)0), type), ""); \
+		_Static_assert(types_are_compatible(max_t(type, (type)-1, (type)0), type), ""); \
+		for (int i = CHAR_MIN; i <= CHAR_MAX; i++) {		\
+			for (int j = CHAR_MIN; j <= CHAR_MAX; j++) {	\
 				type a = (type)i;			\
 				type b = (type)j;			\
 				type min_val = min_t(type, a, b);	\
 				type max_val = max_t(type, a, b);	\
-				CHECK(min_val <= a && min_val <= b);	\
-				CHECK(max_val >= a && max_val >= b);	\
+				CHECK(min(a, b) == min_val);		\
+				CHECK(max(a, b) == max_val);		\
+				CHECK(min_val == (a < b ? a : b));	\
+				CHECK(max_val == (a > b ? a : b));	\
 			}						\
 		}							\
 	} while (0)
@@ -522,8 +489,6 @@ SIMPLE_TEST(to_unsigned)
 
 	return true;
 }
-
-// the 'asm volatile' statements in the overflow tests are a workaround for an assumed bug in clang 13.0.1
 
 SIMPLE_TEST(overflow8)
 {

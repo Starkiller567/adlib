@@ -27,6 +27,11 @@
 #include "config.h"
 
 _Static_assert(CHAR_BIT == 8, "this implementation assumes 8-bit chars");
+#ifndef HAVE_TYPEOF
+_Static_assert(0, "utils.h requires typeof");
+#endif
+
+#define static_assert_expr(cond, msg) ((void)sizeof(struct { _Static_assert(cond, msg); int dummy; }))
 
 #define to_unsigned(val) _Generic(val,					\
 				  char : (unsigned char)val,		\
@@ -53,6 +58,9 @@ _Static_assert(CHAR_BIT == 8, "this implementation assumes 8-bit chars");
 							     signed int : (unsigned int)0, \
 							     signed long : (unsigned long)0, \
 							     signed long long : (unsigned long long)0))
+
+#define types_are_compatible(type_or_expression1, type_or_expression2)	\
+	_Generic(*(typeof(type_or_expression1) *)0, typeof(type_or_expression2): 1, default: 0)
 
 #define min_value(type_or_expression) _Generic(*(typeof(type_or_expression) *)0, \
 					       char : (char)CHAR_MIN,	\
@@ -282,10 +290,17 @@ _utils_foreach_type(_utils_max_function)
 #define _utils_dispatch_min(suffix, type, bits, a, b) type : _min_##suffix(a, b),
 #define _utils_dispatch_max(suffix, type, bits, a, b) type : _max_##suffix(a, b),
 
-typedef struct { int i; } _utils_dummy_t;
+#define min_t(type, a, b)						\
+	_Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_min, a, b) struct { int i; }: 0)
+#define max_t(type, a, b)						\
+	_Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_max, a, b) struct { int i; } :0)
 
-#define min_t(type, a, b) _Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_min, a, b) _utils_dummy_t:0)
-#define max_t(type, a, b) _Generic(*(type*)0, _utils_foreach_type(_utils_dispatch_max, a, b) _utils_dummy_t:0)
+#define min(a, b)							\
+	(static_assert_expr(types_are_compatible(a, b), "min requires compatible types for its arguments"), \
+	 min_t(typeof(a), a, b))
+#define max(a, b)							\
+	(static_assert_expr(types_are_compatible(a, b), "max requires compatible types for its arguments"), \
+	 max_t(typeof(a), a, b))
 
 #ifdef HAVE_BUILTIN_ADD_OVERFLOW
 #define _utils_add_overflow_function(suffix, type, bits, ...)		\
@@ -354,11 +369,11 @@ _utils_foreach_type_no_bool(_utils_mul_overflow_function)
 #define _utils_dispatch_sub_overflow(suffix, type, bits, a, b, r) type : _sub_overflow_##suffix(a, b, (type *)r),
 #define _utils_dispatch_mul_overflow(suffix, type, bits, a, b, r) type : _mul_overflow_##suffix(a, b, (type *)r),
 #define add_overflow(a, b, r)						\
-	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_add_overflow, a, b, r) _utils_dummy_t:0)
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_add_overflow, a, b, r) struct { int i; } : 0)
 #define sub_overflow(a, b, r)						\
-	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_sub_overflow, a, b, r) _utils_dummy_t:0)
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_sub_overflow, a, b, r) struct { int i; } : 0)
 #define mul_overflow(a, b, r)						\
-	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_mul_overflow, a, b, r) _utils_dummy_t:0)
+	_Generic(*r, _utils_foreach_type_no_bool(_utils_dispatch_mul_overflow, a, b, r) struct { int i; } : 0)
 
 static _attr_always_inline _attr_const _attr_unused uint16_t _bswap16(uint16_t x)
 {
@@ -401,7 +416,7 @@ _utils_foreach_multibyte_type(_utils_bswap_function)
 
 #define _utils_bswap_dispatch(suffix, type, bits, x) type : _bswap_##suffix(x),
 
-#define bswap(x) _Generic(x, _utils_foreach_multibyte_type(_utils_bswap_dispatch, x) _utils_dummy_t:0)
+#define bswap(x) _Generic(x, _utils_foreach_multibyte_type(_utils_bswap_dispatch, x) struct { int i; } : 0)
 
 #if !defined(BYTE_ORDER_IS_LITTLE_ENDIAN) && (defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 # define BYTE_ORDER_IS_LITTLE_ENDIAN 1
