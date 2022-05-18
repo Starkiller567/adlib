@@ -16,7 +16,7 @@ endmacro()
 
 add_standalone(array_benchmark)
 add_standalone(hash_benchmark)
-add_standalone(hash_comparison words.c)
+add_standalone(hash_comparison)
 add_standalone(hashtable_benchmark)
 add_standalone(random_benchmark)
 

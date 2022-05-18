@@ -1,4 +1,3 @@
-#include "compiler.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <openssl/evp.h>
@@ -6,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #ifdef HAVE_XXHASH
 #include <xxhash.h>
 #endif
@@ -14,13 +14,13 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #endif
+#include "array.h"
+#include "compiler.h"
 #include "hash.h"
 #include "hashtable.h"
 #include "random.h"
 
-extern const char *words[];
-extern size_t num_words;
-
+array_t(char *) words = NULL;
 char **uuids;
 char **numbers;
 
@@ -220,12 +220,32 @@ static _attr_unused uint32_t sha3(const char *str)
 
 int main(int argc, char **argv)
 {
-	uuids = malloc(num_words * sizeof(uuids[0]));
-	numbers = malloc(num_words * sizeof(numbers[0]));
+	if (argc < 2) {
+		fputs("pass a text file containing unique lines (words.txt)\n", stderr);
+		return 1;
+	}
+	{
+		FILE *file = fopen(argv[1], "r");
+		assert(file);
+		char buf[128];
+		while (fgets(buf, sizeof(buf), file)) {
+			assert(buf[strlen(buf) - 1] == '\n');
+			buf[strlen(buf) - 1] = '\0';
+			array_add(words, strdup(buf));
+		}
+		assert(!ferror(file));
+		fclose(file);
+	}
+	array_shrink_to_fit(words);
+	size_t count = array_length(words);
+	printf("%zu words\n", count);
+
+	uuids = malloc(count * sizeof(uuids[0]));
+	numbers = malloc(count * sizeof(numbers[0]));
 	assert(uuids && numbers);
 	struct random_state rng;
 	random_state_init(&rng, 0xdeadbeef);
-	for (size_t i = 0; i < num_words; i++) {
+	for (size_t i = 0; i < count; i++) {
 		char buf[64];
 		sprintf(buf, "%zu", i);
 		numbers[i] = strdup(buf);
@@ -262,16 +282,16 @@ int main(int argc, char **argv)
 
 	for (size_t i = 0; i < sizeof(benchmarks) / sizeof(benchmarks[0]); i++) {
 		const char *name = benchmarks[i].name;
-		if (argc > 1 && !strstr(name, argv[1])) {
+		if (argc > 2 && !strstr(name, argv[1])) {
 			continue;
 		}
 		printf("%s\n", name);
 		uint32_t (*hash_func)(const char *) = benchmarks[i].hash_func;
-		double t1 = benchmark(words, num_words, hash_func);
+		double t1 = benchmark((const char **)words, count, hash_func);
 		printf("\twords:   %.1f ms\n", 1000 * t1);
-		double t2 = benchmark((const char **)numbers, num_words, hash_func);
+		double t2 = benchmark((const char **)numbers, count, hash_func);
 		printf("\tnumbers: %.1f ms\n", 1000 * t2);
-		double t3 = benchmark((const char **)uuids, num_words, hash_func);
+		double t3 = benchmark((const char **)uuids, count, hash_func);
 		printf("\tuuids:   %.1f ms\n", 1000 * t3);
 		printf("\t----------------\n");
 		printf("\tavg:     %.1f ms\n", (1000.0 / 3) * (t1 + t2 + t3));
