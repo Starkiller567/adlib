@@ -17,7 +17,10 @@
  * SOFTWARE.
  */
 
-#define _GNU_SOURCE
+#ifndef __DSTRING_INCLUDE__ // hack for single header
+# define _GNU_SOURCE
+#endif
+
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -125,7 +128,7 @@ __AD_LINKAGE bool strview_equal_cstr(struct strview view, const char *cstr)
 __AD_LINKAGE size_t strview_find(struct strview haystack, struct strview needle, size_t pos)
 {
 	haystack = strview_narrow(haystack, pos, 0);
-#ifdef HAVE_MEMMEM
+#if defined(HAVE_MEMMEM) && defined(_GNU_SOURCE)
 	const char *found = memmem(haystack.characters, haystack.length, needle.characters, needle.length);
 #else
 	if (unlikely(needle.length == 0)) {
@@ -159,7 +162,7 @@ __AD_LINKAGE size_t strview_find_cstr(struct strview haystack, const char *needl
 
 static _attr_unused _attr_always_inline void *_strview_memrchr(const void *s, unsigned char c, size_t n)
 {
-#ifdef HAVE_MEMRCHR
+#if defined(HAVE_MEMRCHR) && defined(_GNU_SOURCE)
 	return memrchr(s, c, n);
 #else
 	if (unlikely(n == 0)) {
@@ -1124,7 +1127,7 @@ __AD_LINKAGE bool dstr_equal_cstr(const dstr_t dstr, const char *cstr)
 __AD_LINKAGE size_t dstr_find_dstr(const dstr_t haystack, const dstr_t needle, size_t pos)
 {
 	// TODO test that both versions behave the same for pos > length(haystack) and length(needle) ==/!= 0
-#ifdef HAVE_MEMMEM
+#if defined(HAVE_MEMMEM) && defined(_GNU_SOURCE)
 	// if memmem is available, this might be a little faster since we already know the lengths
 	return strview_find(dstr_view(haystack), dstr_view(needle), pos);
 #else

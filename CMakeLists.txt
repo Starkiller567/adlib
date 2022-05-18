@@ -7,7 +7,11 @@ include(CheckSymbolExists)
 include(GNUInstallDirs)
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.17.0" AND ${CMAKE_GENERATOR} STREQUAL "Ninja Multi-Config")
+  set(CMAKE_DEFAULT_BUILD_TYPE Release)
 endif()
 
 check_ipo_supported(RESULT lto_supported)
@@ -120,6 +124,7 @@ set(SOURCES
   array.c
   avl_tree.c
   charconv.c
+  compiler.c
   config.c
   dbuf.c
   dstring.c

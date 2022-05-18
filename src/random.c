@@ -38,7 +38,7 @@
    for some reason you absolutely want 64 bits of state.
  */
 
-static _attr_unused uint64_t splitmix64(uint64_t *x)
+static _attr_unused uint64_t _random_splitmix64(uint64_t *x)
 {
 	uint64_t z = (*x += 0x9e3779b97f4a7c15);
 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
@@ -49,13 +49,13 @@ static _attr_unused uint64_t splitmix64(uint64_t *x)
 __AD_LINKAGE void random_state_init(struct random_state *state, uint64_t seed)
 {
 	uint64_t z, x = seed;
-	z = splitmix64(&x);
+	z = _random_splitmix64(&x);
 	state->s[0] = z;
-	z = splitmix64(&x);
+	z = _random_splitmix64(&x);
 	state->s[1] = z;
-	z = splitmix64(&x);
+	z = _random_splitmix64(&x);
 	state->s[2] = z;
-	z = splitmix64(&x);
+	z = _random_splitmix64(&x);
 	state->s[3] = z;
 }
 

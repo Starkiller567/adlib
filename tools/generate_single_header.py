@@ -9,29 +9,33 @@ outpath = sys.argv[2]
 outfile = open(outpath, "w")
 
 name, _ = os.path.splitext(os.path.basename(outpath))
-name = name.upper()
-outfile.write(f"#ifndef __{name}_SINGLE_HEADER_INCLUDE__\n")
-outfile.write(f"#define __{name}_SINGLE_HEADER_INCLUDE__\n\n")
+outfile.write(f"#ifndef __{name.upper()}_SINGLE_HEADER_INCLUDE__\n")
+outfile.write(f"#define __{name.upper()}_SINGLE_HEADER_INCLUDE__\n\n")
+
+outfile.write("#ifndef __AD_LINKAGE\n# define __AD_LINKAGE static\n#endif\n\n")
 
 include_pattern = re.compile(r'\s*#\s*include\s+"(\S*)"\s*')
 def process_file(filepath, visited):
-    filepath = os.path.realpath(filepath)
-    if filepath in visited:
-        return
-    visited.add(filepath)
-    f = open(filepath, "r")
-    # TODO just produce a different config.h file with "#define __AD_LINKAGE static" for single headers?
-    if filepath.endswith("include/config.h"):
-        outfile.write(f.read())
-        return
-    for line in f:
-        if match := include_pattern.fullmatch(line):
-            headerpath = os.path.join("include", match.group(1))
-            assert(headerpath.endswith(".h"))
-            outfile.write("\n")
-            process_file(headerpath, visited)
-        else:
-            outfile.write(line.replace("__AD_LINKAGE", "static"))
+    with open(filepath, "r") as f:
+        for line in f:
+            if match := include_pattern.fullmatch(line):
+                header = match.group(1)
+                name, ext = os.path.splitext(header)
+                assert(ext == ".h")
+                outfile.write("\n")
+                visit(name, visited)
+            else:
+                outfile.write(line)
 
-process_file(inpath, set())
+def visit(name, visited = set()):
+    if name in visited:
+        return
+    visited.add(name)
+    process_file(os.path.join("include", f"{name}.h"), visited)
+    outfile.write(f"#ifndef __{name.upper()}_IMPLEMENTATION_INCLUDE__\n")
+    outfile.write(f"#define __{name.upper()}_IMPLEMENTATION_INCLUDE__\n\n")
+    process_file(os.path.join("src", f"{name}.c"), visited)
+    outfile.write("\n#endif\n\n")
+
+visit(name)
 outfile.write("\n#endif\n")
